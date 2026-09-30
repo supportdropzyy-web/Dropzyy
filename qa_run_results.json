@@ -1,0 +1,94 @@
+{
+  "AUTH-01": {
+    "status": "PASS",
+    "notes": "OTP endpoint active (200 OK), sends OTP & verifies registration"
+  },
+  "AUTH-02": {
+    "status": "PASS",
+    "notes": "Login successful, role confirmed, JWT token generated"
+  },
+  "AUTH-03": {
+    "status": "PASS",
+    "notes": "Protected endpoint securely blocked (Status: 401 Unauthorized/Forbidden)"
+  },
+  "AUTH-04": {
+    "status": "PASS",
+    "notes": "Security headers verified (nosniff, SAMEORIGIN, sliding rate limit active)"
+  },
+  "SCHED-01": {
+    "status": "PASS",
+    "notes": "In-hours evaluation: correctly returned OPEN (00:01 AM - 11:59 PM)"
+  },
+  "SCHED-02": {
+    "status": "PASS",
+    "notes": "Outside-hours evaluation: correctly returned CLOSED outside 01:00-02:00 AM"
+  },
+  "SCHED-03": {
+    "status": "PASS",
+    "notes": "Overnight hours: OPEN at 11:30 PM, CLOSED at 03:00 PM verified"
+  },
+  "CAL-01": {
+    "status": "PASS",
+    "notes": "POST /api/supplier/availability marked 2026-12-25 as CLOSED in SQLite & Mongo"
+  },
+  "CAL-02": {
+    "status": "PASS",
+    "notes": "Calendar override verified: calOverride === false forces store to CLOSED all day"
+  },
+  "CAL-03": {
+    "status": "PASS",
+    "notes": "DELETE /api/supplier/availability resets date override to default operating hours"
+  },
+  "CAL-04": {
+    "status": "PASS",
+    "notes": "GET /api/supplier/availability returns 3 rules globally on app load"
+  },
+  "DEL-01": {
+    "status": "PASS",
+    "notes": "Admin delete endpoint executed: verified synchronous dual-DB deletion"
+  },
+  "DEL-02": {
+    "status": "PASS",
+    "notes": "Zero resurrected items found. DEFAULT_PRODUCTS sanitized. DB persists clean state"
+  },
+  "DEL-03": {
+    "status": "PASS",
+    "notes": "Supplier self-delete clears company name, resets role to customer & removes products"
+  },
+  "DEL-04": {
+    "status": "PASS",
+    "notes": "Product inventory active (10 live products served via REST API)"
+  },
+  "ORD-01": {
+    "status": "PASS",
+    "notes": "Client state.cart subtotal arithmetic verified: quantity scaling & removal at 0"
+  },
+  "ORD-02": {
+    "status": "PASS",
+    "notes": "Coupon KIRANA10 active in database, applies 10% discount; invalid code rejected"
+  },
+  "ORD-03": {
+    "status": "PASS",
+    "notes": "Order placement & PDF generator validated"
+  },
+  "ORD-04": {
+    "status": "PASS",
+    "notes": "Order lifecycle (Placed -> Preparing -> Out for Delivery -> Delivered) & refund claims verified"
+  },
+  "SYNC-01": {
+    "status": "PASS",
+    "notes": "MongoDB Atlas live connected: 19 users, 10 products verified"
+  },
+  "SYNC-02": {
+    "status": "PASS",
+    "notes": "SQLite dropzyy.db verified: 16 products, 15 users, foreign keys valid"
+  },
+  "EDGE-01": {
+    "status": "PASS",
+    "notes": "evaluateUserStoreHours triggers isOpen=false outside hours, disabling Add to Cart & Checkout"
+  },
+  "EDGE-02": {
+    "status": "PASS",
+    "notes": "decode_access_token catches ExpiredSignatureError & InvalidTokenError returning 401 gracefully"
+  }
+}

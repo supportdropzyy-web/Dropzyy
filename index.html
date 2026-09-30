@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dropzyy - Instant Delivery for Food, Groceries & Essentials</title>
+    <meta name="description" content="Shop daily staples, hotel food, fresh sabzi, fruits, Aashirvaad Atta, Fortune Oil, Amul Butter, Dals, and snacks delivered to your home with Dropzyy Delivery.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js Library for Data Analytics Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css?v=4.0">
+    <!-- EmailJS SDK & Configuration -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function() {
+            emailjs.init("_p0PL2iAKyPOfO7Op");
+        })();
+        window.EMAILJS_PUBLIC_KEY = "_p0PL2iAKyPOfO7Op";
+        window.EMAILJS_SERVICE_ID = "default_service";
+        window.EMAILJS_OTP_TEMPLATE_ID = "template_j6pyi2d";
+        window.EMAILJS_BILL_TEMPLATE_ID = "template_1xw8s47";
+        window.DROPZYY_SUPPORT_EMAIL = "supportdropzyy@gmail.com";
+    </script>
+</head>
+<body>
+
+    <!-- Top Announcement Bar -->
+    <div class="announcement-bar">
+        <div class="container announcement-content">
+            <span><i class="fa-solid fa-bolt text-warning"></i> ⚡ Dropzyy Instant Delivery | Hotel Food, Groceries & Everyday Essentials! Free Delivery over ₹299</span>
+            <div class="announcement-links hidden-mobile">
+                <a href="mailto:supportdropzyy@gmail.com"><i class="fa-solid fa-envelope text-primary"></i> supportdropzyy@gmail.com</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="main-header" id="mainHeader">
+        <div class="container header-inner">
+            <div class="header-left-wrapper" style="display: flex; align-items: center; gap: 20px; flex: 1; max-width: 800px;">
+                <!-- Brand Logo -->
+                <a href="#" class="brand-logo" style="display: flex; align-items: center; text-decoration: none; flex-shrink: 0;">
+                    <img src="dropzyy-logo.png" alt="dropzyy" class="brand-logo-img" style="height: 68px; width: auto; object-fit: contain;">
+                </a>
+
+                <!-- Search Bar (Positioned Right Beside Logo) -->
+                <div class="search-box" style="position: relative; flex: 1;">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Search Biryani, Pizza, Milk, Atta, Cold Drinks, Snacks, Sabzi..." autocomplete="off">
+                    <button class="clear-search-btn hidden" id="clearSearchBtn"><i class="fa-solid fa-xmark"></i></button>
+                    <div class="search-suggestions hidden" id="searchSuggestions"></div>
+                </div>
+            </div>
+
+            <!-- Customer Actions & Auth Status -->
+            <div class="header-actions">
+                <!-- User Account Status -->
+                <div class="user-auth-wrapper" id="userAuthWrapper">
+                    <button class="action-btn login-trigger-btn" id="openAuthBtn" onclick="openAuthModal()" title="Login / Register">
+                        <i class="fa-regular fa-user"></i>
+                        <span class="auth-btn-text">Login / Register</span>
+                    </button>
+                </div>
+
+                <!-- Track Order Button (Visible ONLY after Login/Signup) -->
+                <button class="action-btn track-order-btn hidden" id="headerTrackOrderBtn" onclick="openBookingTrackingModal()" title="Track Order Live">
+                    <i class="fa-solid fa-map-location-dot text-primary"></i>
+                    <span class="hidden-mobile">Track Order</span>
+                </button>
+
+                <!-- Live Orders Notification Bell with Digit Counter Badge (Admin ONLY) -->
+                <button class="action-btn notification-bell-btn hidden" id="headerNotificationBtn" onclick="openLiveNotificationModal()" title="Live Order Notifications (Admin Only)" style="position: relative;">
+                    <div style="position: relative; display: inline-flex; align-items: center;">
+                        <i class="fa-solid fa-bell text-warning" style="font-size: 1.25rem;"></i>
+                        <span class="badge notification-count-badge hidden" id="liveNotificationBadge" style="position: absolute; top: -8px; right: -10px; background: #EF4444; color: #FFFFFF; font-weight: 800; font-size: 0.72rem; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center; border: 2px solid #FFFFFF;">0</span>
+                    </div>
+                    <span class="hidden-mobile" style="font-weight: 700; font-size: 0.85rem; margin-left: 4px;">Live Orders</span>
+                </button>
+
+                <!-- Wishlist -->
+                <button class="action-btn wishlist-btn hidden-mobile" id="wishlistBtn" title="Wishlist">
+                    <i class="fa-regular fa-heart"></i>
+                    <span class="badge" id="wishlistBadge">0</span>
+                </button>
+
+                <!-- Shopping Cart -->
+                <button class="action-btn cart-btn hidden-mobile" id="cartBtn" title="Shopping Cart">
+                    <div class="cart-icon-wrapper">
+                        <i class="fa-solid fa-basket-shopping"></i>
+                        <span class="badge" id="cartBadge">0</span>
+                    </div>
+                    <div class="cart-total-preview hidden-mobile">
+                        <span class="cart-label">My Cart</span>
+                        <span class="cart-amount" id="headerCartTotal">₹0</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Dedicated Admin & Supplier Toolbar (Positioned Below Search Bar Header) -->
+        <div class="admin-toolbar-bar hidden" id="adminToolbarRow">
+            <div class="container admin-toolbar-inner">
+                <span class="admin-toolbar-label"><i class="fa-solid fa-user-shield text-primary"></i> Management Tools:</span>
+                <div class="admin-toolbar-actions">
+                    <button class="action-btn admin-control-btn hidden" id="adminControlCenterBtn" title="Administrative Control Center">
+                        <i class="fa-solid fa-sliders text-primary"></i>
+                        <span>Admin Panel</span>
+                    </button>
+
+                    <button class="action-btn supplier-dashboard-btn hidden" id="supplierDashboardBtn" title="Supplier Dashboard">
+                        <i class="fa-solid fa-boxes-packing text-primary"></i>
+                        <span>My Products</span>
+                    </button>
+
+                    <button class="action-btn track-bookings-btn hidden" id="trackBookingsBtn" title="Booking Tracking Platform">
+                        <i class="fa-solid fa-map-location-dot text-primary"></i>
+                        <span>Track Bookings</span>
+                    </button>
+
+                    <button class="action-btn admin-analytics-btn hidden" id="adminAnalyticsBtn" onclick="openDataAnalyticsModal()" title="Full-Screen Executive Data Analytics">
+                        <i class="fa-solid fa-chart-line text-primary"></i>
+                        <span>Data Analytics 📊</span>
+                    </button>
+
+                    <button class="action-btn admin-category-btn hidden" id="adminCategoryBtn" onclick="openAdminCategoriesModal()" title="Add & Manage Categories">
+                        <i class="fa-solid fa-folder-plus text-primary"></i>
+                        <span>+ Add Category</span>
+                    </button>
+
+                    <button class="action-btn admin-portal-btn hidden" id="adminPortalBtn" title="Add Kirana Item">
+                        <i class="fa-solid fa-plus-circle text-primary"></i>
+                        <span>+ Add Item</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Search Bar -->
+    <div class="mobile-search-wrapper mobile-only">
+        <div class="container">
+            <div class="search-box mobile-search-box" style="position: relative;">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="mobileSearchInput" placeholder="Search Biryani, Pizza, Milk, Atta, Cold Drinks, Snacks, Sabzi..." autocomplete="off">
+                <div class="search-suggestions hidden" id="mobileSearchSuggestions"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Banner -->
+    <section class="hero-section">
+        <div class="container hero-container">
+            <div class="hero-content">
+                <span class="hero-badge" style="background: rgba(249, 115, 22, 0.12); color: #f97316;"><i class="fa-solid fa-bolt"></i> Instant Delivery Platform</span>
+                <h1 class="hero-title">Instant Delivery for <br><span class="gradient-text">Food, Groceries & Essentials!</span></h1>
+                <p class="hero-description">Order delicious dishes from top hotels & restaurants, fresh groceries, snacks, cold drinks & daily essentials delivered straight to your doorstep!</p>
+                
+                <div class="hero-features">
+                    <div class="feature-item">
+                        <i class="fa-solid fa-bolt text-warning"></i>
+                        <span>Instant Delivery</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fa-solid fa-utensils text-primary"></i>
+                        <span>Hotels & Restaurants</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fa-solid fa-basket-shopping text-success"></i>
+                        <span>Groceries & Snacks</span>
+                    </div>
+                </div>
+
+                <div class="hero-cta">
+                    <a href="#productsSection" class="btn btn-primary btn-lg">
+                        <i class="fa-solid fa-bolt"></i> Order Delivery Now
+                    </a>
+                    <a href="#categoriesSection" class="btn btn-secondary btn-lg hidden-mobile">
+                        Explore Hotels & Essentials
+                    </a>
+                </div>
+            </div>
+            
+            <div class="hero-visual">
+                <div class="hero-card hero-card-main">
+                    <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80" alt="Dropzyy Hotel Food & Grocery Delivery" class="hero-img">
+                    <div class="floating-tag tag-2 hidden-mobile">
+                        <i class="fa-solid fa-fire text-danger"></i>
+                        <div>
+                            <strong>Instant Delivery</strong>
+                            <small>Direct to Your Doorstep</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section class="categories-section" id="categoriesSection">
+        <div class="container">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Hotels, Groceries & Daily Essentials</h2>
+                    <p class="section-subtitle">Order from top partner hotels, fresh dairy, drinks, snacks & daily essentials</p>
+                </div>
+            </div>
+
+            <div class="category-grid-wrapper">
+                <div class="category-grid" id="categoryGrid">
+                    <!-- Dynamically rendered -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Partner Restaurants & Stores Section -->
+    <section class="restaurants-section" id="restaurantsSection" style="padding: 36px 0; background: #F8FAFC; border-top: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0;">
+        <div class="container">
+            <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 22px;">
+                <div>
+                    <h2 class="section-title" style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                        <i class="fa-solid fa-utensils text-primary"></i> Top Partner Restaurants & Kirana Stores
+                    </h2>
+                    <p class="section-subtitle">Order delicious dishes & fresh Kirana directly from verified partner stores with live operating hours</p>
+                </div>
+                <div id="restaurantFilterIndicator" class="hidden">
+                    <button class="btn btn-secondary btn-sm" onclick="clearRestaurantFilter()" style="font-weight: 700; border-radius: 8px;">
+                        <i class="fa-solid fa-store"></i> Show All Stores
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic grid of restaurants from supplier accounts -->
+            <div class="restaurants-grid" id="restaurantsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px;">
+                <!-- Rendered dynamically by renderRestaurants() in app.js -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section class="products-section" id="productsSection">
+        <div class="container">
+            <!-- Active Restaurant Menu Filter Banner -->
+            <div id="activeRestaurantBanner" class="hidden" style="margin-bottom: 20px;"></div>
+
+            <!-- Filter and Sort Header -->
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <span class="filter-label hidden-mobile"><i class="fa-solid fa-filter"></i> Category:</span>
+                    <div class="category-pills" id="categoryPills">
+                        <button class="pill-btn active" data-category="all">All Items</button>
+                        <button class="pill-btn" data-category="staples">🌾 Atta, Rice & Dal</button>
+                        <button class="pill-btn" data-category="oil">🥑 Oil & Ghee</button>
+                        <button class="pill-btn" data-category="dairy">🥛 Dairy & Butter</button>
+                        <button class="pill-btn" data-category="vegetables">🥦 Sabzi & Fruits</button>
+                        <button class="pill-btn" data-category="tea">🍵 Tea & Drinks</button>
+                        <button class="pill-btn" data-category="snacks">🍪 Snacks & Packaged</button>
+                    </div>
+                </div>
+
+                <div class="sort-group">
+                    <label for="sortSelect"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort:</label>
+                    <select id="sortSelect" class="sort-dropdown">
+                        <option value="popular">Popularity</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Product Count & Active Filters -->
+            <div class="results-info">
+                <span id="productCountText">Showing 12 Kirana items</span>
+                <button class="reset-filter-btn hidden" id="resetFilterBtn"><i class="fa-solid fa-rotate-left"></i> Reset Filters</button>
+            </div>
+
+            <!-- Product Grid Container -->
+            <div class="product-grid" id="productGrid">
+                <!-- Rendered by JS -->
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state hidden" id="emptyState">
+                <i class="fa-solid fa-store-slash empty-icon"></i>
+                <h3>No Kirana items found!</h3>
+                <p>We couldn't find any grocery items matching your search or filters.</p>
+                <button class="btn btn-primary" id="emptyResetBtn">Clear Search & Filters</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide-Out Shopping Cart Drawer -->
+    <div class="cart-overlay" id="cartOverlay"></div>
+    <aside class="cart-drawer" id="cartDrawer">
+        <div class="cart-drawer-header">
+            <div class="cart-title-group">
+                <i class="fa-solid fa-basket-shopping text-primary"></i>
+                <h2>Kirana Basket</h2>
+                <span class="item-count-pill" id="cartItemCountPill">0 items</span>
+            </div>
+            <button class="close-drawer-btn" id="closeCartBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Free Delivery Progress -->
+        <div class="shipping-progress-container">
+            <div class="shipping-progress-text" id="shippingProgressText">
+                Add <strong>₹299</strong> more for FREE Home Delivery!
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="shippingProgressBar" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Cart Items List -->
+        <div class="cart-items-container" id="cartItemsContainer">
+            <!-- Dynamic items -->
+        </div>
+
+        <!-- Cart Drawer Footer -->
+        <div class="cart-drawer-footer" id="cartDrawerFooter">
+            <div class="promo-code-box">
+                <input type="text" id="promoInput" placeholder="Coupon Code (Try KIRANA10)">
+                <button id="applyPromoBtn">Apply</button>
+            </div>
+            <div class="cart-summary-rows">
+                <div class="summary-row">
+                    <span>Items Subtotal</span>
+                    <span id="cartSubtotal">₹0</span>
+                </div>
+                <div class="summary-row" id="discountRow">
+                    <span>Coupon Discount</span>
+                    <span class="text-success" id="cartDiscount">-₹0</span>
+                </div>
+                <div class="summary-row">
+                    <span>Delivery Fee</span>
+                    <span id="cartShipping">₹29</span>
+                </div>
+                <div class="summary-row total-row">
+                    <span>Total Bill Amount</span>
+                    <span id="cartGrandTotal">₹0</span>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-block btn-checkout" id="checkoutBtn">
+                Proceed to Checkout <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Supplier My Products Dashboard Modal -->
+    <div class="modal-overlay" id="supplierDashboardOverlay"></div>
+    <div class="supplier-dashboard-modal" id="supplierDashboardModal">
+        <button class="close-modal-btn" id="closeSupplierDashboardBtn"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-boxes-packing text-primary"></i> Supplier Dashboard</h2>
+            <p id="supplierCompanyTitle">View and manage all Kirana items added by your supplier account</p>
+        </div>
+
+        <!-- Supplier Stats Cards -->
+        <div class="supplier-stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Total Products Added</span>
+                <span class="stat-value" id="statTotalProducts">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Inventory Catalog Value</span>
+                <span class="stat-value text-primary" id="statCatalogValue">₹0</span>
+            </div>
+        </div>
+
+        <!-- Restaurant / Store Operating Hours & Live Status Settings Card -->
+        <div class="supplier-hours-card" id="supplierHoursCard" style="background: linear-gradient(135deg, #F8FAFC, #F0FDF4); border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 18px 20px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+                <h4 style="margin: 0; font-size: 0.98rem; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-clock" style="color: #10B981; font-size: 1.15rem;"></i> Restaurant Operating Hours & Live Status Settings
+                </h4>
+                <span id="supplierStoreLiveBadge" style="font-size: 0.8rem; font-weight: 700; padding: 4px 12px; border-radius: 20px; background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-circle" style="font-size: 0.55rem;"></i> Store is OPEN
+                </span>
+            </div>
+
+            <!-- Two Column Inputs for Opening and Closing Times with AM/PM -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 14px;">
+                <!-- Opening Time -->
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">Opening Time</label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="position: relative; flex: 1;">
+                            <input type="time" id="supplierOpenTime" class="form-control" value="08:00" style="width: 100%; padding: 10px 14px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-size: 1rem; font-weight: 600; color: #1E293B; background: #FFF;" onchange="handleTimeInputChange('open')">
+                        </div>
+                        <select id="supplierOpenAmPm" onchange="handleAmPmSelectChange('open')" style="padding: 10px 14px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-weight: 700; font-size: 0.95rem; color: #065F46; background: #ECFDF5; cursor: pointer; height: 44px;">
+                            <option value="AM" selected>AM</option>
+                            <option value="PM">PM</option>
+                        </select>
+                    </div>
+                    <div id="supplierOpenFormattedDisplay" style="font-size: 0.78rem; color: #059669; font-weight: 600; margin-top: 5px;">
+                        Opens at: <strong id="supplierOpenFormatted">08:00 AM</strong>
+                    </div>
+                </div>
+
+                <!-- Closing Time -->
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">Closing Time</label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="position: relative; flex: 1;">
+                            <input type="time" id="supplierCloseTime" class="form-control" value="22:00" style="width: 100%; padding: 10px 14px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-size: 1rem; font-weight: 600; color: #1E293B; background: #FFF;" onchange="handleTimeInputChange('close')">
+                        </div>
+                        <select id="supplierCloseAmPm" onchange="handleAmPmSelectChange('close')" style="padding: 10px 14px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-weight: 700; font-size: 0.95rem; color: #065F46; background: #ECFDF5; cursor: pointer; height: 44px;">
+                            <option value="AM">AM</option>
+                            <option value="PM" selected>PM</option>
+                        </select>
+                    </div>
+                    <div id="supplierCloseFormattedDisplay" style="font-size: 0.78rem; color: #059669; font-weight: 600; margin-top: 5px;">
+                        Closes at: <strong id="supplierCloseFormatted">10:00 PM</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Auto-Schedule Info & Save Timings Button -->
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding-top: 14px; border-top: 1px dashed #CBD5E1;">
+                <div style="display: flex; align-items: center; gap: 10px; font-size: 0.88rem; color: #475569; font-weight: 600;">
+                    <i class="fa-solid fa-clock-rotate-left" style="color: #10B981; font-size: 1.1rem;"></i>
+                    <span>Store status is <strong>automatically scheduled</strong> by your Operating Hours & Availability Calendar.</span>
+                </div>
+                <button type="button" class="btn" id="btnSaveSupplierTimings" onclick="saveSupplierTimings()" style="background: #10B981; color: white; font-weight: 700; padding: 10px 24px; border-radius: 8px; border: none; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.95rem; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3); transition: all 0.2s ease;">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Timings
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== AVAILABILITY CALENDAR CARD ===== -->
+        <div class="supplier-hours-card" id="supplierAvailabilityCalendarCard" style="background: linear-gradient(135deg, #F8FAFC, #F0FDF4); border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 18px 20px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+                <h4 style="margin: 0; font-size: 0.98rem; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-calendar-days" style="color: #10B981; font-size: 1.15rem;"></i> Restaurant Availability Calendar
+                </h4>
+                <div style="display: flex; gap: 10px; align-items: center; font-size: 0.8rem; font-weight: 600;">
+                    <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#16A34A;display:inline-block;"></span> Open</span>
+                    <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#DC2626;display:inline-block;"></span> Closed</span>
+                    <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#E2E8F0;display:inline-block;"></span> Default</span>
+                </div>
+            </div>
+
+            <!-- Month Navigation -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <button onclick="supplierCalPrevMonth()" style="background:#E2E8F0;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:700;font-size:1rem;color:#334155;">&#8249;</button>
+                <span id="supplierCalMonthLabel" style="font-size:1rem;font-weight:700;color:#0F172A;"></span>
+                <button onclick="supplierCalNextMonth()" style="background:#E2E8F0;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:700;font-size:1rem;color:#334155;">&#8250;</button>
+            </div>
+
+            <!-- Calendar Grid + Side Panel -->
+            <div style="display:flex; gap:18px; flex-wrap:wrap;">
+                <!-- Calendar -->
+                <div style="flex:1; min-width:260px;">
+                    <div id="supplierCalGrid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px;">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Side Panel: Set Availability -->
+                <div id="supplierCalSidePanel" style="min-width:200px; max-width:240px; background:#fff; border-radius:12px; border:1.5px solid #E2E8F0; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="font-size:0.82rem; font-weight:600; color:#64748B; text-transform:uppercase; letter-spacing:0.05em;">Set Availability</div>
+                    <div id="supplierCalSelectedDateLabel" style="font-size:1.05rem; font-weight:700; color:#0F172A; min-height:24px;">Select a date</div>
+                    <button id="supplierCalOpenBtn" onclick="supplierCalSetDay(true)" disabled style="padding:10px 0; border-radius:8px; border:none; background:#16A34A; color:#fff; font-weight:700; font-size:0.95rem; cursor:pointer; opacity:0.5; transition:all 0.2s;">
+                        <i class="fa-solid fa-circle-check"></i> Mark as OPEN
+                    </button>
+                    <button id="supplierCalClosedBtn" onclick="supplierCalSetDay(false)" disabled style="padding:10px 0; border-radius:8px; border:none; background:#DC2626; color:#fff; font-weight:700; font-size:0.95rem; cursor:pointer; opacity:0.5; transition:all 0.2s;">
+                        <i class="fa-solid fa-circle-xmark"></i> Mark as CLOSED
+                    </button>
+                    <button id="supplierCalResetBtn" onclick="supplierCalResetDay()" disabled style="padding:8px 0; border-radius:8px; border:1.5px solid #CBD5E1; background:#fff; color:#64748B; font-weight:600; font-size:0.88rem; cursor:pointer; opacity:0.5; transition:all 0.2s;">
+                        <i class="fa-solid fa-rotate-left"></i> Reset to Default
+                    </button>
+                    <div id="supplierCalSaveStatus" style="font-size:0.8rem; color:#059669; font-weight:600; min-height:18px; text-align:center;"></div>
+                </div>
+            </div>
+        </div>
+        <!-- ===== END AVAILABILITY CALENDAR CARD ===== -->
+
+        <!-- Supplier Products List -->
+        <div class="supplier-products-list-header" style="flex-wrap: wrap; gap: 8px;">
+            <h3>Uploaded Kirana Products</h3>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openSupplierAnalyticsModal()">
+                    <i class="fa-solid fa-chart-pie text-primary"></i> Analytics Dashboard 📊
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminCategoriesModal()">
+                    <i class="fa-solid fa-folder-plus text-primary"></i> Categories 🏷️
+                </button>
+                <button class="btn btn-primary btn-sm" id="supplierAddNewBtn">
+                    <i class="fa-solid fa-plus"></i> Add New Product
+                </button>
+            </div>
+        </div>
+
+        <div class="supplier-products-container" id="supplierProductsContainer">
+            <!-- Dynamic supplier product rows -->
+        </div>
+
+        <!-- Supplier Danger Zone: Delete Restaurant Card -->
+        <div style="margin-top: 24px; padding: 18px 20px; border: 1.5px dashed #EF4444; border-radius: 14px; background: #FEF2F2; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+            <div>
+                <h4 style="margin: 0; color: #991B1B; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #DC2626;"></i> Delete Restaurant & Store
+                </h4>
+                <p style="margin: 4px 0 0 0; color: #B91C1C; font-size: 0.82rem;">
+                    Permanently delete your restaurant profile and all uploaded products from Dropzyy.
+                </p>
+            </div>
+            <button type="button" class="btn" onclick="supplierDeleteMyRestaurant()" style="background: #DC2626; color: white; font-weight: 700; padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);">
+                <i class="fa-solid fa-trash-can"></i> Delete My Restaurant
+            </button>
+        </div>
+    </div>
+
+    <!-- Administrative Control Center Modal -->
+    <div class="modal-overlay" id="adminControlOverlay"></div>
+    <div class="supplier-dashboard-modal" id="adminControlModal">
+        <button class="close-modal-btn" id="closeAdminControlBtn"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-user-shield text-primary"></i> Admin Control Center</h2>
+            <p id="adminControlSub">Manage system users, registered suppliers, and administrative privileges</p>
+        </div>
+
+        <!-- Admin Stats Cards -->
+        <div class="supplier-stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Total Registered Users</span>
+                <span class="stat-value" id="statAdminTotalUsers">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Active Suppliers</span>
+                <span class="stat-value text-primary" id="statAdminTotalSuppliers">0</span>
+            </div>
+        </div>
+
+        <!-- Admin Directory Header & Add Button -->
+        <div class="supplier-products-list-header" style="flex-wrap: wrap; gap: 8px;">
+            <h3>Registered Users & System Control</h3>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openDataAnalyticsModal()">
+                    <i class="fa-solid fa-chart-line text-primary"></i> Data Analytics 📊
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="adminTrackOrdersBtn" onclick="openBookingTrackingModal()">
+                    <i class="fa-solid fa-magnifying-glass text-primary"></i> Track Order ID
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="adminManageCouponsBtn" onclick="openAdminCouponsModal()">
+                    <i class="fa-solid fa-ticket text-primary"></i> Coupons
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="adminManageCategoriesBtn" onclick="openAdminCategoriesModal()">
+                    <i class="fa-solid fa-folder-plus text-primary"></i> Categories
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="adminManageLocationsBtn" onclick="openAdminLocationsModal()">
+                    <i class="fa-solid fa-map-location-dot text-primary"></i> Pincodes
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="adminCreateAccountBtn">
+                    <i class="fa-solid fa-user-plus"></i> Create Account
+                </button>
+            </div>
+        </div>
+
+        <div class="supplier-products-container" id="adminUsersContainer">
+            <!-- Dynamic list of registered users and suppliers -->
+        </div>
+    </div>
+
+    <!-- Admin Dedicated Create Account Modal (For Creating Suppliers & Admins) -->
+    <div class="modal-overlay" id="adminCreateUserOverlay"></div>
+    <div class="admin-modal" id="adminCreateUserModal">
+        <div style="margin-bottom: 12px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Panel
+            </button>
+        </div>
+        
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-user-plus text-primary"></i> Create Admin or Supplier Account</h2>
+            <p>Grant new Supplier or Administrator privileges to Dropzyy</p>
+        </div>
+
+        <form class="admin-form" id="adminCreateUserForm">
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label for="adminRegRole">Account Privileges / Role</label>
+                <select id="adminRegRole" class="sort-dropdown" style="width: 100%; padding: 10px;" required>
+                    <option value="supplier">🚜 Supplier Account (Supply & Upload Kirana Items)</option>
+                    <option value="sub_admin">🛡️ Sub-Admin Account (Add & Manage Kirana Products)</option>
+                    <option value="admin">👑 Administrator Account (Full System Control)</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label for="adminRegFullName">Full Name / Contact Person</label>
+                <input type="text" id="adminRegFullName" required placeholder="e.g. Ramesh Patil">
+            </div>
+
+            <div class="form-group" id="adminSupplierCompanyGroup" style="margin-bottom: 12px;">
+                <label for="adminRegSupplierCompany"><i class="fa-solid fa-store text-primary"></i> Supplier Store / Business Name</label>
+                <input type="text" id="adminRegSupplierCompany" placeholder="e.g. Ramesh Kirana Wholesale Co.">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label for="adminRegUsername">Username</label>
+                <input type="text" id="adminRegUsername" required placeholder="e.g. ramesh_wholesaler">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="adminRegPassword">Password</label>
+                <input type="password" id="adminRegPassword" required placeholder="Assign initial password">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn btn-secondary" id="cancelAdminCreateUserBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fa-solid fa-user-check"></i> Create Account & Grant Access
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Admin Manage Coupons Modal -->
+    <div class="modal-overlay" id="adminCouponsOverlay" onclick="closeModals()"></div>
+    <div class="admin-modal" id="adminCouponsModal" style="max-width: 700px; width: 90%;">
+        <button type="button" class="close-modal-btn" id="closeAdminCouponsBtn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div style="margin-bottom: 12px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Panel
+            </button>
+        </div>
+
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-ticket text-primary"></i> Admin Coupon Management</h2>
+            <p>Create discount coupons for everyone or targeted specific users</p>
+        </div>
+
+        <form class="admin-form" id="adminCouponForm" onsubmit="handleCreateCouponSubmit(event)" style="margin-bottom: 20px; background: var(--bg-secondary); padding: 14px; border-radius: var(--radius-md);">
+            <h4 style="margin-bottom: 10px;"><i class="fa-solid fa-plus text-primary"></i> Create New Discount Coupon</h4>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="couponCodeInput">Coupon Code</label>
+                    <input type="text" id="couponCodeInput" required placeholder="e.g. KIRANA20 or RAHUL50" style="text-transform: uppercase;">
+                </div>
+                <div class="form-group">
+                    <label for="couponDiscountInput">Discount (% Percentage)</label>
+                    <input type="number" min="1" max="100" id="couponDiscountInput" required placeholder="e.g. 15 for 15% OFF">
+                </div>
+                <div class="form-group">
+                    <label for="couponTargetSelect">Target Audience</label>
+                    <select id="couponTargetSelect" class="sort-dropdown" style="padding: 8px;" onchange="toggleCouponTargetUserField(this.value)">
+                        <option value="everyone">🌐 Everyone (All Customers)</option>
+                        <option value="user">👤 Selected User Only</option>
+                    </select>
+                </div>
+                <div class="form-group hidden" id="couponTargetUserGroup">
+                    <label for="couponTargetUserInput">Target Username</label>
+                    <input type="text" id="couponTargetUserInput" placeholder="e.g. rahulsharma94">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top: 12px;">
+                <i class="fa-solid fa-floppy-disk"></i> Save & Publish Coupon
+            </button>
+        </form>
+
+        <h3>Active Store Coupons</h3>
+        <div class="supplier-products-container" id="adminCouponsListContainer" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+
+    <!-- Admin Manage Categories Modal -->
+    <div class="modal-overlay" id="adminCategoriesOverlay" onclick="closeModals()"></div>
+    <div class="admin-modal" id="adminCategoriesModal" style="max-width: 700px; width: 90%;">
+        <button type="button" class="close-modal-btn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div style="margin-bottom: 12px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Panel
+            </button>
+        </div>
+
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-folder-plus text-primary"></i> Add & Manage Categories</h2>
+            <p>Add new store categories (e.g. Hotel Dishes, Cold Drinks, Bakery) for products</p>
+        </div>
+
+        <form id="addCategoryForm" onsubmit="handleAddCategorySubmit(event)" style="background: var(--bg-secondary); padding: 14px; border-radius: var(--radius-md); margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px;"><i class="fa-solid fa-plus text-primary"></i> Add New Category</h4>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="form-group">
+                    <label for="newCatId">Category ID / Slug</label>
+                    <input type="text" id="newCatId" placeholder="e.g. hotel_dishes" required style="text-transform: lowercase;">
+                </div>
+                <div class="form-group">
+                    <label for="newCatName">Category Display Name</label>
+                    <input type="text" id="newCatName" placeholder="e.g. Hotel Dishes & Biryani" required>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: flex-end;">
+                <div class="form-group">
+                    <label for="newCatIcon">FontAwesome Icon Class</label>
+                    <input type="text" id="newCatIcon" placeholder="e.g. fa-solid fa-utensils or fa-solid fa-glass-water" value="fa-solid fa-layer-group" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="height: 40px; padding: 0 16px;">
+                    <i class="fa-solid fa-plus-circle"></i> Save Category
+                </button>
+            </div>
+        </form>
+
+        <h3>Active Store Categories</h3>
+        <div id="adminCategoriesListContainer" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+
+    <!-- Admin Serviceable Locations & Pincodes Modal -->
+    <div class="modal-overlay" id="adminLocationsOverlay" onclick="closeModals()"></div>
+    <div class="admin-modal" id="adminLocationsModal" style="max-width: 700px; width: 90%;">
+        <button type="button" class="close-modal-btn" id="closeAdminLocationsBtn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div style="margin-bottom: 12px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Panel
+            </button>
+        </div>
+
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-map-location-dot text-primary"></i> Serviceable Pincodes & Locations</h2>
+            <p>Set delivery areas. Orders will only be accepted for pincodes configured here.</p>
+        </div>
+
+        <form class="admin-form" id="adminLocationForm" onsubmit="handleCreateLocationSubmit(event)" style="margin-bottom: 20px; background: var(--bg-secondary); padding: 14px; border-radius: var(--radius-md);">
+            <h4 style="margin-bottom: 10px;"><i class="fa-solid fa-plus text-primary"></i> Add Serviceable Location</h4>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="locationAreaInput">Location / Area Name</label>
+                    <input type="text" id="locationAreaInput" required placeholder="e.g. Dadar West, Mumbai">
+                </div>
+                <div class="form-group">
+                    <label for="locationPincodeInput">Serviceable Pincode</label>
+                    <input type="text" id="locationPincodeInput" required placeholder="e.g. 400028">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top: 12px;">
+                <i class="fa-solid fa-floppy-disk"></i> Add Serviceable Pincode
+            </button>
+        </form>
+
+        <h3>Active Delivery Pincodes</h3>
+        <div class="supplier-products-container" id="adminLocationsListContainer" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+
+    <!-- Admin Edit User Details & Address Modal -->
+    <div class="modal-overlay" id="adminEditUserOverlay" onclick="closeModals()"></div>
+    <div class="admin-modal" id="adminEditUserModal" style="max-width: 650px; width: 90%;">
+        <button type="button" class="close-modal-btn" id="closeAdminEditUserBtn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div style="margin-bottom: 12px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Panel
+            </button>
+        </div>
+
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-user-pen text-primary"></i> Edit User Account & Address</h2>
+            <p>System Administrator control panel to modify user details & delivery location</p>
+        </div>
+
+        <form class="admin-form" id="adminEditUserForm" onsubmit="handleAdminSaveUserSubmit(event)">
+            <input type="hidden" id="adminTargetUsername">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="adminUserFullName">Full Name</label>
+                    <input type="text" id="adminUserFullName" required placeholder="User Full Name">
+                </div>
+                <div class="form-group">
+                    <label for="adminUserPhone">Mobile Number (10 Digits)</label>
+                    <input type="tel" id="adminUserPhone" required maxlength="10" placeholder="10 Digit Mobile Number">
+                </div>
+                <div class="form-group">
+                    <label for="adminUserRole">Account Role / Privileges</label>
+                    <select id="adminUserRole" class="sort-dropdown" style="padding: 8px;">
+                        <option value="customer">CUSTOMER</option>
+                        <option value="supplier">SUPPLIER</option>
+                        <option value="sub_admin">SUB_ADMIN</option>
+                        <option value="admin">ADMIN</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label for="adminUserStreetAddress">Flat / House No. & Street Address</label>
+                    <input type="text" id="adminUserStreetAddress" placeholder="Street Address">
+                </div>
+                <div class="form-group">
+                    <label for="adminUserCity">City</label>
+                    <input type="text" id="adminUserCity" list="serviceableCitiesDatalist" placeholder="City">
+                </div>
+                <div class="form-group">
+                    <label for="adminUserPincode">Pincode</label>
+                    <input type="text" id="adminUserPincode" placeholder="Pincode">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 18px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i> Save User Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Login / Register Authentication Modal -->
+    <div class="modal-overlay" id="authOverlay" onclick="closeModals()"></div>
+    <div class="auth-modal" id="authModal">
+        <button type="button" class="close-modal-btn" id="closeAuthBtn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div class="auth-tabs">
+            <button type="button" class="auth-tab active" id="loginTab" onclick="switchAuthTab('login')">Sign In</button>
+            <button type="button" class="auth-tab" id="registerTab" onclick="switchAuthTab('register')">Create Account</button>
+        </div>
+
+        <!-- Login Form -->
+        <form class="auth-form" id="loginForm" onsubmit="handleLoginSubmit(event)">
+            <div class="auth-header">
+                <h2>Welcome Back to Dropzyy</h2>
+                <p>Sign in to manage orders, admin settings, or supplier products</p>
+            </div>
+
+            <div class="form-group">
+                <label for="loginUsername">Email Address or Username</label>
+                <input type="text" id="loginUsername" required placeholder="e.g. name@domain.com or admin">
+            </div>
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label for="loginPassword" style="margin-bottom: 0;">Password</label>
+                    <a href="javascript:void(0)" onclick="openForgotPasswordModal()" style="font-size: 0.82rem; color: #10B981; font-weight: 700; text-decoration: none;">
+                        <i class="fa-solid fa-key"></i> Forgot Password?
+                    </a>
+                </div>
+                <input type="password" id="loginPassword" required placeholder="Enter password">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top: 14px;">
+                Log In <i class="fa-solid fa-right-to-bracket"></i>
+            </button>
+        </form>
+
+        <!-- Register Form (Email Verification with All Other Fields Intact) -->
+        <form class="auth-form hidden" id="registerForm" onsubmit="handleRegisterSubmit(event)">
+            <div class="auth-header">
+                <h2>Create Your Dropzyy Account</h2>
+                <p>Verify your Email Address to complete registration</p>
+            </div>
+
+            <div class="form-group">
+                <label for="regFullName">Full Name</label>
+                <input type="text" id="regFullName" required placeholder="Rahul Sharma">
+            </div>
+
+            <!-- Email Address with Send Code button -->
+            <div class="form-group">
+                <label for="regEmail">Email Address</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="email" id="regEmail" required placeholder="e.g. rahul@gmail.com" style="flex: 1;">
+                    <button type="button" class="btn btn-secondary" id="sendOtpBtn" onclick="sendRegistrationOTP()" style="white-space: nowrap;">
+                        <i class="fa-solid fa-paper-plane text-primary"></i> Send Code
+                    </button>
+                </div>
+            </div>
+
+            <!-- Verification Code with Verify button -->
+            <div class="form-group">
+                <label for="regOtp">Verification Code (From Email)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="regOtp" maxlength="6" placeholder="Enter 6-digit code" style="flex: 1; letter-spacing: 2px; font-weight: 700;">
+                    <button type="button" class="btn btn-primary" id="verifyOtpBtn" onclick="verifyOTPCode()" style="white-space: nowrap; background: #059669; border-color: #059669;">
+                        <i class="fa-solid fa-circle-check"></i> Verify
+                    </button>
+                </div>
+                <small id="otpStatusNotice" style="display: block; margin-top: 4px; color: #059669; font-weight: 600;"></small>
+            </div>
+
+            <div class="form-group">
+                <label for="regPhone">Mobile Number (10 Digits)</label>
+                <input type="tel" id="regPhone" required maxlength="10" pattern="[0-9]{10}" placeholder="e.g. 9876543210">
+            </div>
+
+            <div class="form-group">
+                <label for="regPassword">Password</label>
+                <input type="password" id="regPassword" required placeholder="Create strong password">
+            </div>
+
+            <div class="form-group">
+                <label for="regConfirmPassword">Confirm Password</label>
+                <input type="password" id="regConfirmPassword" required placeholder="Re-enter password">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="registerSubmitBtn" style="margin-top: 14px;">
+                Create Account <i class="fa-solid fa-user-plus"></i>
+            </button>
+        </form>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div class="modal-overlay" id="forgotPasswordOverlay" onclick="closeModals()"></div>
+    <div class="auth-modal" id="forgotPasswordModal">
+        <button type="button" class="close-modal-btn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div class="auth-header">
+            <h2><i class="fa-solid fa-key text-primary"></i> Reset Your Password</h2>
+            <p>Enter your registered Email Address to receive a verification OTP</p>
+        </div>
+
+        <form class="auth-form" id="forgotPasswordForm" onsubmit="handleForgotPasswordSubmit(event)">
+            <!-- Step 1: Email Input + Send OTP button -->
+            <div class="form-group">
+                <label for="forgotEmail">Registered Email Address</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="email" id="forgotEmail" required placeholder="e.g. name@gmail.com" style="flex: 1;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="sendForgotOTPBtn" onclick="sendForgotPasswordOTP()" style="white-space: nowrap;">
+                        Send Code <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+                <small id="forgotOTPNotice" class="hidden" style="color: #10B981; font-weight: 600; margin-top: 4px; display: block;"></small>
+            </div>
+
+            <!-- Step 2: OTP Verification Code input + Verify button -->
+            <div class="form-group">
+                <label for="forgotOTP">Verification Code (OTP)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="forgotOTP" required placeholder="Enter 6-digit OTP code" maxlength="6" style="flex: 1;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="verifyForgotOTPBtn" onclick="verifyForgotPasswordOTP()" style="white-space: nowrap;">
+                        Verify Code <i class="fa-solid fa-circle-check"></i>
+                    </button>
+                </div>
+                <small id="forgotOTPVerifyNotice" class="hidden" style="font-size: 0.8rem; margin-top: 4px; display: block;"></small>
+            </div>
+
+            <!-- Step 3: New Password & Confirm Password -->
+            <div class="form-group">
+                <label for="forgotNewPassword">New Password</label>
+                <input type="password" id="forgotNewPassword" required placeholder="Enter new password">
+            </div>
+
+            <div class="form-group">
+                <label for="forgotConfirmPassword">Confirm New Password</label>
+                <input type="password" id="forgotConfirmPassword" required placeholder="Re-enter new password">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="resetPasswordBtn" style="margin-top: 14px;">
+                Reset Password & Log In <i class="fa-solid fa-lock"></i>
+            </button>
+        </form>
+    </div>
+
+    <!-- Admin & Supplier Product Management (Create / Edit) Modal -->
+    <div class="modal-overlay" id="adminOverlay"></div>
+    <div class="admin-modal" id="adminModal">
+        <button class="close-modal-btn" id="closeAdminBtn"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div class="modal-header">
+            <h2 id="adminModalTitle"><i class="fa-solid fa-store text-primary"></i> Add Kirana Product</h2>
+            <p id="adminModalSub">Add new product to SQL database or update inventory</p>
+        </div>
+
+        <form class="admin-form" id="addProductForm">
+            <input type="hidden" id="editProductId" value="">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="prodTitle">Product Title</label>
+                    <input type="text" id="prodTitle" required placeholder="e.g. Fortune Mustard Oil 1L">
+                </div>
+                <div class="form-group">
+                    <label for="prodCategory">Category</label>
+                    <select id="prodCategory" class="sort-dropdown" style="padding: 10px;" required>
+                        <option value="staples">Atta, Rice & Dal</option>
+                        <option value="oil">Oil & Ghee</option>
+                        <option value="dairy">Dairy & Butter</option>
+                        <option value="vegetables">Sabzi & Fruits</option>
+                        <option value="tea">Tea, Coffee & Drinks</option>
+                        <option value="snacks">Snacks & Noodles</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="prodPrice">Offer Price (₹)</label>
+                    <input type="number" step="0.5" id="prodPrice" required placeholder="185">
+                </div>
+                <div class="form-group">
+                    <label for="prodOriginalPrice">Original MRP Price (₹)</label>
+                    <input type="number" step="0.5" id="prodOriginalPrice" required placeholder="210">
+                </div>
+                <div class="form-group">
+                    <label for="prodUnit">Unit / Weight</label>
+                    <input type="text" id="prodUnit" required placeholder="e.g. 1 kg Pack or 1 L Bottle">
+                </div>
+                <div class="form-group">
+                    <label for="prodBadge">Quality Badge</label>
+                    <input type="text" id="prodBadge" placeholder="e.g. 100% Pure or Mandi Fresh">
+                </div>
+                <div class="form-group">
+                    <label for="prodStatus"><i class="fa-solid fa-globe text-primary"></i> Website Visibility Mode</label>
+                    <select id="prodStatus" class="sort-dropdown" style="padding: 10px;">
+                        <option value="online">🟢 Online (Visible to Website Customers)</option>
+                        <option value="offline">🔴 Offline (Taken off Website)</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label for="prodSupplierName"><i class="fa-solid fa-truck-field text-primary"></i> Supplier / Brand Name</label>
+                    <input type="text" id="prodSupplierName" placeholder="e.g. Ramesh Kirana Wholesale Co. or Amul Anand Dairy">
+                </div>
+                <div class="form-group full-width">
+                    <label for="prodImage">Image URL</label>
+                    <input type="url" id="prodImage" required placeholder="https://images.unsplash.com/photo-...">
+                </div>
+                <div class="form-group full-width">
+                    <label for="prodDesc">Product Description</label>
+                    <textarea id="prodDesc" rows="2" placeholder="Brief description of the product..."></textarea>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" id="cancelAdminBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-lg" id="saveProdBtn">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Product to SQL Database
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Quick View Product Modal -->
+    <div class="modal-overlay" id="quickViewOverlay"></div>
+    <div class="quick-view-modal" id="quickViewModal">
+        <button class="close-modal-btn" id="closeQuickViewBtn"><i class="fa-solid fa-xmark"></i></button>
+        <div class="quick-view-content" id="quickViewContent">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+    <!-- Restaurant & Kirana Store Menu Popup Modal -->
+    <div class="modal-overlay" id="restaurantMenuOverlay" onclick="closeRestaurantMenuModal()"></div>
+    <div class="supplier-dashboard-modal" id="restaurantMenuModal" style="max-width: 860px; width: 92%; max-height: 88vh; padding: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.25);">
+        <div id="restaurantMenuModalContent" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+            <!-- Dynamically rendered by openRestaurantMenuModal() in app.js -->
+        </div>
+    </div>
+    <!-- Edit Profile & Delivery Address Modal -->
+    <div class="modal-overlay" id="profileAddressOverlay" onclick="closeModals()"></div>
+    <div class="admin-modal" id="profileAddressModal">
+        <button type="button" class="close-modal-btn" id="closeProfileAddressBtn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-user-gear text-primary"></i> My Profile & Delivery Address</h2>
+            <p>Manage your account details and delivery location</p>
+        </div>
+
+        <!-- Logged-in Account Banner -->
+        <div id="profileAccountCard" style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background: #10B981; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700;">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div>
+                    <div id="profileAccountName" style="font-weight: 700; font-size: 1.05rem; color: #064E3B;">User Profile</div>
+                    <div style="font-size: 0.8rem; color: #047857;">
+                        Username: <strong id="profileAccountUsername">@user</strong> | Role: <span id="profileAccountRole" class="role-pill role-customer">CUSTOMER</span>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm text-danger" onclick="logoutUser()" title="Logout from Account">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
+            </button>
+        </div>
+
+        <form class="admin-form" id="profileAddressForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="profileFullName">Full Name</label>
+                    <input type="text" id="profileFullName" required placeholder="Rahul Sharma">
+                </div>
+                <div class="form-group">
+                    <label for="profilePhone">Mobile Number</label>
+                    <input type="tel" id="profilePhone" required placeholder="+91 98765 43210">
+                </div>
+                <div class="form-group full-width">
+                    <label for="profileStreetAddress">Flat / House No., Building & Area</label>
+                    <input type="text" id="profileStreetAddress" required placeholder="Flat 402, Shiv Shahi Building, Dadar West">
+                </div>
+                <div class="form-group" style="position: relative;">
+                    <label for="profileCity">City / Location <small style="color: #059669; font-weight: 600;">(Searchable Locations)</small></label>
+                    <input type="text" id="profileCity" required placeholder="Search or type city (e.g. Savda, Mumbai)..." autocomplete="off" oninput="handleCitySearchInput(this.value, 'profile')" onfocus="handleCitySearchInput(this.value, 'profile')">
+                    <div id="profileCitySuggestions" class="search-suggestions hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; max-height: 200px; overflow-y: auto; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+                </div>
+                <div class="form-group">
+                    <label for="profilePincode">Pincode</label>
+                    <input type="text" id="profilePincode" required placeholder="Auto-filled on city selection">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" id="cancelProfileAddressBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-lg" id="saveProfileAddressBtn">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Address
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Datalist for Serviceable Cities Autocomplete -->
+    <datalist id="serviceableCitiesDatalist"></datalist>
+
+    <!-- Checkout Modal -->
+    <div class="modal-overlay" id="checkoutOverlay" onclick="closeModals()"></div>
+    <div class="checkout-modal" id="checkoutModal">
+        <button type="button" class="close-modal-btn" id="closeCheckoutBtn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        <div class="checkout-header">
+            <h2><i class="fa-solid fa-truck-ramp-box"></i> Delivery & Payment</h2>
+            <p>Confirm your address & choose payment method</p>
+        </div>
+        <form class="checkout-form" id="checkoutForm">
+            <div class="form-section">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <h3>1. Delivery Address Option</h3>
+                    <span id="checkoutAddressNotice" class="hidden" style="font-size: 0.8rem; color: #16a34a; font-weight: 600; background: #dcfce7; padding: 4px 8px; border-radius: 6px;">
+                        <i class="fa-solid fa-circle-check"></i> Saved address loaded
+                    </span>
+                </div>
+
+                <!-- Address Option Mode: Saved Profile Address vs Self Typed New Address -->
+                <div style="display: flex; gap: 10px; margin-bottom: 16px; background: #F1F5F9; padding: 6px; border-radius: 12px;">
+                    <label id="lblSavedAddress" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; background: #FFFFFF; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 2px solid #10B981; color: #047857; transition: all 0.2s;">
+                        <input type="radio" name="addressOption" id="addrOptionSaved" value="saved" checked onchange="toggleCheckoutAddressMode(this.value)" style="accent-color: #10B981;">
+                        <i class="fa-solid fa-bookmark"></i> Saved Profile Address
+                    </label>
+                    <label id="lblNewAddress" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; background: transparent; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: 2px solid transparent; color: #475569; transition: all 0.2s;">
+                        <input type="radio" name="addressOption" id="addrOptionNew" value="new" onchange="toggleCheckoutAddressMode(this.value)" style="accent-color: #10B981;">
+                        <i class="fa-solid fa-pen-to-square"></i> Enter Self / New Address
+                    </label>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="fullName">Full Name</label>
+                        <input type="text" id="fullName" required placeholder="Rahul Sharma">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Mobile Number (10 Digits)</label>
+                        <input type="tel" id="phone" required placeholder="10-digit mobile number">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="streetAddress">Flat / House No. & Area</label>
+                        <input type="text" id="streetAddress" required placeholder="Flat 402, Shiv Shahi Building, Dadar West">
+                    </div>
+                    <div class="form-group" style="position: relative;">
+                        <label for="city">City / Location <small style="color: #059669; font-weight: 600;">(Searchable Locations)</small></label>
+                        <input type="text" id="city" required placeholder="Search or type city (e.g. Savda, Mumbai)..." autocomplete="off" oninput="handleCitySearchInput(this.value, 'checkout')" onfocus="handleCitySearchInput(this.value, 'checkout')">
+                        <div id="checkoutCitySuggestions" class="search-suggestions hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; max-height: 200px; overflow-y: auto; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="pincode">Pincode</label>
+                        <input type="text" id="pincode" required placeholder="Auto-filled on city selection">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>2. Select Payment Mode</h3>
+                <div class="payment-options">
+                    <label class="payment-card active" style="border: 2px solid #10B981; background: #ECFDF5;">
+                        <input type="radio" name="paymentMethod" value="cod" checked style="accent-color: #10B981;">
+                        <i class="fa-solid fa-money-bill-wave text-success" style="font-size: 1.4rem;"></i>
+                        <div>
+                            <strong style="color: #047857; font-size: 1rem;">Cash / Pay on Delivery (COD)</strong>
+                            <small style="color: #059669; font-weight: 600;">Pay at doorstep after receiving fresh Kirana items</small>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="checkout-final-summary">
+                <span>Total Payable: <strong id="checkoutTotalAmount" class="text-primary" style="font-size: 1.3rem;">₹0</strong></span>
+                <button type="submit" class="btn btn-primary btn-lg" id="placeOrderBtn">
+                    Place Order Now <i class="fa-solid fa-check"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Order Success Modal -->
+    <div class="modal-overlay" id="orderSuccessOverlay"></div>
+    <div class="order-success-modal" id="orderSuccessModal">
+        <div class="success-icon-wrapper">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <h2>Aapka Order Confirm Ho Gaya!</h2>
+        <p class="order-id">Order ID: <span id="successOrderId">FK-894721</span></p>
+        <p class="success-desc">Dropzyy delivery partner has started packing your order. Delivery arriving soon to your doorstep.</p>
+
+        <div class="delivery-tracker">
+            <div class="tracker-step completed">
+                <i class="fa-solid fa-clipboard-check"></i>
+                <span>Confirmed</span>
+            </div>
+            <div class="tracker-step active">
+                <i class="fa-solid fa-box-open"></i>
+                <span>Packing</span>
+            </div>
+            <div class="tracker-step">
+                <i class="fa-solid fa-motorcycle"></i>
+                <span>On the Way</span>
+            </div>
+            <div class="tracker-step">
+                <i class="fa-solid fa-house"></i>
+                <span>Delivered</span>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 14px;">
+            <button class="btn btn-secondary btn-block" id="viewBookedOrdersBtn" onclick="closeModals(); openBookingTrackingModal();">
+                <i class="fa-solid fa-map-location-dot text-primary"></i> Track My Booked Order
+            </button>
+            <button class="btn btn-primary btn-block" id="continueShoppingBtn">Continue Shopping</button>
+        </div>
+    </div>
+
+    <!-- My Orders Modal -->
+    <div class="modal-overlay" id="myOrdersOverlay"></div>
+    <div class="supplier-dashboard-modal" id="myOrdersModal" style="max-width: 800px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-receipt text-primary"></i> My Booked Items</h3>
+            <button class="close-modal-btn" id="closeMyOrdersBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="myOrdersContainer" style="max-height: 60vh; overflow-y: auto;">
+            <!-- Render orders dynamically -->
+        </div>
+    </div>
+
+    <!-- Booking Tracking Platform Modal -->
+    <div class="modal-overlay" id="bookingTrackingOverlay"></div>
+    <div class="supplier-dashboard-modal" id="bookingTrackingModal" style="max-width: 900px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-map-location-dot text-primary"></i> Booking Tracking & Refund Claims Platform</h3>
+            <button class="close-modal-btn" id="closeBookingTrackingBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+            <!-- Track Order ID Search Box & Refund Claims Switcher -->
+            <div style="background: #F8FAFC; padding: 12px; border-radius: 10px; margin-bottom: 1rem; border: 1px solid #E2E8F0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <input type="text" id="adminTrackSearchInput" placeholder="🔍 Enter Order ID (e.g. FK-123456) or Customer Name..." style="flex: 1; min-width: 200px; padding: 10px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 0.9rem; background: #FFF;">
+                <button type="button" class="btn btn-primary btn-sm" id="adminTrackSearchBtn">
+                    <i class="fa-solid fa-magnifying-glass"></i> Track Order
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="toggleRefundClaimsBtn" onclick="toggleRefundClaimsView()">
+                    <i class="fa-solid fa-hand-holding-dollar text-primary"></i> View Refund Claims
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="toggleSoundAlertBtn" onclick="toggleOrderSoundAlert()" title="Test or Toggle Audio Ring Alert">
+                    <i class="fa-solid fa-bell text-warning"></i> Test Sound Ring 🔔
+                </button>
+            </div>
+
+            <!-- Refund Claims Container -->
+            <div id="adminRefundClaimsContainer" class="hidden" style="margin-bottom: 1rem;">
+                <!-- Render refund claims dynamically -->
+            </div>
+
+            <div id="bookingTrackingContainer">
+                <!-- Render all system bookings dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Order Notifications Modal -->
+    <div class="modal-overlay" id="liveNotificationOverlay"></div>
+    <div class="supplier-dashboard-modal" id="liveNotificationModal" style="max-width: 680px; width: 92%;">
+        <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.15rem; color: #0F172A;">
+                    <i class="fa-solid fa-bell text-warning"></i> Live Incoming Orders Notifications
+                </h3>
+                <span class="badge" id="notificationModalCountBadge" style="background: #EF4444; color: #FFFFFF; font-weight: 800; border-radius: 20px; padding: 2px 10px; font-size: 0.78rem;">0 New</span>
+            </div>
+            <button class="close-modal-btn" onclick="closeLiveNotificationModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 16px 0; max-height: 70vh; overflow-y: auto;">
+            <div id="liveNotificationsList">
+                <!-- Dynamically rendered live unread orders -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-Screen Executive Data Analytics Portal Modal -->
+    <div class="modal-overlay" id="dataAnalyticsOverlay"></div>
+    <div class="supplier-dashboard-modal" id="dataAnalyticsModal" style="max-width: 96vw; width: 96vw; max-height: 94vh; height: 94vh; padding: 20px; border-radius: 20px;">
+        <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #10B981, #059669); color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.25rem; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                            Executive Data Analytics Dashboard
+                            <span class="badge" style="background: #10B981; color: #FFF; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;">LIVE MONITORING</span>
+                        </h2>
+                        <span style="font-size: 0.8rem; color: #64748B;">Real-time order tracking, date-wise sales trends & city-wise revenue distribution</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button class="btn btn-secondary btn-sm" onclick="refreshAnalyticsCharts()" title="Refresh Live Data">
+                        <i class="fa-solid fa-rotate-right"></i> Refresh Live Data
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="toggleFullScreenAnalytics()" id="fullScreenToggleBtn" title="Toggle Full Screen Mode">
+                        <i class="fa-solid fa-expand"></i> Full Screen
+                    </button>
+                    <button class="close-modal-btn" onclick="closeDataAnalyticsModal()" style="position: static;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-body" style="height: calc(100% - 70px); overflow-y: auto; padding-right: 4px;">
+            <!-- Key Executive Performance Metrics Cards Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, #F0FDF4, #DCFCE7); border: 1px solid #A7F3D0; padding: 16px; border-radius: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #047857;">TOTAL SALES REVENUE</span>
+                        <i class="fa-solid fa-indian-rupee-sign" style="color: #059669; font-size: 1.1rem;"></i>
+                    </div>
+                    <div id="analyticsStatRevenue" style="font-size: 1.5rem; font-weight: 800; color: #065F46;">₹0.00</div>
+                    <span style="font-size: 0.72rem; color: #047857; font-weight: 600;"><i class="fa-solid fa-arrow-trend-up"></i> Live System Total</span>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border: 1px solid #BFDBFE; padding: 16px; border-radius: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #1E40AF;">TOTAL ORDERS PLACED</span>
+                        <i class="fa-solid fa-bag-shopping" style="color: #2563EB; font-size: 1.1rem;"></i>
+                    </div>
+                    <div id="analyticsStatOrders" style="font-size: 1.5rem; font-weight: 800; color: #1E3A8A;">0 Orders</div>
+                    <span id="analyticsStatDelivered" style="font-size: 0.72rem; color: #1D4ED8; font-weight: 600;">0 Delivered</span>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #FFFBEB, #FEF3C7); border: 1px solid #FDE68A; padding: 16px; border-radius: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #92400E;">TOP PERFORMING CITY</span>
+                        <i class="fa-solid fa-city" style="color: #D97706; font-size: 1.1rem;"></i>
+                    </div>
+                    <div id="analyticsStatTopCity" style="font-size: 1.25rem; font-weight: 800; color: #78350F; word-break: break-word;">N/A</div>
+                    <span id="analyticsStatTopCityOrders" style="font-size: 0.72rem; color: #B45309; font-weight: 600;">0 Orders</span>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #F3E8FF, #E9D5FF); border: 1px solid #DDD6FE; padding: 16px; border-radius: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #6B21A8;">AVG DELIVERY TIME</span>
+                        <i class="fa-solid fa-truck-fast" style="color: #9333EA; font-size: 1.1rem;"></i>
+                    </div>
+                    <div id="analyticsStatDeliveryTime" style="font-size: 1.5rem; font-weight: 800; color: #581C87;">14 Mins</div>
+                    <span style="font-size: 0.72rem; color: #7E22CE; font-weight: 600;"><i class="fa-solid fa-bolt"></i> Instant Kirana Speed</span>
+                </div>
+            </div>
+
+            <!-- Analytics Visual Charts Grid (2x2 Layout) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                <!-- Chart 1: Date-Wise Sales Revenue & Orders Trend -->
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-chart-column text-primary"></i> Date-Wise Sales Revenue & Orders Trend
+                        </h4>
+                        <span style="font-size: 0.75rem; color: #64748B;">Daily Performance</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="analyticsTrendChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: City-Wise Orders & Revenue Distribution -->
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-map-location-dot text-primary"></i> City-Wise Orders Distribution
+                        </h4>
+                        <span style="font-size: 0.75rem; color: #64748B;">Geographic Reach</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="analyticsCityChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 3: Order Status Breakdown -->
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-chart-pie text-primary"></i> Live Order Fulfillment Status
+                        </h4>
+                        <span style="font-size: 0.75rem; color: #64748B;">Status Breakdown</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="analyticsStatusChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 4: Top Selling Product Categories -->
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-layer-group text-primary"></i> Top Selling Product Categories
+                        </h4>
+                        <span style="font-size: 0.75rem; color: #64748B;">Category Volume</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="analyticsCategoryChartCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed City Breakdown Data Table -->
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+                <h4 style="margin: 0 0 12px 0; font-size: 0.95rem; color: #0F172A;"><i class="fa-solid fa-table-list text-primary"></i> Detailed City-Wise Sales Data Table</h4>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                        <thead>
+                            <tr style="background: #F8FAFC; border-bottom: 2px solid #E2E8F0;">
+                                <th style="padding: 10px; color: #475569;">City / Location</th>
+                                <th style="padding: 10px; color: #475569;">Total Orders</th>
+                                <th style="padding: 10px; color: #475569;">Total Sales Revenue</th>
+                                <th style="padding: 10px; color: #475569;">Market Share (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analyticsCityTableBody">
+                            <!-- Rendered dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-Screen Supplier Data Analytics Modal -->
+    <div class="modal-overlay" id="supplierAnalyticsOverlay"></div>
+    <div class="supplier-dashboard-modal" id="supplierAnalyticsModal" style="max-width: 96vw; width: 96vw; max-height: 94vh; height: 94vh; padding: 20px; border-radius: 20px;">
+        <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #0284C7, #0369A1); color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; box-shadow: 0 4px 12px rgba(2,132,199,0.3);">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.25rem; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                            Supplier Analytics Dashboard
+                            <span class="badge" style="background: #0284C7; color: #FFF; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;">CATALOG METRICS</span>
+                        </h2>
+                        <span style="font-size: 0.8rem; color: #64748B;">
+                            Order performance, total sales, product breakdown & online vs offline channels. 
+                            <strong style="color: #047857;"><i class="fa-solid fa-shield-halved"></i> Privacy Protected (No customer details)</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button class="btn btn-secondary btn-sm" onclick="refreshSupplierAnalyticsCharts()" title="Refresh Data">
+                        <i class="fa-solid fa-rotate-right"></i> Refresh Data
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="toggleFullScreenSupplierAnalytics()" id="fullScreenSupplierToggleBtn" title="Toggle Full Screen Mode">
+                        <i class="fa-solid fa-expand"></i> Full Screen
+                    </button>
+                    <button class="close-modal-btn" onclick="closeSupplierAnalyticsModal()" style="position: static;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-body" style="height: calc(100% - 70px); overflow-y: auto; padding-right: 4px;">
+            <!-- KPI Cards Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, #F0FDF4, #DCFCE7); border: 1px solid #A7F3D0; padding: 16px; border-radius: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #047857;">YOUR SALES REVENUE</span>
+                        <i class="fa-solid fa-indian-rupee-sign" style="color: #059669; font-size: 1.1rem;"></i>
+                    </div>
+                    <div id="supplierStatRevenue" style="font-size: 1.5rem; font-weight: 800; color: #065F46;">₹0.00</div>
+                    <span style="font-size: 0.72rem; color: #047857; font-weight: 600;"><i class="fa-solid fa-truck-field"></i> Catalog Total Payout</span>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border: 1px solid #BFDBFE; padding: 16px; border-radius: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #1E40AF;">YOUR ORDERS</span>
+                        <i class="fa-solid fa-bag-shopping" style="color: #2563EB; font-size: 1.1rem;"></i>
+                    </div>
+                    <div id="supplierStatTotalOrders" style="font-size: 1.5rem; font-weight: 800; color: #1E3A8A;">0 Orders</div>
+                    <span id="supplierStatCompletedOrders" style="font-size: 0.72rem; color: #1D4ED8; font-weight: 600;">0 Completed</span>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #FFFBEB, #FEF3C7); border: 1px solid #FDE68A; padding: 16px; border-radius: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #92400E;">CANCELLED ORDERS</span>
+                        <i class="fa-solid fa-ban" style="color: #D97706; font-size: 1.1rem;"></i>
+                    </div>
+                    <div id="supplierStatCancelledOrders" style="font-size: 1.5rem; font-weight: 800; color: #78350F;">0 Cancelled</div>
+                    <span style="font-size: 0.72rem; color: #B45309; font-weight: 600;">Fulfillment Ratio</span>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #F3E8FF, #E9D5FF); border: 1px solid #DDD6FE; padding: 16px; border-radius: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #6B21A8;">STORE AVAILABILITY</span>
+                        <i class="fa-solid fa-clock" style="color: #9333EA; font-size: 1.1rem;"></i>
+                    </div>
+                    <div id="supplierStatStoreStatus" style="font-size: 1.15rem; font-weight: 800; color: #047857;">🟢 OPEN (08:00 - 22:00)</div>
+                    <span style="font-size: 0.72rem; color: #7E22CE; font-weight: 600;">Daily Operating Hours</span>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                <!-- Chart 1: Order Status Breakdown -->
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-chart-pie text-primary"></i> Order Status Breakdown
+                        </h4>
+                        <span style="font-size: 0.75rem; color: #64748B;">Fulfillment</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="supplierStatusChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Top Products Sold -->
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-boxes-stacked text-primary"></i> Product-Wise Orders & Sales
+                        </h4>
+                        <span style="font-size: 0.75rem; color: #64748B;">Top Catalog Items</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="supplierProductChartCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Breakdown Table -->
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+                <h4 style="margin: 0 0 12px 0; font-size: 0.95rem; color: #0F172A;"><i class="fa-solid fa-table-list text-primary"></i> Product-Wise Sales & Performance Table</h4>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                        <thead>
+                            <tr style="background: #F8FAFC; border-bottom: 2px solid #E2E8F0;">
+                                <th style="padding: 10px; color: #475569;">Product Title</th>
+                                <th style="padding: 10px; color: #475569;">Category</th>
+                                <th style="padding: 10px; color: #475569;">Units Sold</th>
+                                <th style="padding: 10px; color: #475569;">Completed Orders</th>
+                                <th style="padding: 10px; color: #475569;">Total Sales Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="supplierProductTableBody">
+                            <!-- Rendered dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wishlist Modal -->
+    <div class="modal-overlay" id="wishlistOverlay"></div>
+    <div class="supplier-dashboard-modal" id="wishlistModal" style="max-width: 800px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-heart text-primary"></i> My Wishlist</h3>
+            <button class="close-modal-btn" id="closeWishlistBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+            <div id="wishlistContainer" class="category-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+                <!-- Render wishlist items dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav mobile-only">
+        <a href="#productsSection" class="mobile-nav-item active" id="mobileHomeBtn">
+            <i class="fa-solid fa-house"></i>
+            <span>Home</span>
+        </a>
+        <a href="#categoriesSection" class="mobile-nav-item">
+            <i class="fa-solid fa-grip"></i>
+            <span>Categories</span>
+        </a>
+        <button class="mobile-nav-item hidden" id="mobileOrdersBtn" onclick="openBookingTrackingModal()">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <span>Track Order</span>
+        </button>
+        <button class="mobile-nav-item mobile-cart-trigger" id="mobileCartBtn">
+            <div class="nav-cart-badge-wrapper">
+                <i class="fa-solid fa-basket-shopping"></i>
+                <span class="badge" id="mobileCartBadge">0</span>
+            </div>
+            <span>Basket</span>
+        </button>
+        <button class="mobile-nav-item" id="mobileUserBtn" onclick="openAuthModal()">
+            <i class="fa-solid fa-user"></i>
+            <span id="mobileUserNavLabel">Account</span>
+        </button>
+    </nav>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Footer -->
+    <!-- 24/7 Support Activity Modal -->
+    <div class="modal-overlay" id="supportOverlay"></div>
+    <div class="supplier-dashboard-modal" id="supportModal" style="max-width: 680px; width: 92%;">
+        <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px;">
+            <div>
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.2rem; color: #0F172A;">
+                    <i class="fa-solid fa-headset text-primary"></i> 24/7 Customer Support Activity
+                </h3>
+                <span style="font-size: 0.78rem; color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
+                    <i class="fa-solid fa-circle" style="font-size: 0.55rem; color: #10B981;"></i> Support Team Online 24/7
+                </span>
+            </div>
+            <button class="close-modal-btn" onclick="closeSupportModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 18px 0; max-height: 75vh; overflow-y: auto;">
+            <!-- Support Channel Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                <a href="mailto:supportdropzyy@gmail.com" style="text-decoration: none; background: #F0FDF4; border: 1px solid #A7F3D0; padding: 14px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                    <div style="width: 42px; height: 42px; border-radius: 50%; background: #10B981; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                    <span style="font-weight: 700; color: #047857; font-size: 0.88rem;">Email Support</span>
+                    <small style="color: #065F46; font-size: 0.75rem; word-break: break-all;">supportdropzyy@gmail.com</small>
+                </a>
+                
+                <a href="tel:+917020447482" style="text-decoration: none; background: #EFF6FF; border: 1px solid #BFDBFE; padding: 14px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                    <div style="width: 42px; height: 42px; border-radius: 50%; background: #3B82F6; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                        <i class="fa-solid fa-phone"></i>
+                    </div>
+                    <span style="font-weight: 700; color: #1E40AF; font-size: 0.88rem;">Helpline Call</span>
+                    <small style="color: #1D4ED8; font-size: 0.75rem;">+91 70204 47482</small>
+                </a>
+
+                <a href="https://wa.me/917020447482?text=Hi%20Dropzyy%20Support,%20I%20need%20help%20with%20my%20order" target="_blank" style="text-decoration: none; background: #ECFDF5; border: 1px solid #6EE7B7; padding: 14px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;">
+                    <div style="width: 42px; height: 42px; border-radius: 50%; background: #059669; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </div>
+                    <span style="font-weight: 700; color: #065F46; font-size: 0.88rem;">WhatsApp Chat</span>
+                    <small style="color: #047857; font-size: 0.75rem;">Instant 1-Min Reply</small>
+                </a>
+            </div>
+
+            <!-- Fast Support Request Form -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 16px; border-radius: 14px;">
+                <h4 style="margin: 0 0 12px 0; font-size: 0.95rem; color: #1E293B;"><i class="fa-solid fa-paper-plane text-primary"></i> Send Direct Support Inquiry</h4>
+                <form id="supportInquiryForm" onsubmit="submitSupportInquiry(event)">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="supportUserEmail" placeholder="Your Email Address *" required style="padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 0.85rem; width: 100%;">
+                        <input type="text" id="supportOrderId" placeholder="Order ID (Optional e.g. #FK-1002)" style="padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 0.85rem; width: 100%;">
+                    </div>
+                    <textarea id="supportMessage" placeholder="Describe your issue or question here... *" rows="3" required style="padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 0.85rem; width: 100%; margin-bottom: 12px;"></textarea>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px; font-weight: 700;">
+                        <i class="fa-solid fa-paper-plane"></i> Submit Support Inquiry
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Return & Refund Policy Modal -->
+    <div class="modal-overlay" id="refundOverlay"></div>
+    <div class="supplier-dashboard-modal" id="refundPolicyModal" style="max-width: 720px; width: 92%;">
+        <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px;">
+            <div>
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.2rem; color: #0F172A;">
+                    <i class="fa-solid fa-rotate-left text-primary"></i> Return & Refund Policy
+                </h3>
+                <span style="font-size: 0.78rem; color: #64748B; margin-top: 4px; display: block;">100% Instant Refund & Replacement Guarantee</span>
+            </div>
+            <button class="close-modal-btn" onclick="closeRefundPolicyModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 18px 0; max-height: 75vh; overflow-y: auto;">
+            <!-- Policy Highlights Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                <div style="background: #F0FDF4; border: 1px solid #A7F3D0; padding: 14px; border-radius: 12px;">
+                    <div style="color: #059669; font-size: 1.4rem; margin-bottom: 6px;"><i class="fa-solid fa-carrot"></i></div>
+                    <h5 style="margin: 0 0 4px 0; color: #047857; font-size: 0.9rem;">Fresh Sabzi & Groceries</h5>
+                    <p style="margin: 0; font-size: 0.78rem; color: #065F46;">24-Hour No-Questions-Asked replacement or instant refund for quality issues.</p>
+                </div>
+
+                <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 14px; border-radius: 12px;">
+                    <div style="color: #2563EB; font-size: 1.4rem; margin-bottom: 6px;"><i class="fa-solid fa-box-open"></i></div>
+                    <h5 style="margin: 0 0 4px 0; color: #1E40AF; font-size: 0.9rem;">Packaged & Staples</h5>
+                    <p style="margin: 0; font-size: 0.78rem; color: #1D4ED8;">7-Day return policy for unopened items with seal intact.</p>
+                </div>
+
+                <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 14px; border-radius: 12px;">
+                    <div style="color: #D97706; font-size: 1.4rem; margin-bottom: 6px;"><i class="fa-solid fa-bolt-lightning"></i></div>
+                    <h5 style="margin: 0 0 4px 0; color: #92400E; font-size: 0.9rem;">Instant UPI Refunds</h5>
+                    <p style="margin: 0; font-size: 0.78rem; color: #B45309;">Refunds credited to original payment method or UPI within 1 to 3 hours.</p>
+                </div>
+            </div>
+
+            <!-- Instant Refund Claim Request Section -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 16px; border-radius: 14px;">
+                <h4 style="margin: 0 0 12px 0; font-size: 0.95rem; color: #1E293B;"><i class="fa-solid fa-hand-holding-dollar text-primary"></i> Request Instant Return / Refund</h4>
+                <form id="refundClaimForm" onsubmit="submitRefundClaim(event)">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="refundEmail" placeholder="Your Account Email *" required style="padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 0.85rem; width: 100%;">
+                        <input type="text" id="refundOrderId" placeholder="Order ID (e.g. #FK-1002) *" required style="padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 0.85rem; width: 100%;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px;">
+                        <select id="refundReason" required style="padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 0.85rem; width: 100%; background: #FFFFFF;">
+                            <option value="">-- Select Reason for Return/Refund --</option>
+                            <option value="Damaged Item">Damaged / Expired Product</option>
+                            <option value="Missing Item">Missing Item in Order</option>
+                            <option value="Wrong Item">Wrong Item Delivered</option>
+                            <option value="Quality Concern">Quality Concern (Sabzi/Fruits/Atta)</option>
+                            <option value="Order Cancelled">Order Cancelled Refund</option>
+                        </select>
+                        <input type="text" id="refundUpiId" placeholder="UPI ID for Instant Refund (Optional)" style="padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 0.85rem; width: 100%;">
+                    </div>
+                    <textarea id="refundDetails" placeholder="Describe item details or issue... *" rows="3" required style="padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px; font-size: 0.85rem; width: 100%; margin-bottom: 12px;"></textarea>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px; font-weight: 700; background: #059669; border-color: #059669;">
+                        <i class="fa-solid fa-paper-plane"></i> Submit Return / Refund Claim
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Footer -->
+    <footer class="main-footer">
+        <div class="container footer-grid">
+            <div class="footer-col brand-col">
+                <a href="#" class="brand-logo" style="display: flex; align-items: center; text-decoration: none;">
+                    <img src="dropzyy-logo.png" alt="dropzyy" class="brand-logo-img" style="height: 68px; width: auto; object-fit: contain;">
+                </a>
+                <p>Dropzyy — Instant Delivery for hotel food, fresh groceries, snacks, cold drinks & daily kitchen essentials. Fresh chakki atta, fortune oils, fresh vegetables & daily kitchen essentials at mandi rates.</p>
+                <div class="social-links">
+                    <a href="#"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#"><i class="fa-brands fa-facebook"></i></a>
+                    <a href="https://wa.me/917020447482" target="_blank"><i class="fa-brands fa-whatsapp"></i></a>
+                    <a href="#"><i class="fa-brands fa-youtube"></i></a>
+                </div>
+            </div>
+            <div class="footer-col">
+                <h4>Kirana Categories</h4>
+                <ul>
+                    <li><a href="#productsSection">Atta, Rice & Dals</a></li>
+                    <li><a href="#productsSection">Edible Oil & Ghee</a></li>
+                    <li><a href="#productsSection">Fresh Sabzi & Fruits</a></li>
+                    <li><a href="#productsSection">Amul Dairy & Milk</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Customer Support</h4>
+                <ul>
+                    <li><a href="mailto:supportdropzyy@gmail.com" style="color: #FFFFFF; font-weight: 600;"><i class="fa-solid fa-envelope text-primary"></i> supportdropzyy@gmail.com</a></li>
+                    <li><a href="#" onclick="openBookingTrackingModal(); return false;"><i class="fa-solid fa-truck-fast"></i> Track Live Order</a></li>
+                    <li><a href="#" onclick="openSupportModal(); return false;"><i class="fa-solid fa-headset"></i> 24/7 Support Activity</a></li>
+                    <li><a href="#" onclick="openRefundPolicyModal(); return false;"><i class="fa-solid fa-rotate-left"></i> Return & Refund Policy</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Download Mobile App</h4>
+                <p>Get extra ₹50 OFF on your first Kirana app order!</p>
+                <div class="app-badges">
+                    <button class="btn-app"><i class="fa-brands fa-apple"></i> App Store</button>
+                    <button class="btn-app"><i class="fa-brands fa-google-play"></i> Google Play</button>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="container copyright-content">
+                <p>&copy; 2026 Dropzyy Technologies Inc. All rights reserved. All prices in Indian Rupees (₹).</p>
+                <div class="payment-methods">
+                    <i class="fa-solid fa-qrcode" title="UPI"></i>
+                    <i class="fa-brands fa-cc-visa"></i>
+                    <i class="fa-brands fa-cc-mastercard"></i>
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- EmailJS SDK Integration -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <!-- JavaScript -->
+    <script src="app.js?v=4.0"></script>
+</body>
+</html>
