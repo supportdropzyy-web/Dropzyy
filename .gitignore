@@ -1,0 +1,25 @@
+# Environment variables & secrets (Blocked by GitHub Secret Scanning)
+.env
+*.env
+!.env.example
+
+# Python cache & virtual environment
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# SQLite databases (local development)
+*.db
+*.sqlite
+*.sqlite3
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Test reports & artifacts
+test_*.png
+test_*.pdf
