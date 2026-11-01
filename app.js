@@ -400,8 +400,13 @@ const DEFAULT_PRODUCTS = [
 
 const DEFAULT_CATEGORIES = [
     { id: 'all', name: 'All Categories', icon: 'fa-solid fa-border-all', count: 16 },
+    { id: 'rangoli', name: 'Rangoli', icon: 'fa-solid fa-layer-group', count: 2, created_by_supplier: 'Dropzyy' },
     { id: 'food', name: 'Hotels & Dishes', icon: 'fa-solid fa-utensils', count: 12 },
     { id: 'pizza', name: 'Pizza & Fast Food', icon: 'fa-solid fa-pizza-slice', count: 8 },
+    { id: 'banjos', name: 'Banjos', icon: 'fa-solid fa-bread-slice', count: 6 },
+    { id: 'burgers', name: 'Burgers', icon: 'fa-solid fa-burger', count: 4 },
+    { id: 'rolls', name: 'Rolls', icon: 'fa-solid fa-hotdog', count: 7 },
+    { id: 'momos_desserts', name: 'Momos & Desserts', icon: 'fa-solid fa-cookie-bite', count: 5 },
     { id: 'biryani', name: 'Biryani & Rice', icon: 'fa-solid fa-bowl-rice', count: 6 },
     { id: 'staples', name: 'Atta, Rice & Dal', icon: 'fa-solid fa-wheat-awn', count: 6 },
     { id: 'oil', name: 'Oil & Ghee', icon: 'fa-solid fa-bottle-droplet', count: 2 },
@@ -6457,7 +6462,52 @@ window.openEditProductModal = function(productId) {
     if (adminModalSub) adminModalSub.textContent = `Update details for "${product.title}"`;
 
     if (document.getElementById('prodTitle')) document.getElementById('prodTitle').value = product.title;
-    if (document.getElementById('prodCategory')) document.getElementById('prodCategory').value = product.category;
+    
+    // Robust category matching & preservation (prevents browser prompt to re-select category)
+    const catSelect = document.getElementById('prodCategory');
+    if (catSelect && product.category) {
+        const prodCat = String(product.category).trim();
+        let matched = false;
+        // 1. Exact value match
+        for (let i = 0; i < catSelect.options.length; i++) {
+            if (catSelect.options[i].value === prodCat) {
+                catSelect.selectedIndex = i;
+                matched = true;
+                break;
+            }
+        }
+        // 2. Case-insensitive value match
+        if (!matched) {
+            for (let i = 0; i < catSelect.options.length; i++) {
+                if (catSelect.options[i].value.toLowerCase() === prodCat.toLowerCase()) {
+                    catSelect.selectedIndex = i;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        // 3. Option text match (e.g. display name)
+        if (!matched) {
+            for (let i = 0; i < catSelect.options.length; i++) {
+                const optText = catSelect.options[i].text.toLowerCase();
+                if (optText.includes(prodCat.toLowerCase()) || prodCat.toLowerCase().includes(optText)) {
+                    catSelect.selectedIndex = i;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        // 4. Dynamic option append fallback
+        if (!matched) {
+            const newOpt = document.createElement('option');
+            newOpt.value = prodCat;
+            newOpt.textContent = prodCat.charAt(0).toUpperCase() + prodCat.slice(1);
+            newOpt.selected = true;
+            catSelect.appendChild(newOpt);
+            catSelect.value = prodCat;
+        }
+    }
+
     if (document.getElementById('prodPrice')) document.getElementById('prodPrice').value = product.price;
     if (document.getElementById('prodOriginalPrice')) document.getElementById('prodOriginalPrice').value = product.originalPrice;
     if (document.getElementById('prodUnit')) document.getElementById('prodUnit').value = product.unit;
@@ -7205,7 +7255,14 @@ function setupEventListeners() {
             e.preventDefault();
             const id = editProductId.value;
             const title = document.getElementById('prodTitle').value.trim();
-            const category = document.getElementById('prodCategory').value;
+            let category = document.getElementById('prodCategory') ? document.getElementById('prodCategory').value : '';
+            // If editing an existing product and category is empty, preserve original product category
+            if (!category && id) {
+                const origProd = state.products.find(p => String(p.id) === String(id));
+                if (origProd && origProd.category) {
+                    category = origProd.category;
+                }
+            }
             const price = parseFloat(document.getElementById('prodPrice').value);
             const original_price = parseFloat(document.getElementById('prodOriginalPrice').value);
             const unit = document.getElementById('prodUnit').value.trim();
@@ -9275,6 +9332,7 @@ window.selectSuggestion = function(productId) {
 window.populateCategoryDropdowns = function() {
     const select = document.getElementById('prodCategory');
     if (!select) return;
+    const currentVal = select.value;
     const activeCats = CATEGORIES.filter(c => c.id !== 'all');
     const isSupplier = state.currentUser && state.currentUser.role === 'supplier';
     const currentSupplierName = isSupplier ? (state.currentUser.supplier_company_name || state.currentUser.full_name || state.currentUser.username) : null;
@@ -9296,9 +9354,18 @@ window.populateCategoryDropdowns = function() {
     } else {
         select.innerHTML = activeCats.map(c => `<option value="${c.id}">${c.name}${c.created_by_supplier ? ` (${c.created_by_supplier})` : ''}</option>`).join('');
     }
+
+    if (currentVal) {
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value.toLowerCase() === currentVal.toLowerCase()) {
+                select.selectedIndex = i;
+                break;
+            }
+        }
+    }
 };
 
-window.openAdminCategoriesModal = function() {
+window.openAdminCategoriesModal = async function() {
     closeModals();
     const isSupplier = state.currentUser && state.currentUser.role === 'supplier';
     const isSystemAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin');
@@ -9374,6 +9441,7 @@ window.openAdminCategoriesModal = function() {
         }
     }
 
+    // Render immediately with existing categories
     window.populateCategoryDropdowns();
     renderAdminCategoriesList();
     const modal = document.getElementById('adminCategoriesModal');
@@ -9382,6 +9450,10 @@ window.openAdminCategoriesModal = function() {
         modal.classList.add('active');
         overlay.classList.add('active');
     }
+
+    // Fetch fresh from backend (MongoDB Atlas) to ensure latest categories like Rangoli are visible
+    await fetchCategoriesFromAPI();
+    renderAdminCategoriesList();
 };
 
 function renderAdminCategoriesList() {
@@ -9392,10 +9464,13 @@ function renderAdminCategoriesList() {
     const currentSupplierName = isSupplier ? (state.currentUser.supplier_company_name || state.currentUser.full_name || state.currentUser.username) : null;
     const isSystemAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin');
 
-    container.innerHTML = CATEGORIES.map(cat => {
+    const CORE_SYSTEM_IDS = new Set(['food', 'pizza', 'biryani', 'staples', 'oil', 'dairy', 'vegetables', 'tea', 'snacks', 'sweets']);
+    const displayCats = CATEGORIES.filter(cat => cat.id !== 'all');
+
+    container.innerHTML = displayCats.map(cat => {
         const belongsToCurrentSupplier = isSupplier && cat.created_by_supplier && currentSupplierName && (cat.created_by_supplier.toLowerCase() === currentSupplierName.toLowerCase());
         const canDelete = isSystemAdmin || belongsToCurrentSupplier;
-        const isSystemDefault = DEFAULT_CATEGORIES.some(d => d.id === cat.id);
+        const isCoreDefault = !cat.created_by_supplier && CORE_SYSTEM_IDS.has(cat.id);
 
         let badgeHtml = '';
         if (cat.created_by_supplier) {
@@ -9407,7 +9482,7 @@ function renderAdminCategoriesList() {
         return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #FFF; border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 6px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="${cat.icon} text-primary" style="font-size: 1.1rem; width: 20px; text-align: center;"></i>
+                    <i class="${cat.icon || 'fa-solid fa-layer-group'} text-primary" style="font-size: 1.1rem; width: 20px; text-align: center;"></i>
                     <div>
                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                             <strong>${cat.name}</strong>
@@ -9416,11 +9491,11 @@ function renderAdminCategoriesList() {
                         <small style="display: block; color: #64748b;">ID: <code>${cat.id}</code></small>
                     </div>
                 </div>
-                ${!isSystemDefault && canDelete ? `
+                ${!isCoreDefault && canDelete ? `
                     <button type="button" class="btn btn-danger btn-sm" onclick="deleteCategory('${cat.id}')">
                         <i class="fa-solid fa-trash"></i> Delete
                     </button>
-                ` : isSystemDefault ? '<span class="badge" style="background:#E2E8F0; color:#475569;">System Category</span>' : ''}
+                ` : isCoreDefault ? '<span class="badge" style="background:#E2E8F0; color:#475569;">System Category</span>' : ''}
             </div>
         `;
     }).join('');
@@ -9514,28 +9589,46 @@ function renderCategoryPills() {
 
 async function fetchCategoriesFromAPI() {
     try {
-        const res = await fetchWithTimeout(`${API_BASE_URL}/categories`, {}, 2000);
+        const res = await fetchWithTimeout(`${API_BASE_URL}/categories?_t=${Date.now()}`, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
+        }, 10000);
         if (res && res.ok) {
             const apiCats = await res.json();
-            apiCats.forEach(c => {
-                const existing = CATEGORIES.find(cat => cat.id === c.code);
-                if (!existing) {
-                    CATEGORIES.push({
-                        id: c.code,
-                        name: c.name,
-                        icon: c.icon || 'fa-solid fa-layer-group',
-                        created_by_supplier: c.created_by_supplier || null,
-                        count: 0
-                    });
-                } else {
-                    if (c.created_by_supplier) existing.created_by_supplier = c.created_by_supplier;
+            if (Array.isArray(apiCats)) {
+                apiCats.forEach(c => {
+                    const code = (c.code || '').trim().toLowerCase();
+                    if (!code) return;
+                    const existing = CATEGORIES.find(cat => cat.id.toLowerCase() === code);
+                    if (!existing) {
+                        CATEGORIES.push({
+                            id: code,
+                            name: c.name || code,
+                            icon: c.icon || 'fa-solid fa-layer-group',
+                            created_by_supplier: c.created_by_supplier || null,
+                            count: 0
+                        });
+                    } else {
+                        if (c.name) existing.name = c.name;
+                        if (c.icon) existing.icon = c.icon;
+                        if (c.created_by_supplier !== undefined) existing.created_by_supplier = c.created_by_supplier;
+                    }
+                });
+                renderCategories();
+                renderCategoryPills();
+                populateCategoryDropdowns();
+                if (document.getElementById('adminCategoriesListContainer')) {
+                    renderAdminCategoriesList();
                 }
-            });
-            renderCategories();
-            renderCategoryPills();
-            populateCategoryDropdowns();
+                return apiCats;
+            }
         }
-    } catch (err) {}
+    } catch (err) {
+        console.warn('fetchCategoriesFromAPI error:', err);
+    }
+    return null;
 }
 
 // 24/7 SUPPORT ACTIVITY MODAL HANDLERS
