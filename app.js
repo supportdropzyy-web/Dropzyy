@@ -2,10 +2,10 @@
    Dropzyy Instant Delivery Logic & FastAPI Integration
    ========================================== */
 
-// Dynamically use Render host when deployed or localhost when developing
-const API_BASE_URL = (window.location.origin && !window.location.origin.includes('file://')) 
-    ? `${window.location.origin}/api` 
-    : 'http://localhost:8000/api';
+// Dynamically use localhost:8000 when developing locally (e.g. Live Server on 5500/3000 or file://) or origin when deployed on Render
+const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.origin || window.location.origin.includes('file://')) 
+    ? 'http://127.0.0.1:8000/api' 
+    : `${window.location.origin}/api`;
 
 // ── JWT BEARER TOKEN AUTO-INJECTOR ────────────────────────────────────────────
 // Automatically attaches Authorization: Bearer <token> to all API requests
@@ -3222,9 +3222,13 @@ async function loginUser(username, password) {
                     showToast(`Logged in as <strong>${matchedUser.supplier_company_name || matchedUser.full_name}</strong> (${matchedUser.role})!`, 'success');
                     return;
                 }
+                showToast('Unable to authenticate supplier with server. Please check credentials.', 'error');
+                return;
             }
         } catch (e) {
             console.warn('Backend login verification failed:', e);
+            showToast('Cannot reach server to verify supplier device session. Ensure backend server is running.', 'error');
+            return;
         }
     } else if (matchedUser) {
         state.currentUser = { ...matchedUser };
