@@ -10,6 +10,7 @@ import smtplib
 import io
 import base64
 import time
+import hashlib
 from collections import defaultdict
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -1738,6 +1739,13 @@ def login_user(credentials: schemas.UserLogin, request: Request, db: Session = D
             db.commit()
 
     if user and is_valid_pw:
+        if mongo_db.is_mongo_active():
+            m_user = mongo_db.mongo_find_user(identifier)
+            if m_user:
+                if m_user.get("city"): user.city = m_user["city"]
+                if m_user.get("supplier_company_name"): user.supplier_company_name = m_user["supplier_company_name"]
+                if m_user.get("banner_image"): user.banner_image = m_user["banner_image"]
+                if m_user.get("max_devices"): user.max_devices = m_user["max_devices"]
         # Check supplier device limit
         check_and_register_supplier_device(user, credentials, request, db)
         # Generate JWT Bearer Token

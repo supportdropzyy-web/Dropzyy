@@ -488,6 +488,8 @@ function persistRegisteredUsers() {
 }
 
 const DEFAULT_REGISTERED_USERS = [
+    { id: 9, username: 'arnav', email: 'arnav@dropzyy.com', password: 'Arnav@Faizpur', full_name: 'Arnav Patil', role: 'supplier', supplier_company_name: 'Urban Tadka', restaurant_name: 'Urban Tadka', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Quick Bites • Great Vibes', store_open: true, open_time: '08:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80' },
+    { id: 6, username: 'pranav', email: 'pranav@dropzyy.com', password: 'Pranav@Faizpur', full_name: 'Pranav Firake', role: 'supplier', supplier_company_name: 'Katta Biryani and Tandoor', restaurant_name: 'Katta Biryani and Tandoor', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Great Vibes', store_open: true, open_time: '11:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80' },
     { id: 1, username: 'yashpatil', email: 'yashpatil@dropzyy.com', password: '12528289Yash@', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
     { id: 2, username: 'admin', email: 'admin@dropzyy.com', password: 'Dropzyy@Admin#2026!', full_name: 'System Administrator', role: 'admin', city: 'Savda' },
     { id: 3, username: 'supplier', email: 'supplier@dropzyy.com', password: 'Supplier@Dropzyy#2026!', full_name: 'Desi Kirana Wholesaler', role: 'supplier', supplier_company_name: 'Ramesh Kirana Wholesale Co.', city: 'Savda' },
@@ -4602,6 +4604,9 @@ function renderAdminUsersDirectory() {
                         <button type="button" class="btn btn-secondary btn-sm" onclick="openSupplierDeviceLimitModal('${u.username}')" style="background: #F0FDF4; color: #15803D; border: 1.5px solid #BBF7D0; font-weight: 700; border-radius: 8px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;" title="Manage Supplier Device Limits and Active Sessions">
                             <i class="fa-solid fa-laptop-mobile"></i> Device Limit
                         </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="window.toggleStoreEmergencyOfflineStatus(${u.store_open !== false ? 'false' : 'true'}, '${u.username}')" style="background: ${u.store_open !== false ? '#FEF2F2' : '#ECFDF5'}; color: ${u.store_open !== false ? '#DC2626' : '#047857'}; border: 1.5px solid ${u.store_open !== false ? '#FECACA' : '#A7F3D0'}; font-weight: 700; border-radius: 8px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;" title="${u.store_open !== false ? 'Emergency take store offline immediately' : 'Bring store online'}">
+                            <i class="fa-solid ${u.store_open !== false ? 'fa-power-off' : 'fa-circle-check'}"></i> ${u.store_open !== false ? '🚨 Emergency Offline' : '🟢 Bring Online'}
+                        </button>
                     ` : ''}
                     ${(u.username !== 'yashpatil' && state.currentUser && u.username !== state.currentUser.username) ? `
                         <button type="button" class="btn btn-secondary btn-sm text-danger" onclick="deleteUserAccount(${u.id || 0}, '${u.username}')" style="border-radius: 8px; padding: 6px 10px;" title="Delete User Account">
@@ -5108,6 +5113,44 @@ function renderSupplierDashboard() {
     statTotalProducts.textContent = supplierProducts.length;
     const totalVal = supplierProducts.reduce((sum, p) => sum + (p.price || 0), 0);
     statCatalogValue.textContent = `₹${totalVal.toLocaleString()}`;
+
+    // Emergency Store Status Box & 1-Click Offline Button
+    const emergencyBox = document.getElementById('supplierEmergencyStoreBox');
+    const emergencyBadge = document.getElementById('supplierEmergencyStatusBadge');
+    const emergencyText = document.getElementById('supplierEmergencyStatusText');
+    const emergencyBtn = document.getElementById('supplierEmergencyToggleBtn');
+
+    if (emergencyBox && emergencyBadge && emergencyText && emergencyBtn) {
+        if (isSystemAdmin) {
+            emergencyBox.style.display = 'flex';
+            emergencyBadge.style.background = '#0284C7';
+            emergencyBadge.innerHTML = `<i class="fa-solid fa-shield-halved"></i> ADMIN MODE`;
+            emergencyText.innerHTML = `You are viewing as System Admin. You can toggle any supplier's store offline or online directly in the <strong>Admin Control Panel</strong>.`;
+            emergencyBtn.style.display = 'none';
+        } else {
+            emergencyBox.style.display = 'flex';
+            emergencyBtn.style.display = 'inline-flex';
+            
+            const liveSup = registeredUsers.find(u => (u.username || '').toLowerCase() === (state.currentUser.username || '').toLowerCase()) || state.currentUser;
+            const isStoreOpen = (liveSup.store_open !== false);
+
+            if (isStoreOpen) {
+                emergencyBadge.style.background = '#10B981';
+                emergencyBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ONLINE (Open)`;
+                emergencyText.innerHTML = `Store is currently <strong>ONLINE</strong> & accepting customer orders.`;
+                emergencyBtn.style.background = '#DC2626';
+                emergencyBtn.style.boxShadow = '0 2px 6px rgba(220, 38, 38, 0.25)';
+                emergencyBtn.innerHTML = `<i class="fa-solid fa-power-off"></i> 🚨 Immediate Emergency Offline`;
+            } else {
+                emergencyBadge.style.background = '#DC2626';
+                emergencyBadge.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> OFFLINE (Emergency Closed)`;
+                emergencyText.innerHTML = `<strong style="color: #DC2626;">Store is currently EMERGENCY OFFLINE.</strong> Customer orders are strictly blocked.`;
+                emergencyBtn.style.background = '#10B981';
+                emergencyBtn.style.boxShadow = '0 2px 6px rgba(16, 185, 129, 0.25)';
+                emergencyBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i> 🟢 Bring Store Back Online`;
+            }
+        }
+    }
 
     if (supplierProducts.length === 0) {
         supplierProductsContainer.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 30px;">No products added yet by your supplier account. Click <strong>+ Add New Product</strong> above to add your Kirana items!</p>`;
@@ -5772,6 +5815,122 @@ async function executeDeleteRestaurantByAdminConfirmed(identifier, cleanName) {
 
     showToast(`🗑️ Restaurant "<strong>${cleanName}</strong>" and all its menu items have been permanently deleted by Admin.`, 'success');
 }
+
+// ==============================================================================
+// 🚨 EMERGENCY STORE OFFLINE / ONLINE ENGINE (SUPPLIER & ADMIN)
+// ==============================================================================
+window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsername) {
+    if (!state.currentUser) {
+        showToast('Please login first', 'error');
+        return;
+    }
+
+    const targetUser = targetUsername || state.currentUser.username;
+    const isSelf = targetUser.toLowerCase() === (state.currentUser.username || '').toLowerCase();
+    const isAdmin = state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin';
+
+    if (!isSelf && !isAdmin) {
+        showToast('Only administrators or store owners can toggle store status.', 'error');
+        return;
+    }
+
+    try {
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token');
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_BASE_URL}/supplier/toggle-status`, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify({
+                store_open: newStatus,
+                username: targetUser
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            const targetClean = String(targetUser).trim().toLowerCase();
+            const uIdx = registeredUsers.findIndex(u => (u.username || '').toLowerCase() === targetClean || (u.supplier_company_name || '').toLowerCase() === targetClean);
+            if (uIdx > -1) {
+                registeredUsers[uIdx].store_open = newStatus;
+                persistRegisteredUsers();
+            }
+
+            if (state.currentUser && (state.currentUser.username || '').toLowerCase() === targetClean) {
+                state.currentUser.store_open = newStatus;
+                try {
+                    localStorage.setItem('dropzyy_user', JSON.stringify(state.currentUser));
+                } catch(e){}
+            }
+
+            // Update matching products in state.products
+            if (state.products && state.products.length > 0) {
+                state.products.forEach(p => {
+                    const supMatch = (p.supplier_username && p.supplier_username.toLowerCase() === targetClean) ||
+                                     (p.supplier && p.supplier.toLowerCase() === targetClean) ||
+                                     (p.supplier_name && p.supplier_name.toLowerCase() === targetClean) ||
+                                     (p.supplier_company_name && p.supplier_company_name.toLowerCase() === targetClean) ||
+                                     (registeredUsers[uIdx] && p.supplier_name && p.supplier_name.toLowerCase() === (registeredUsers[uIdx].supplier_company_name || '').toLowerCase()) ||
+                                     (registeredUsers[uIdx] && p.supplier && p.supplier.toLowerCase() === (registeredUsers[uIdx].supplier_company_name || '').toLowerCase());
+                    if (supMatch) {
+                        p.store_open = newStatus;
+                        p.is_online = newStatus;
+                    }
+                });
+            }
+
+            if (typeof renderRestaurants === 'function') renderRestaurants();
+            if (typeof renderProducts === 'function') renderProducts();
+            if (typeof renderSupplierDashboard === 'function') renderSupplierDashboard();
+            if (typeof renderAdminUsersDirectory === 'function') renderAdminUsersDirectory();
+
+            const statusText = newStatus ? 'ONLINE 🟢' : 'EMERGENCY OFFLINE 🔴';
+            const storeLabel = (registeredUsers[uIdx] && (registeredUsers[uIdx].supplier_company_name || registeredUsers[uIdx].restaurant_name)) || targetUser;
+            showToast(`Store "<strong>${storeLabel}</strong>" is now <strong>${statusText}</strong>!`, newStatus ? 'success' : 'warning');
+        } else {
+            showToast(data.detail || 'Could not update store status', 'error');
+        }
+    } catch (err) {
+        console.error('[EMERGENCY TOGGLE ERROR]', err);
+        showToast('Error communicating with server', 'error');
+    }
+};
+
+window.toggleCurrentSupplierEmergencyOffline = function() {
+    if (!state.currentUser) return;
+    const liveSup = registeredUsers.find(u => (u.username || '').toLowerCase() === (state.currentUser.username || '').toLowerCase()) || state.currentUser;
+    const currentOpen = (liveSup.store_open !== false);
+    const nextStatus = !currentOpen;
+
+    if (!nextStatus) {
+        showCustomConfirmModal({
+            title: '🚨 Immediate Emergency Store Offline?',
+            subtitle: 'Instant Customer Order Restriction',
+            icon: 'fa-solid fa-triangle-exclamation',
+            iconBg: '#FEE2E2',
+            iconColor: '#DC2626',
+            contentHtml: `<div style="text-align: left; font-size: 0.95rem; color: #475569; line-height: 1.5;">
+                <p>Are you sure you want to take your store <strong>OFFLINE immediately</strong>?</p>
+                <div style="background: #FEF2F2; border-left: 4px solid #DC2626; padding: 10px 14px; border-radius: 6px; margin-top: 8px; font-size: 0.88rem; color: #991B1B;">
+                    ⚠️ All customer cart additions and new orders will be <strong>strictly blocked</strong> until you turn it back online.
+                </div>
+            </div>`,
+            confirmText: 'Yes, Take Store Offline Now',
+            confirmIcon: 'fa-solid fa-power-off',
+            confirmBg: '#DC2626',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+                window.toggleStoreEmergencyOfflineStatus(false, state.currentUser.username);
+            }
+        });
+    } else {
+        window.toggleStoreEmergencyOfflineStatus(true, state.currentUser.username);
+    }
+};
 
 window.adminToggleRestaurantStatus = async function(identifier, storeName, currentOpenState) {
     if (!state.currentUser || (state.currentUser.role !== 'admin' && state.currentUser.role !== 'sub_admin')) {

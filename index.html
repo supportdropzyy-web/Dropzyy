@@ -521,6 +521,21 @@
             <p id="supplierCompanyTitle">View and manage all Kirana items added by your supplier account</p>
         </div>
 
+        <!-- Emergency Store Status Banner & Immediate Offline Control -->
+        <div id="supplierEmergencyStoreBox" style="margin: 14px 0 16px; padding: 14px 18px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: #F8FAFC; border: 1.5px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span id="supplierEmergencyStatusBadge" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 0.82rem; padding: 4px 12px; border-radius: 20px; background: #10B981; color: white; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-circle-check"></i> ONLINE (Open)
+                </span>
+                <span id="supplierEmergencyStatusText" style="font-size: 0.88rem; font-weight: 600; color: #1E293B;">
+                    Store is open & accepting customer orders.
+                </span>
+            </div>
+            <button id="supplierEmergencyToggleBtn" onclick="window.toggleCurrentSupplierEmergencyOffline()" style="padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: none; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25); transition: all 0.2s;">
+                <i class="fa-solid fa-power-off"></i> 🚨 Immediate Emergency Offline
+            </button>
+        </div>
+
         <!-- Supplier Stats Cards -->
         <div class="supplier-stats-grid">
             <div class="stat-card">

@@ -723,15 +723,40 @@ def mongo_toggle_supplier_status(identifier: str, store_open: bool) -> bool:
     db = get_mongo_db()
     if db is None: return False
     clean = str(identifier).strip().lower()
-    res = db.users.update_many(
+    
+    # 1. Update user store_open flag
+    user = db.users.find_one({"$or": [
+        {"username": {"$regex": f"^{clean}$", "$options": "i"}},
+        {"email": {"$regex": f"^{clean}$", "$options": "i"}},
+        {"supplier_company_name": {"$regex": f"^{clean}$", "$options": "i"}}
+    ]})
+    
+    db.users.update_many(
         {"$or": [
-            {"username": clean},
-            {"email": clean},
+            {"username": {"$regex": f"^{clean}$", "$options": "i"}},
+            {"email": {"$regex": f"^{clean}$", "$options": "i"}},
             {"supplier_company_name": str(identifier).strip()}
         ]},
         {"$set": {"store_open": store_open}}
     )
-    return res.modified_count > 0
+
+    # 2. Update all products belonging to this supplier
+    s_names = [clean, str(identifier).strip()]
+    if user:
+        if user.get("supplier_company_name"): s_names.append(user["supplier_company_name"])
+        if user.get("restaurant_name"): s_names.append(user["restaurant_name"])
+        if user.get("username"): s_names.append(user["username"])
+
+    regex_pattern = "|".join([f"^{n}$" for n in set(s_names) if n])
+    db.products.update_many(
+        {"$or": [
+            {"supplier_name": {"$regex": regex_pattern, "$options": "i"}},
+            {"supplier_company_name": {"$regex": regex_pattern, "$options": "i"}},
+            {"supplier_user_id": {"$in": [str(user.get("id")) if user else "", clean]}}
+        ]},
+        {"$set": {"store_open": store_open, "is_online": store_open}}
+    )
+    return True
 
 def mongo_delete_restaurant(identifier: str, store_name: Optional[str] = None) -> Dict[str, int]:
     db = get_mongo_db()
