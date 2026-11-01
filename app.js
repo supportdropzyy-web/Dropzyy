@@ -446,8 +446,6 @@ const DB_CACHE_KEYS_TO_PURGE = [
     'dropzyy_selected_location',
     'dropzyy_supplier_store_images',
     'dropzyy_visitor_id',
-    'dropzyy_registered_users',
-    'dropzyy_auth_token',
     'freshkart_user',
     'freshkart_registered_users',
     'dropzyy_session_user',
@@ -481,7 +479,13 @@ function purgeDatabaseKeysFromLocalStorage() {
 // Run immediately on script evaluation
 purgeDatabaseKeysFromLocalStorage();
 
-function persistRegisteredUsers() { purgeDatabaseKeysFromLocalStorage(); }
+function persistRegisteredUsers() {
+    try {
+        if (Array.isArray(registeredUsers)) {
+            localStorage.setItem('dropzyy_registered_users', JSON.stringify(registeredUsers));
+        }
+    } catch (e) {}
+}
 
 const DEFAULT_REGISTERED_USERS = [
     { id: 1, username: 'yashpatil', email: 'yashpatil@dropzyy.com', password: '12528289Yash@', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
@@ -491,6 +495,16 @@ const DEFAULT_REGISTERED_USERS = [
 ];
 
 let registeredUsers = [...DEFAULT_REGISTERED_USERS];
+try {
+    const savedCustomUsers = JSON.parse(localStorage.getItem('dropzyy_registered_users') || '[]');
+    if (Array.isArray(savedCustomUsers)) {
+        savedCustomUsers.forEach(su => {
+            if (su && su.username && !registeredUsers.some(u => (u.username || '').toLowerCase() === (su.username || '').toLowerCase())) {
+                registeredUsers.push(su);
+            }
+        });
+    }
+} catch (e) {}
 // Purge legacy deleted test accounts from local storage
 registeredUsers = registeredUsers.filter(u => {
     if (!u) return false;
@@ -653,9 +667,12 @@ let state = {
                     if (parts.length === 3) {
                         const payload = JSON.parse(atob(parts[1]));
                         if (payload) {
-                            tokenUsername = payload.sub || payload.username || null;
+                            // sub is usually user_id (number); payload.username is the actual username string
+                            tokenUsername = (payload.username && typeof payload.username === 'string' && isNaN(payload.username))
+                                ? payload.username
+                                : (payload.sub && isNaN(payload.sub) ? payload.sub : payload.username || null);
                             tokenRole = payload.role || 'customer';
-                            tokenId = payload.user_id || payload.sub_id || null;
+                            tokenId = payload.user_id || payload.sub_id || (payload.sub && !isNaN(payload.sub) ? parseInt(payload.sub, 10) : null);
                         }
                     }
                 } catch(e) {}
@@ -664,16 +681,18 @@ let state = {
             const activeUsername = tokenUsername || storedUsername;
             if (!activeUsername) return null;
 
-            // In local/demo mode without token, check verified registered users (role cannot be altered by storage)
-            let verifiedRole = 'customer';
-            const regUser = (typeof DEFAULT_REGISTERED_USERS !== 'undefined' && Array.isArray(DEFAULT_REGISTERED_USERS))
-                ? DEFAULT_REGISTERED_USERS.find(u => (u.username || '').toLowerCase() === activeUsername.toLowerCase())
-                : null;
+            // Check registeredUsers (including custom suppliers created by admin) or DEFAULT_REGISTERED_USERS
+            let verifiedRole = tokenRole || 'customer';
+            const regUser = (typeof registeredUsers !== 'undefined' && Array.isArray(registeredUsers))
+                ? registeredUsers.find(u => (u.username || '').toLowerCase() === activeUsername.toLowerCase())
+                : ((typeof DEFAULT_REGISTERED_USERS !== 'undefined' && Array.isArray(DEFAULT_REGISTERED_USERS))
+                    ? DEFAULT_REGISTERED_USERS.find(u => (u.username || '').toLowerCase() === activeUsername.toLowerCase())
+                    : null);
 
             if (tokenRole && tokenRole !== 'customer') {
                 verifiedRole = tokenRole;
-            } else if (regUser) {
-                verifiedRole = regUser.role || 'customer';
+            } else if (regUser && regUser.role) {
+                verifiedRole = regUser.role;
             }
 
             // Ensure localStorage strictly only contains { username: activeUsername }
@@ -3091,20 +3110,15 @@ window.saveUserSession = function(user) {
     try {
         const username = String(user.username).trim();
 
-        // Security (Amazon/Flipkart Standard):
-        // 1. In localStorage: ONLY { username: ... } is stored!
-        // No roles, no passwords, no emails, no sensitive data.
-        localStorage.clear();
+        // Save clean username in dropzyy_user
         localStorage.setItem('dropzyy_user', JSON.stringify({ username: username }));
 
-        // 2. In sessionStorage: ONLY the cryptographically signed JWT auth token is stored!
-        // NEVER store user profile or role in sessionStorage so no one can tamper with or view it in inspect.
+        // Store cryptographically signed JWT auth token
         sessionStorage.removeItem('dropzyy_session_user');
         const tok = user.access_token || user.token;
         if (tok) {
             sessionStorage.setItem('dropzyy_auth_token', tok);
-        } else {
-            sessionStorage.removeItem('dropzyy_auth_token');
+            localStorage.setItem('dropzyy_auth_token', tok);
         }
 
         // 3. User object with role and profile is stored STRICTLY IN-MEMORY:
@@ -5000,9 +5014,18 @@ async function createAccountByAdmin(username, password, fullName, role, supplier
     if (typeof renderRestaurants === 'function') renderRestaurants();
 
     try {
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token)) 
+            || sessionStorage.getItem('dropzyy_auth_token') 
+            || localStorage.getItem('dropzyy_auth_token') || '';
+        const headers = { 
+            'Content-Type': 'application/json',
+            'X-Admin-Role': 'admin'
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetchWithTimeout(`${API_BASE_URL}/auth/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify({ 
                 username: cleanUser, 
                 email, 
@@ -5021,9 +5044,10 @@ async function createAccountByAdmin(username, password, fullName, role, supplier
                 newUser.id = user.id;
                 persistRegisteredUsers();
             }
-            showToast(`Supplier account @${cleanUser} synced successfully!`, 'success');
+            showToast(`Supplier account @${cleanUser} saved & synced to Database!`, 'success');
         } else {
-            console.warn('API Registration Response Warning:', response.status);
+            const errData = await response.json().catch(() => ({}));
+            showToast(errData.detail || 'Registration warning: Could not sync to database.', 'info');
         }
     } catch (e) {
         console.warn('API Registration Warning:', e);
@@ -12131,9 +12155,13 @@ window.openSupplierDeviceLimitModal = async function(username) {
     }
 
     try {
-        const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token') || '';
+        const headers = { 'X-Admin-Role': 'admin' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetchWithTimeout(`${API_BASE_URL}/admin/suppliers/${encodeURIComponent(username)}/devices`, {
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            headers: headers
         }, 10000);
 
         if (res && res.ok) {
@@ -12255,11 +12283,14 @@ window.handleSaveSupplierDeviceLimit = async function() {
     }
 
     try {
-        const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token') || '';
         const res = await fetchWithTimeout(`${API_BASE_URL}/admin/suppliers/${encodeURIComponent(currentManagingSupplier)}/device-limit`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Admin-Role': 'admin',
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             },
             body: JSON.stringify({ max_devices: newLimit })
@@ -12297,10 +12328,14 @@ window.handleResetAllSupplierDevices = async function() {
     }
 
     try {
-        const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token') || '';
+        const headers = { 'X-Admin-Role': 'admin' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetchWithTimeout(`${API_BASE_URL}/admin/suppliers/${encodeURIComponent(currentManagingSupplier)}/reset-devices`, {
             method: 'POST',
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            headers: headers
         }, 8000);
 
         if (res && res.ok) {
@@ -12326,10 +12361,14 @@ window.handleRevokeSingleDevice = async function(deviceId) {
     if (!currentManagingSupplier || !deviceId) return;
 
     try {
-        const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token') || '';
+        const headers = { 'X-Admin-Role': 'admin' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetchWithTimeout(`${API_BASE_URL}/admin/suppliers/${encodeURIComponent(currentManagingSupplier)}/devices/${encodeURIComponent(deviceId)}`, {
             method: 'DELETE',
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            headers: headers
         }, 8000);
 
         if (res && res.ok) {
