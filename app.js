@@ -1091,6 +1091,9 @@ async function fetchProductsFromAPI() {
                         supplier_id: p.supplier_id || null,
                         isOnline: isProductOnline(p),
                         is_online: isProductOnline(p),
+                        in_stock: p.in_stock !== false,
+                        stock_quantity: (p.stock_quantity !== undefined && p.stock_quantity !== null) ? p.stock_quantity : 50,
+                        show_stock_to_customer: p.show_stock_to_customer !== false,
                         variants: p.variants || null,
                         food_type: p.food_type || null
                     }));
@@ -1220,7 +1223,7 @@ function renderCategories() {
         categoryGrid.innerHTML = CATEGORIES.map(cat => {
             const count = (typeof window.getCategoryItemCount === 'function') ? window.getCategoryItemCount(cat.id) : (cat.count || 0);
             return `
-                <div class="category-card ${state.activeCategory === cat.id ? 'active' : ''}" data-category="${cat.id}" onclick="selectCategoryFilter('${cat.id}')">
+                <div class="category-card ${String(state.activeCategory).toLowerCase() === String(cat.id).toLowerCase() ? 'active' : ''}" data-category="${cat.id}" onclick="selectCategoryFilter('${cat.id}')">
                     <div class="category-icon-box">
                         <i class="${cat.icon || 'fa-solid fa-layer-group'}"></i>
                     </div>
@@ -1235,7 +1238,7 @@ function renderCategories() {
     const mobileStrip = document.getElementById('mobileCategoriesStrip');
     if (mobileStrip) {
         mobileStrip.innerHTML = CATEGORIES.map(cat => `
-            <button type="button" class="mobile-cat-pill ${state.activeCategory === cat.id ? 'active' : ''}" onclick="selectCategoryFilter('${cat.id}')">
+            <button type="button" class="mobile-cat-pill ${String(state.activeCategory).toLowerCase() === String(cat.id).toLowerCase() ? 'active' : ''}" onclick="selectCategoryFilter('${cat.id}')">
                 <i class="${cat.icon || 'fa-solid fa-layer-group'}"></i>
                 <span>${cat.name}</span>
             </button>
@@ -2409,7 +2412,7 @@ function renderProducts() {
             }
         }
 
-        const matchesCategory = state.activeCategory === 'all' || p.category === state.activeCategory;
+        const matchesCategory = state.activeCategory === 'all' || (String(p.category || '').trim().toLowerCase() === String(state.activeCategory || '').trim().toLowerCase());
         const search = state.searchQuery.toLowerCase();
         const matchesSearch = !search || 
             (p.title && p.title.toLowerCase().includes(search)) || 
@@ -9572,7 +9575,7 @@ function renderCategoryPills() {
     }
     
     pillsContainer.innerHTML = catsToDisplay.map(cat => `
-        <button class="pill-btn ${state.activeCategory === cat.id ? 'active' : ''}" data-category="${cat.id}">
+        <button class="pill-btn ${String(state.activeCategory).toLowerCase() === String(cat.id).toLowerCase() ? 'active' : ''}" data-category="${cat.id}">
             <i class="${cat.icon}"></i> ${cat.name}
         </button>
     `).join('');
