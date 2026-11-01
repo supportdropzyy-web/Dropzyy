@@ -5187,54 +5187,136 @@ function renderSupplierDashboard() {
     if (supplierProducts.length === 0) {
         supplierProductsContainer.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 30px;">No products added yet by your supplier account. Click <strong>+ Add New Product</strong> above to add your Kirana items!</p>`;
     } else {
-        supplierProductsContainer.innerHTML = supplierProducts.map(p => {
+        window.renderFilteredSupplierProductsList = function() {
+        const container = document.getElementById('supplierProductsContainer');
+        if (!container) return;
+
+        let list = window._supplierProductsListCache || [];
+        const q = (window._supplierDashboardFilterQuery || '').trim().toLowerCase();
+        const stat = window._supplierDashboardFilterStatus || 'all';
+
+        // Filter by search query
+        if (q) {
+            list = list.filter(p => 
+                (p.title && p.title.toLowerCase().includes(q)) ||
+                (p.category && p.category.toLowerCase().includes(q)) ||
+                (p.price && String(p.price).includes(q))
+            );
+        }
+
+        // Filter by status
+        if (stat === 'online') {
+            list = list.filter(p => isProductOnline(p));
+        } else if (stat === 'offline') {
+            list = list.filter(p => !isProductOnline(p));
+        } else if (stat === 'outofstock') {
+            list = list.filter(p => (p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0)));
+        }
+
+        if (list.length === 0) {
+            container.innerHTML = `<div style="text-align: center; padding: 36px 20px; color: #64748B; background: #F8FAFC; border-radius: 12px; border: 1.5px dashed #CBD5E1;">
+                <i class="fa-solid fa-box-open" style="font-size: 2rem; color: #94A3B8; margin-bottom: 8px;"></i>
+                <p style="margin: 0; font-weight: 700; font-size: 0.95rem;">No products match your search or filter.</p>
+                <small style="color: #94A3B8;">Try changing keywords or clearing the active filter.</small>
+            </div>`;
+            return;
+        }
+
+        const isSystemAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin');
+        const companyName = (state.currentUser && (state.currentUser.supplier_company_name || state.currentUser.full_name || state.currentUser.username)) || 'Store';
+
+        container.innerHTML = list.map(p => {
             const isOnline = isProductOnline(p);
+            const isOOS = (p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0));
+            const isCustVisible = p.show_stock_to_customer !== false;
 
             return `
-                <div class="supplier-item-row" style="${!isOnline ? 'background: #FFF5F5; border: 1px solid #FECACA;' : ''}">
-                    <img src="${p.image}" alt="${p.title}" class="supplier-item-thumb">
-                    <div class="supplier-item-info">
-                        <div class="supplier-item-title" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            <strong>${p.title}</strong>
-                            ${!isOnline 
-                                ? `<span class="badge" style="background:#FEE2E2; color:#991B1B; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;">❌ OFFLINE</span>`
-                                : `<span class="badge" style="background:#D1FAE5; color:#047857; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;">✅ ONLINE</span>`
-                            }
-                            ${(p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0))
-                                ? `<span class="badge" style="background:#FEE2E2; color:#991B1B; border:1px solid #FECACA; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;"><i class="fa-solid fa-ban"></i> OUT OF STOCK</span>`
-                                : `<span class="badge" style="background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;"><i class="fa-solid fa-boxes-stacked"></i> Stock: ${p.stock_quantity ?? 50}</span>`
-                            }
-                            ${p.show_stock_to_customer !== false
-                                ? `<span class="badge" style="background:#EFF6FF; color:#1E40AF; font-size:0.72rem; padding:2px 6px; border-radius:8px;"><i class="fa-solid fa-eye"></i> Customer: Visible</span>`
-                                : `<span class="badge" style="background:#F1F5F9; color:#475569; font-size:0.72rem; padding:2px 6px; border-radius:8px;"><i class="fa-solid fa-eye-slash"></i> Customer: Hidden</span>`
-                            }
-                        </div>
-                        <div class="supplier-item-meta">
-                            ${p.category} | ${p.unit} | <strong>₹${p.price}</strong><br>
-                            <small class="text-primary"><i class="fa-solid fa-truck-field"></i> ${p.supplierName || companyName}</small>
+                <div class="supplier-item-row" style="${!isOnline ? 'background: #FFF8F8; border: 1.5px solid #FECACA;' : ''}">
+                    <div class="supplier-item-row-top" style="display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0;">
+                        <img src="${p.image}" alt="${p.title}" class="supplier-item-thumb">
+                        <div class="supplier-item-info">
+                            <div class="supplier-item-title">
+                                <span style="font-weight: 800; font-size: 1rem; color: #0F172A;">${p.title}</span>
+                                <span class="badge" style="background: ${isOnline ? '#ECFDF5' : '#FEF2F2'}; color: ${isOnline ? '#047857' : '#DC2626'}; border: 1px solid ${isOnline ? '#A7F3D0' : '#FECACA'}; font-weight: 800; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="fa-solid ${isOnline ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                                </span>
+                                ${isOOS
+                                    ? `<span class="badge" style="background:#FEF2F2; color:#991B1B; border:1px solid #FECACA; font-size:0.72rem; padding:3px 8px; border-radius:6px; font-weight:800; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-ban"></i> OUT OF STOCK</span>`
+                                    : `<span class="badge" style="background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0; font-size:0.72rem; padding:3px 8px; border-radius:6px; font-weight:800; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-boxes-stacked"></i> Stock: ${p.stock_quantity ?? 50}</span>`
+                                }
+                                ${isCustVisible
+                                    ? `<span class="badge" style="background:#EFF6FF; color:#1E40AF; border:1px solid #BFDBFE; font-size:0.72rem; padding:3px 8px; border-radius:6px; font-weight:700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-eye"></i> Visible</span>`
+                                    : `<span class="badge" style="background:#F8FAFC; color:#64748B; border:1px solid #CBD5E1; font-size:0.72rem; padding:3px 8px; border-radius:6px; font-weight:700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-eye-slash"></i> Hidden</span>`
+                                }
+                            </div>
+                            <div class="supplier-item-meta" style="margin-top: 3px;">
+                                <span style="font-weight: 600; color: #475569;">${p.category || 'General'}</span>
+                                ${p.unit ? ` • <span style="color: #64748B;">${p.unit}</span>` : ''}
+                                • <strong style="color: #059669; font-size: 0.95rem;">₹${p.price}</strong>
+                                ${(p.supplierName || companyName) ? ` • <span style="color: #6366F1; font-weight: 600;"><i class="fa-solid fa-store"></i> ${p.supplierName || companyName}</span>` : ''}
+                            </div>
                         </div>
                     </div>
-                    <div class="supplier-item-actions" style="display: flex; align-items: center; gap: 6px;">
-                        <button class="btn btn-sm ${!isOnline ? 'btn-success' : 'btn-secondary'}" onclick="toggleProductOnlineStatus('${p.id}')" title="Click to toggle product Online/Offline on website">
-                            <i class="fa-solid ${!isOnline ? 'fa-globe' : 'fa-eye-slash'}"></i>
-                            ${!isOnline ? 'Set ONLINE' : 'Set OFFLINE'}
+
+                    <div class="supplier-item-actions">
+                        <button type="button" class="btn btn-sm" onclick="toggleProductOnlineStatus('${p.id}')" style="background: ${isOnline ? '#FEF2F2' : '#ECFDF5'}; color: ${isOnline ? '#DC2626' : '#047857'}; border: 1px solid ${isOnline ? '#FECACA' : '#A7F3D0'};" title="${isOnline ? 'Take product offline' : 'Bring product online'}">
+                            <i class="fa-solid ${isOnline ? 'fa-power-off' : 'fa-circle-check'}"></i> ${isOnline ? 'Set Offline' : 'Set Online'}
                         </button>
-                        <button class="btn btn-sm ${(p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0)) ? 'btn-success' : 'btn-warning'}" onclick="toggleProductStockStatus('${p.id}')" title="Quick toggle In-Stock / Out-of-Stock">
-                            <i class="fa-solid ${(p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0)) ? 'fa-box' : 'fa-ban'}"></i> ${(p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0)) ? 'Set IN STOCK' : 'Set OUT OF STOCK'}
+                        <button type="button" class="btn btn-sm" onclick="toggleProductStockStatus('${p.id}')" style="background: ${isOOS ? '#ECFDF5' : '#FFFBEB'}; color: ${isOOS ? '#047857' : '#B45309'}; border: 1px solid ${isOOS ? '#A7F3D0' : '#FDE68A'};" title="Toggle stock availability">
+                            <i class="fa-solid ${isOOS ? 'fa-box-archive' : 'fa-ban'}"></i> ${isOOS ? 'Set In Stock' : 'Set Out Stock'}
                         </button>
-                        <button class="btn btn-secondary btn-sm" onclick="toggleProductStockVisibility('${p.id}')" title="Toggle Customer Stock Visibility">
-                            <i class="fa-solid ${p.show_stock_to_customer !== false ? 'fa-eye text-primary' : 'fa-eye-slash text-muted'}"></i> ${p.show_stock_to_customer !== false ? 'Cust: Visible' : 'Cust: Hidden'}
+                        <button type="button" class="btn btn-sm" onclick="toggleProductStockVisibility('${p.id}')" style="background: ${isCustVisible ? '#EFF6FF' : '#F8FAFC'}; color: ${isCustVisible ? '#1D4ED8' : '#64748B'}; border: 1px solid ${isCustVisible ? '#BFDBFE' : '#CBD5E1'};" title="Toggle customer stock visibility">
+                            <i class="fa-solid ${isCustVisible ? 'fa-eye' : 'fa-eye-slash'}"></i> ${isCustVisible ? 'Cust: Visible' : 'Cust: Hidden'}
                         </button>
-                        <button class="btn btn-secondary btn-sm" onclick="openEditProductModal('${p.id}')">
+                        <button type="button" class="btn btn-sm" onclick="openEditProductModal('${p.id}')" style="background: #F1F5F9; color: #334155; border: 1px solid #CBD5E1;" title="Edit product details">
                             <i class="fa-solid fa-pen"></i> Edit
                         </button>
-                        <button class="btn btn-secondary btn-sm text-danger" onclick="deleteProduct('${p.id}')">
-                            <i class="fa-solid fa-trash"></i>
+                        <button type="button" class="btn btn-sm btn-delete-mobile-span" onclick="deleteProduct('${p.id}')" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA;" title="Delete product">
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
                 </div>
             `;
         }).join('');
+    };
+
+    window.filterSupplierDashboardProducts = function(query) {
+        window._supplierDashboardFilterQuery = query || '';
+        if (typeof window.renderFilteredSupplierProductsList === 'function') {
+            window.renderFilteredSupplierProductsList();
+        }
+    };
+
+    window.filterSupplierDashboardStatus = function(status) {
+        window._supplierDashboardFilterStatus = status || 'all';
+        const btns = {
+            'all': document.getElementById('btnFilterSupAll'),
+            'online': document.getElementById('btnFilterSupOnline'),
+            'offline': document.getElementById('btnFilterSupOffline'),
+            'outofstock': document.getElementById('btnFilterSupOOS')
+        };
+        Object.keys(btns).forEach(k => {
+            const b = btns[k];
+            if (!b) return;
+            if (k === status) {
+                b.style.background = '#0284C7';
+                b.style.color = '#FFFFFF';
+                b.style.border = 'none';
+            } else {
+                b.style.background = '#F1F5F9';
+                b.style.color = (k === 'online' ? '#047857' : (k === 'offline' ? '#DC2626' : (k === 'outofstock' ? '#B45309' : '#334155')));
+                b.style.border = '1px solid #CBD5E1';
+            }
+        });
+        if (typeof window.renderFilteredSupplierProductsList === 'function') {
+            window.renderFilteredSupplierProductsList();
+        }
+    };
+
+    window._supplierProductsListCache = supplierProducts;
+    if (typeof window.renderFilteredSupplierProductsList === 'function') {
+        window.renderFilteredSupplierProductsList();
+    }
     }
 
     // Populate Operating Hours and Status Settings in Supplier Dashboard
@@ -5884,7 +5966,7 @@ window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsern
         });
 
         const data = await res.json();
-        if (res.ok && data.success) {
+        if (res.ok && (data.success || data.status === 'success' || data.store_open !== undefined)) {
             const targetClean = String(targetUser).trim().toLowerCase();
             const uIdx = registeredUsers.findIndex(u => (u.username || '').toLowerCase() === targetClean || (u.supplier_company_name || '').toLowerCase() === targetClean);
             if (uIdx > -1) {

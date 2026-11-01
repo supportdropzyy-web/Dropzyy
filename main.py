@@ -2048,6 +2048,7 @@ def toggle_supplier_status(payload: dict, db: Session = Depends(get_db), current
             
     return {
         "status": "success",
+        "success": True,
         "username": target_username,
         "store_open": store_open,
         "message": f"Restaurant is now {'ONLINE (Open) 🟢' if store_open else 'OFFLINE (Closed) 🔴'}"

@@ -769,6 +769,20 @@
             </div>
         </div>
 
+        <!-- Search & Filter Controls for Supplier Products -->
+        <div class="supplier-products-filter-bar" style="margin: 14px 0 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 220px; position: relative;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.95rem;"></i>
+                <input type="text" id="supplierProductSearchInput" oninput="window.filterSupplierDashboardProducts(this.value)" placeholder="Search your items by title, category, or price..." style="width: 100%; padding: 10px 14px 10px 38px; border: 1.5px solid #CBD5E1; border-radius: 10px; font-size: 0.9rem; font-weight: 600; color: #1E293B; background: #FFFFFF; outline: none; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="supplierStatusFilterButtonGroup">
+                <button type="button" class="btn btn-sm" onclick="window.filterSupplierDashboardStatus('all')" id="btnFilterSupAll" style="background: #0284C7; color: white; border: none; font-weight: 700; border-radius: 8px; padding: 7px 12px; cursor: pointer;">All Items</button>
+                <button type="button" class="btn btn-sm" onclick="window.filterSupplierDashboardStatus('online')" id="btnFilterSupOnline" style="background: #F1F5F9; color: #047857; border: 1px solid #CBD5E1; font-weight: 700; border-radius: 8px; padding: 7px 12px; cursor: pointer;">🟢 Online</button>
+                <button type="button" class="btn btn-sm" onclick="window.filterSupplierDashboardStatus('offline')" id="btnFilterSupOffline" style="background: #F1F5F9; color: #DC2626; border: 1px solid #CBD5E1; font-weight: 700; border-radius: 8px; padding: 7px 12px; cursor: pointer;">🔴 Offline</button>
+                <button type="button" class="btn btn-sm" onclick="window.filterSupplierDashboardStatus('outofstock')" id="btnFilterSupOOS" style="background: #F1F5F9; color: #B45309; border: 1px solid #CBD5E1; font-weight: 700; border-radius: 8px; padding: 7px 12px; cursor: pointer;">⚠️ Out of Stock</button>
+            </div>
+        </div>
+
         <div class="supplier-products-container" id="supplierProductsContainer">
             <!-- Dynamic supplier product rows -->
         </div>
