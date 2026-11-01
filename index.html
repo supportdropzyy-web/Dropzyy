@@ -1530,11 +1530,33 @@
                         <option value="non_veg">🔴 Non-Veg (Chicken / Meat)</option>
                     </select>
                 </div>
-                <div class="form-group">
+                                <div class="form-group">
                     <label for="prodStatus"><i class="fa-solid fa-globe text-primary"></i> Website Visibility Mode</label>
                     <select id="prodStatus" class="sort-dropdown" style="padding: 10px;">
-                        <option value="online">🟢 Online (Visible to Website Customers)</option>
-                        <option value="offline">🔴 Offline (Taken off Website)</option>
+                        <option value="online">✅ Online (Visible to Website Customers)</option>
+                        <option value="offline">❌ Offline (Taken off Website)</option>
+                    </select>
+                </div>
+                <!-- Stock Status & Quantity Controls -->
+                <div class="form-group">
+                    <label for="prodStockStatus"><i class="fa-solid fa-boxes-stacked text-primary"></i> Stock Availability Status</label>
+                    <select id="prodStockStatus" class="sort-dropdown" style="padding: 10px;">
+                        <option value="in_stock">✅ In Stock (Available for Customer Orders)</option>
+                        <option value="out_of_stock">❌ Out of Stock (Disabled for Orders)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="prodStockQuantity"><i class="fa-solid fa-calculator text-primary"></i> Stock Quantity / Units</label>
+                    <input type="number" id="prodStockQuantity" min="0" value="50" placeholder="e.g. 50">
+                </div>
+                <div class="form-group full-width" style="background: #F1F5F9; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #CBD5E1;">
+                    <label for="prodShowStockToCustomer" style="margin-bottom: 4px; font-weight: 700; color: #0F172A; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fa-solid fa-eye text-primary"></i> Stock Visibility to Customers</span>
+                        <span style="font-size: 0.75rem; color: #64748B; font-weight: 600;">Show/Hide stock badge to buyers</span>
+                    </label>
+                    <select id="prodShowStockToCustomer" class="sort-dropdown" style="padding: 10px; background: #FFF;">
+                        <option value="true">👁️ Visible to Customer (Show In Stock / Out of Stock / Low Stock count on card)</option>
+                        <option value="false">🔒 Hidden from Customer (Private — Only Admin & Supplier see stock)</option>
                     </select>
                 </div>
 

@@ -2521,6 +2521,8 @@ function renderProducts() {
         const sName = product.supplierName || product.supplier_name || 'Dropzyy Direct';
         const canEdit = canUserEditProduct(product);
         const isOnline = isProductOnline(product);
+        const inStock = product.in_stock !== false && (product.stock_quantity === undefined || product.stock_quantity === null || Number(product.stock_quantity) > 0);
+        const showStockToCust = product.show_stock_to_customer !== false;
         
         // Critical: Check operating hours ONLY for this specific product's supplier!
         const storeCheck = isSupplierStoreOpen(product);
@@ -2537,9 +2539,11 @@ function renderProducts() {
             <div class="product-card" data-id="${product.id}" style="${!isOnline ? 'border: 2px dashed #EF4444; opacity: 0.88;' : ''}">
                 <div class="product-badge-group">
                     ${!isOnline ? `
-                        <span class="product-badge" style="background:#DC2626; color:#FFF; font-weight: 800;">🔴 OFFLINE FROM WEBSITE</span>
+                        <span class="product-badge" style="background:#DC2626; color:#FFF; font-weight: 800;">OFFLINE FROM WEBSITE</span>
+                    ` : !inStock && showStockToCust ? `
+                        <span class="product-badge" style="background:#EF4444; color:#FFF; font-weight: 800;"><i class="fa-solid fa-boxes-stacked"></i> OUT OF STOCK</span>
                     ` : !storeCheck.isOpen ? `
-                        <span class="product-badge" style="background:#F59E0B; color:#FFF; font-weight: 800;">🔴 STORE CLOSED</span>
+                        <span class="product-badge" style="background:#F59E0B; color:#FFF; font-weight: 800;">STORE CLOSED</span>
                     ` : `
                         <span class="product-badge badge-organic">${product.badge}</span>
                         <span class="product-badge badge-discount">${product.discount}</span>
@@ -2578,6 +2582,35 @@ function renderProducts() {
                         ${!storeCheck.isOpen ? `<span style="color:#DC2626; font-size:0.72rem; margin-left:4px; font-weight:700;">(Closed)</span>` : ''}
                     </div>
 
+                    <!-- Customer Stock Status Display (If Enabled) -->
+                    ${showStockToCust ? `
+                        ${!inStock ? `
+                            <div class="product-stock-tag" style="font-size: 0.74rem; font-weight: 700; color: #DC2626; margin-top: 3px;">
+                                <i class="fa-solid fa-box-open"></i> Out of Stock
+                            </div>
+                        ` : (product.stock_quantity !== undefined && product.stock_quantity !== null && Number(product.stock_quantity) <= 5) ? `
+                            <div class="product-stock-tag" style="font-size: 0.74rem; font-weight: 700; color: #D97706; margin-top: 3px;">
+                                <i class="fa-solid fa-fire text-danger"></i> Only ${product.stock_quantity} left in stock!
+                            </div>
+                        ` : `
+                            <div class="product-stock-tag" style="font-size: 0.74rem; font-weight: 600; color: #059669; margin-top: 3px;">
+                                <i class="fa-solid fa-circle-check"></i> In Stock
+                            </div>
+                        `}
+                    ` : ''}
+
+                    <!-- Admin & Supplier Stock Controls on Card -->
+                    ${canEdit ? `
+                        <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 6px; padding: 4px 6px; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0;">
+                            <button type="button" class="btn btn-sm ${inStock ? 'btn-outline-danger' : 'btn-success'}" onclick="event.stopPropagation(); toggleProductStockStatus('${product.id}')" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;" title="Quick toggle In-Stock / Out-of-Stock">
+                                <i class="fa-solid ${inStock ? 'fa-box' : 'fa-ban'}"></i> ${inStock ? `Stock: ${product.stock_quantity ?? 50}` : 'Out of Stock'}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); toggleProductStockVisibility('${product.id}')" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 600;" title="Toggle customer stock visibility">
+                                <i class="fa-solid ${showStockToCust ? 'fa-eye text-primary' : 'fa-eye-slash text-muted'}"></i> ${showStockToCust ? 'Cust: Visible' : 'Cust: Hidden'}
+                            </button>
+                        </div>
+                    ` : ''}
+
                     ${hasVariants ? `
                         <div class="product-variant-selector">
                             ${product.variants.map((v, idx) => `
@@ -2594,12 +2627,17 @@ function renderProducts() {
                             <span class="original-price">₹${product.originalPrice}</span>
                         </div>
                         ${isSupplierUser ? `
-                            <button class="btn btn-sm ${!isOnline ? 'btn-success' : 'btn-secondary'}" onclick="toggleProductOnlineStatus('${product.id}')" style="font-size: 0.75rem; padding: 4px 8px;" title="Click to toggle product Online/Offline">
-                                <i class="fa-solid ${!isOnline ? 'fa-globe' : 'fa-eye-slash'}"></i> ${!isOnline ? 'Set ONLINE' : 'Set OFFLINE'}
-                            </button>
+                            <div style="display: flex; gap: 4px;">
+                                <button class="btn btn-sm ${!isOnline ? 'btn-success' : 'btn-secondary'}" onclick="toggleProductOnlineStatus('${product.id}')" style="font-size: 0.72rem; padding: 4px 6px;" title="Click to toggle product Online/Offline">
+                                    <i class="fa-solid ${!isOnline ? 'fa-globe' : 'fa-eye-slash'}"></i> ${!isOnline ? 'Online' : 'Offline'}
+                                </button>
+                                <button class="btn btn-sm ${inStock ? 'btn-secondary' : 'btn-warning'}" onclick="toggleProductStockStatus('${product.id}')" style="font-size: 0.72rem; padding: 4px 6px;" title="Toggle In-Stock / Out-of-Stock">
+                                    <i class="fa-solid ${inStock ? 'fa-box' : 'fa-ban'}"></i> ${inStock ? 'In Stock' : 'Out Stock'}
+                                </button>
+                            </div>
                         ` : `
-                            <button class="add-cart-btn" onclick="addToCart('${product.id}', 1, ${selectedIdx})" ${(!isOnline || !storeCheck.isOpen) ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} title="${!storeCheck.isOpen ? storeCheck.reason : ''}">
-                                <i class="fa-solid fa-plus"></i> ${!isOnline ? 'Offline' : (!storeCheck.isOpen ? 'Closed' : 'Add')}
+                            <button class="add-cart-btn" onclick="addToCart('${product.id}', 1, ${selectedIdx})" ${(!isOnline || !storeCheck.isOpen || !inStock) ? 'disabled style="opacity:0.55; cursor:not-allowed; background:#94A3B8;"' : ''} title="${!isOnline ? 'Product offline' : (!storeCheck.isOpen ? storeCheck.reason : (!inStock ? 'Out of stock' : 'Add to Cart'))}">
+                                <i class="fa-solid ${!inStock ? 'fa-ban' : 'fa-plus'}"></i> ${!isOnline ? 'Offline' : (!storeCheck.isOpen ? 'Closed' : (!inStock ? 'Out of Stock' : 'Add'))}
                             </button>
                         `}
                     </div>
@@ -2613,6 +2651,13 @@ function renderProducts() {
 async function addToCart(productId, quantity = 1, variantIndex = null) {
     const product = state.products.find(p => String(p.id) === String(productId));
     if (!product) return;
+
+    // Guard: Verify product stock availability
+    const isItemInStock = product.in_stock !== false && (product.stock_quantity === undefined || product.stock_quantity === null || Number(product.stock_quantity) > 0);
+    if (!isItemInStock) {
+        showToast(`'${product.title}' is currently OUT OF STOCK and cannot be ordered.`, 'error');
+        return;
+    }
 
     // Guard: Verify product is online
     if (!isProductOnline(product)) {
@@ -4927,11 +4972,19 @@ function renderSupplierDashboard() {
                 <div class="supplier-item-row" style="${!isOnline ? 'background: #FFF5F5; border: 1px solid #FECACA;' : ''}">
                     <img src="${p.image}" alt="${p.title}" class="supplier-item-thumb">
                     <div class="supplier-item-info">
-                        <div class="supplier-item-title">
-                            ${p.title}
+                        <div class="supplier-item-title" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <strong>${p.title}</strong>
                             ${!isOnline 
-                                ? `<span class="badge" style="background:#FEE2E2; color:#991B1B; font-size:0.75rem; margin-left:6px; padding:2px 8px; border-radius:12px; font-weight:700;">🔴 OFFLINE FROM WEBSITE</span>`
-                                : `<span class="badge" style="background:#D1FAE5; color:#047857; font-size:0.75rem; margin-left:6px; padding:2px 8px; border-radius:12px; font-weight:700;">🟢 ONLINE IN STORE</span>`
+                                ? `<span class="badge" style="background:#FEE2E2; color:#991B1B; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;">❌ OFFLINE</span>`
+                                : `<span class="badge" style="background:#D1FAE5; color:#047857; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;">✅ ONLINE</span>`
+                            }
+                            ${(p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0))
+                                ? `<span class="badge" style="background:#FEE2E2; color:#991B1B; border:1px solid #FECACA; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;"><i class="fa-solid fa-ban"></i> OUT OF STOCK</span>`
+                                : `<span class="badge" style="background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;"><i class="fa-solid fa-boxes-stacked"></i> Stock: ${p.stock_quantity ?? 50}</span>`
+                            }
+                            ${p.show_stock_to_customer !== false
+                                ? `<span class="badge" style="background:#EFF6FF; color:#1E40AF; font-size:0.72rem; padding:2px 6px; border-radius:8px;"><i class="fa-solid fa-eye"></i> Customer: Visible</span>`
+                                : `<span class="badge" style="background:#F1F5F9; color:#475569; font-size:0.72rem; padding:2px 6px; border-radius:8px;"><i class="fa-solid fa-eye-slash"></i> Customer: Hidden</span>`
                             }
                         </div>
                         <div class="supplier-item-meta">
@@ -4943,6 +4996,12 @@ function renderSupplierDashboard() {
                         <button class="btn btn-sm ${!isOnline ? 'btn-success' : 'btn-secondary'}" onclick="toggleProductOnlineStatus('${p.id}')" title="Click to toggle product Online/Offline on website">
                             <i class="fa-solid ${!isOnline ? 'fa-globe' : 'fa-eye-slash'}"></i>
                             ${!isOnline ? 'Set ONLINE' : 'Set OFFLINE'}
+                        </button>
+                        <button class="btn btn-sm ${(p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0)) ? 'btn-success' : 'btn-warning'}" onclick="toggleProductStockStatus('${p.id}')" title="Quick toggle In-Stock / Out-of-Stock">
+                            <i class="fa-solid ${(p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0)) ? 'fa-box' : 'fa-ban'}"></i> ${(p.in_stock === false || (p.stock_quantity !== undefined && p.stock_quantity !== null && Number(p.stock_quantity) <= 0)) ? 'Set IN STOCK' : 'Set OUT OF STOCK'}
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="toggleProductStockVisibility('${p.id}')" title="Toggle Customer Stock Visibility">
+                            <i class="fa-solid ${p.show_stock_to_customer !== false ? 'fa-eye text-primary' : 'fa-eye-slash text-muted'}"></i> ${p.show_stock_to_customer !== false ? 'Cust: Visible' : 'Cust: Hidden'}
                         </button>
                         <button class="btn btn-secondary btn-sm" onclick="openEditProductModal('${p.id}')">
                             <i class="fa-solid fa-pen"></i> Edit
@@ -6338,6 +6397,15 @@ window.openAddProductModal = function() {
     if (document.getElementById('prodStatus')) {
         document.getElementById('prodStatus').value = 'online';
     }
+    if (document.getElementById('prodStockStatus')) {
+        document.getElementById('prodStockStatus').value = 'in_stock';
+    }
+    if (document.getElementById('prodStockQuantity')) {
+        document.getElementById('prodStockQuantity').value = '50';
+    }
+    if (document.getElementById('prodShowStockToCustomer')) {
+        document.getElementById('prodShowStockToCustomer').value = 'true';
+    }
 
     // Reset Food Type & Variants
     if (document.getElementById('prodFoodType')) {
@@ -6418,6 +6486,16 @@ window.openEditProductModal = function(productId) {
     if (document.getElementById('prodStatus')) {
         const isOnline = isProductOnline(product);
         document.getElementById('prodStatus').value = isOnline ? 'online' : 'offline';
+    }
+    if (document.getElementById('prodStockStatus')) {
+        const isSt = product.in_stock !== false && (product.stock_quantity === undefined || product.stock_quantity === null || Number(product.stock_quantity) > 0);
+        document.getElementById('prodStockStatus').value = isSt ? 'in_stock' : 'out_of_stock';
+    }
+    if (document.getElementById('prodStockQuantity')) {
+        document.getElementById('prodStockQuantity').value = product.stock_quantity !== undefined && product.stock_quantity !== null ? product.stock_quantity : 50;
+    }
+    if (document.getElementById('prodShowStockToCustomer')) {
+        document.getElementById('prodShowStockToCustomer').value = product.show_stock_to_customer === false ? 'false' : 'true';
     }
 
     const supplierInput = document.getElementById('prodSupplierName');
@@ -6581,6 +6659,9 @@ function saveProduct(productData, isEdit = false) {
                 supplier_user_id: sUserId || state.products[index].supplier_user_id,
                 isOnline: isOnlineVal,
                 is_online: isOnlineVal,
+                in_stock: productData.in_stock !== false,
+                stock_quantity: productData.stock_quantity !== undefined ? productData.stock_quantity : 50,
+                show_stock_to_customer: productData.show_stock_to_customer !== false,
                 variants: productData.variants || null,
                 food_type: productData.food_type || null,
                 customAdded: true
@@ -6611,6 +6692,9 @@ function saveProduct(productData, isEdit = false) {
                     supplier_company_name: sCompName,
                     supplier_user_id: sUserId,
                     is_online: isOnlineVal,
+                    in_stock: productData.in_stock !== false,
+                    stock_quantity: productData.stock_quantity !== undefined ? productData.stock_quantity : 50,
+                    show_stock_to_customer: productData.show_stock_to_customer !== false,
                     variants: productData.variants || null,
                     food_type: productData.food_type || null
                 })
@@ -6639,6 +6723,9 @@ function saveProduct(productData, isEdit = false) {
             supplier_user_id: sUserId,
             isOnline: isOnlineVal,
             is_online: isOnlineVal,
+            in_stock: productData.in_stock !== false,
+            stock_quantity: productData.stock_quantity !== undefined ? productData.stock_quantity : 50,
+            show_stock_to_customer: productData.show_stock_to_customer !== false,
             variants: productData.variants || null,
             food_type: productData.food_type || null,
             customAdded: true
@@ -7127,6 +7214,9 @@ function setupEventListeners() {
             const supplier_name = document.getElementById('prodSupplierName').value.trim() || 'Dropzyy Direct';
             const description = document.getElementById('prodDesc').value.trim();
             const is_online = document.getElementById('prodStatus') ? (document.getElementById('prodStatus').value === 'online') : true;
+            const in_stock = document.getElementById('prodStockStatus') ? (document.getElementById('prodStockStatus').value === 'in_stock') : true;
+            const stock_quantity = document.getElementById('prodStockQuantity') ? Math.max(0, parseInt(document.getElementById('prodStockQuantity').value) || 0) : 50;
+            const show_stock_to_customer = document.getElementById('prodShowStockToCustomer') ? (document.getElementById('prodShowStockToCustomer').value === 'true') : true;
             const food_type = document.getElementById('prodFoodType') ? (document.getElementById('prodFoodType').value || null) : null;
             const variants = typeof collectProductVariants === 'function' ? collectProductVariants() : null;
 
@@ -7139,6 +7229,9 @@ function setupEventListeners() {
                     discount: Math.round(((original_price - price) / original_price) * 100) + '% OFF',
                     description,
                     is_online,
+                    in_stock,
+                    stock_quantity,
+                    show_stock_to_customer,
                     food_type,
                     variants
                 };

@@ -159,6 +159,16 @@ def auto_migrate_db():
         except Exception:
             pass
         for col, col_type in [
+            ("in_stock", "BOOLEAN DEFAULT 1"),
+            ("stock_quantity", "INTEGER DEFAULT 50"),
+            ("show_stock_to_customer", "BOOLEAN DEFAULT 1"),
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE products ADD COLUMN {col} {col_type}"))
+                conn.commit()
+            except Exception:
+                pass
+        for col, col_type in [
             ("cancelled_by", "VARCHAR"),
             ("cancel_reason", "TEXT"),
             ("cancelled_at", "VARCHAR")
@@ -2261,6 +2271,9 @@ def get_products(
                     supplier_id=int(p["supplier_id"]) if (p.get("supplier_id") is not None and str(p.get("supplier_id")).isdigit()) else None,
                     supplier_user_id=str(p.get("supplier_user_id")) if p.get("supplier_user_id") else None,
                     is_online=bool(p.get("is_online", True)),
+                    in_stock=bool(p.get("in_stock", True)) if p.get("in_stock") is not None else True,
+                    stock_quantity=int(p.get("stock_quantity", 50)) if (p.get("stock_quantity") is not None and str(p.get("stock_quantity")).lstrip("-").isdigit()) else 50,
+                    show_stock_to_customer=bool(p.get("show_stock_to_customer", True)) if p.get("show_stock_to_customer") is not None else True,
                     variants=p.get("variants"),
                     food_type=p.get("food_type")
                 ))
@@ -2283,6 +2296,9 @@ def get_products(
 def create_product(product_data: schemas.ProductCreate, db: Session = Depends(get_db), _supplier: dict = Depends(require_supplier)):
     product_id = "k_" + str(uuid.uuid4())[:8]
     is_on = bool(product_data.is_online if product_data.is_online is not None else True)
+    in_st = bool(product_data.in_stock if product_data.in_stock is not None else True)
+    st_qty = int(product_data.stock_quantity if product_data.stock_quantity is not None else 50)
+    sh_st = bool(product_data.show_stock_to_customer if product_data.show_stock_to_customer is not None else True)
     sup_uid = int(product_data.supplier_user_id) if (product_data.supplier_user_id and str(product_data.supplier_user_id).isdigit()) else None
     new_product = models.Product(
         id=product_id,
@@ -2299,7 +2315,10 @@ def create_product(product_data: schemas.ProductCreate, db: Session = Depends(ge
         supplier_name=product_data.supplier_name or "Dropzyy Direct",
         supplier_id=product_data.supplier_id,
         supplier_user_id=sup_uid,
-        is_online=is_on
+        is_online=is_on,
+        in_stock=in_st,
+        stock_quantity=st_qty,
+        show_stock_to_customer=sh_st
     )
     db.add(new_product)
     db.commit()
@@ -2323,6 +2342,9 @@ def create_product(product_data: schemas.ProductCreate, db: Session = Depends(ge
                 "supplier_company_name": product_data.supplier_company_name or new_product.supplier_name,
                 "supplier_user_id": product_data.supplier_user_id,
                 "is_online": is_on,
+                "in_stock": in_st,
+                "stock_quantity": st_qty,
+                "show_stock_to_customer": sh_st,
                 "variants": product_data.variants,
                 "food_type": product_data.food_type
             })
@@ -2333,6 +2355,9 @@ def create_product(product_data: schemas.ProductCreate, db: Session = Depends(ge
     setattr(new_product, 'supplier_company_name', product_data.supplier_company_name or new_product.supplier_name)
     setattr(new_product, 'supplier_user_id', product_data.supplier_user_id)
     setattr(new_product, 'is_online', is_on)
+    setattr(new_product, 'in_stock', in_st)
+    setattr(new_product, 'stock_quantity', st_qty)
+    setattr(new_product, 'show_stock_to_customer', sh_st)
     setattr(new_product, 'variants', product_data.variants)
     setattr(new_product, 'food_type', product_data.food_type)
     return new_product
@@ -2350,7 +2375,10 @@ def update_product(product_id: str, product_data: schemas.ProductCreate, db: Ses
             if prod_sup_name and caller_name and prod_sup_name != caller_name and prod_sup_uid != caller_id:
                 raise HTTPException(status_code=403, detail="Forbidden: You can only modify your own products.")
 
-    is_on = bool(product_data.is_online if product_data.is_online is not None else True)
+        is_on = bool(product_data.is_online if product_data.is_online is not None else True)
+    in_st = bool(product_data.in_stock if product_data.in_stock is not None else True)
+    st_qty = int(product_data.stock_quantity if product_data.stock_quantity is not None else 50)
+    sh_st = bool(product_data.show_stock_to_customer if product_data.show_stock_to_customer is not None else True)
     if mongo_db.is_mongo_active():
         try:
             mongo_db.mongo_save_product({
@@ -2369,6 +2397,9 @@ def update_product(product_id: str, product_data: schemas.ProductCreate, db: Ses
                 "supplier_company_name": product_data.supplier_company_name,
                 "supplier_user_id": product_data.supplier_user_id,
                 "is_online": is_on,
+                "in_stock": in_st,
+                "stock_quantity": st_qty,
+                "show_stock_to_customer": sh_st,
                 "variants": product_data.variants,
                 "food_type": product_data.food_type
             })
@@ -2392,11 +2423,20 @@ def update_product(product_id: str, product_data: schemas.ProductCreate, db: Ses
             product.supplier_user_id = int(product_data.supplier_user_id)
         if product_data.is_online is not None:
             product.is_online = is_on
+        if product_data.in_stock is not None:
+            product.in_stock = bool(product_data.in_stock)
+        if product_data.stock_quantity is not None:
+            product.stock_quantity = int(product_data.stock_quantity)
+        if product_data.show_stock_to_customer is not None:
+            product.show_stock_to_customer = bool(product_data.show_stock_to_customer)
         db.commit()
         db.refresh(product)
         setattr(product, 'supplier_company_name', product_data.supplier_company_name)
         setattr(product, 'supplier_user_id', product_data.supplier_user_id)
         setattr(product, 'is_online', is_on)
+        setattr(product, 'in_stock', in_st)
+        setattr(product, 'stock_quantity', st_qty)
+        setattr(product, 'show_stock_to_customer', sh_st)
         setattr(product, 'variants', product_data.variants)
         setattr(product, 'food_type', product_data.food_type)
         return product
@@ -2422,6 +2462,61 @@ def update_product(product_id: str, product_data: schemas.ProductCreate, db: Ses
         variants=product_data.variants,
         food_type=product_data.food_type
     )
+
+@app.patch("/api/products/{product_id}/stock")
+def update_product_stock_quick(
+    product_id: str,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    _supplier: dict = Depends(require_supplier)
+):
+    """
+    Quick stock management endpoint for Admin and Supplier.
+    Allows toggling: in_stock (bool), stock_quantity (int), show_stock_to_customer (bool), is_online (bool).
+    """
+    role = str(_supplier.get("role", "")).lower()
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if role not in ["admin", "sub_admin"] and product:
+        caller_name = (_supplier.get("supplier_company_name") or _supplier.get("username") or "").lower()
+        caller_id = str(_supplier.get("sub", ""))
+        prod_sup_name = (product.supplier_name or "").lower()
+        prod_sup_uid = str(product.supplier_user_id or "")
+        if prod_sup_name and caller_name and prod_sup_name != caller_name and prod_sup_uid != caller_id:
+            raise HTTPException(status_code=403, detail="Forbidden: You can only update stock for your own products.")
+
+    updates = {}
+    if "in_stock" in payload:
+        updates["in_stock"] = bool(payload["in_stock"])
+    if "stock_quantity" in payload:
+        try:
+            updates["stock_quantity"] = max(0, int(payload["stock_quantity"]))
+        except (ValueError, TypeError):
+            pass
+    if "show_stock_to_customer" in payload:
+        updates["show_stock_to_customer"] = bool(payload["show_stock_to_customer"])
+    if "is_online" in payload:
+        updates["is_online"] = bool(payload["is_online"])
+
+    if product:
+        for k, v in updates.items():
+            if hasattr(product, k):
+                setattr(product, k, v)
+        db.commit()
+        db.refresh(product)
+
+    if mongo_db.is_mongo_active():
+        try:
+            m_db = mongo_db.get_mongo_db()
+            if m_db is not None and updates:
+                m_db.products.update_one({"id": str(product_id)}, {"$set": updates})
+        except Exception as m_e:
+            print(f"[MONGODB STOCK PATCH ERROR]: {m_e}")
+
+    return {
+        "status": "success",
+        "product_id": product_id,
+        "updated": updates
+    }
 
 @app.delete("/api/products/{product_id}")
 def delete_product(product_id: str, db: Session = Depends(get_db), _supplier: dict = Depends(require_supplier)):

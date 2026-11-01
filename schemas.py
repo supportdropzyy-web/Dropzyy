@@ -130,6 +130,9 @@ class ProductCreate(BaseModel):
     supplier_id: Optional[Union[int, str]] = None
     supplier_user_id: Optional[Union[str, int]] = None
     is_online: Optional[bool] = True
+    in_stock: Optional[bool] = True
+    stock_quantity: Optional[int] = 50
+    show_stock_to_customer: Optional[bool] = True
     variants: Optional[List[Dict[str, Any]]] = None
     food_type: Optional[str] = None
 
@@ -152,6 +155,9 @@ class ProductResponse(BaseModel):
     supplier_id: Optional[Union[int, str]] = None
     supplier_user_id: Optional[Union[str, int]] = None
     is_online: Optional[bool] = True
+    in_stock: Optional[bool] = True
+    stock_quantity: Optional[int] = 50
+    show_stock_to_customer: Optional[bool] = True
     variants: Optional[List[Dict[str, Any]]] = None
     food_type: Optional[str] = None
 

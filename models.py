@@ -59,6 +59,9 @@ class Product(Base):
     nutrition = Column(Text, nullable=True)
     supplier_name = Column(String, default="Dropzyy Direct Mandi") # e.g. 'Ramesh Kirana Wholesale Co.'
     is_online = Column(Boolean, default=True)
+    in_stock = Column(Boolean, default=True)
+    stock_quantity = Column(Integer, default=50)
+    show_stock_to_customer = Column(Boolean, default=True)
     
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
     supplier_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
