@@ -142,6 +142,7 @@ def auto_migrate_db():
             ("is_verified", "BOOLEAN"),
             ("banner_image", "VARCHAR"),
             ("menu_card_image", "VARCHAR"),
+            ("max_devices", "INTEGER DEFAULT 1"),
         ]:
             try:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
@@ -1547,6 +1548,8 @@ def register_user(user_data: schemas.UserRegister, request: Request, db: Session
     if not user_city and assigned_role == "supplier":
         user_city = "Savda"
 
+    max_dev_val = int(user_data.max_devices or 1) if user_data.max_devices else 1
+
     new_user = models.User(
         username=derived_username,
         email=email_clean,
@@ -1556,7 +1559,8 @@ def register_user(user_data: schemas.UserRegister, request: Request, db: Session
         supplier_company_name=supplier_comp,
         city=user_city if user_city else None,
         role=assigned_role,
-        is_verified=True
+        is_verified=True,
+        max_devices=max_dev_val
     )
     db.add(new_user)
     db.commit()
@@ -1575,7 +1579,8 @@ def register_user(user_data: schemas.UserRegister, request: Request, db: Session
                 "role": assigned_role,
                 "supplier_company_name": supplier_comp,
                 "city": new_user.city,
-                "is_verified": True
+                "is_verified": True,
+                "max_devices": max_dev_val
             })
             print(f"[MONGODB USER SUCCESS] Account @{derived_username} ({email_clean}) saved to MongoDB Atlas!")
         except Exception as m_err:
@@ -1605,6 +1610,70 @@ def register_user(user_data: schemas.UserRegister, request: Request, db: Session
     setattr(new_user, 'access_token', token)
     setattr(new_user, 'token_type', 'bearer')
     return new_user
+
+
+def check_and_register_supplier_device(user: models.User, credentials: schemas.UserLogin, request: Request, db: Session):
+    """
+    Validates device login limit for suppliers.
+    If limit is exceeded, raises HTTP 403 Forbidden.
+    If allowed, registers/updates the active device session in SQLite and MongoDB.
+    """
+    if not user or user.role != "supplier":
+        return
+
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("User-Agent", "Web Browser")
+    dev_name = (credentials.device_name or "").strip() or user_agent[:40]
+    dev_id = (credentials.device_id or "").strip()
+
+    if not dev_id:
+        raw = f"{client_ip}_{user_agent[:60]}"
+        dev_id = f"dev_{hashlib.md5(raw.encode()).hexdigest()[:12]}"
+
+    max_dev = getattr(user, "max_devices", 1) or 1
+
+    active_sessions = db.query(models.UserDeviceSession).filter(
+        models.UserDeviceSession.user_id == user.id,
+        models.UserDeviceSession.is_active == True
+    ).all()
+
+    existing = next((s for s in active_sessions if s.device_id == dev_id), None)
+    if existing:
+        existing.last_active_at = datetime.datetime.utcnow()
+        existing.ip_address = client_ip
+        existing.device_name = dev_name
+        db.commit()
+    else:
+        if len(active_sessions) >= max_dev:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Device limit exceeded! Your supplier account is restricted to {max_dev} active device(s). It is currently logged in on {len(active_sessions)} other device(s). Please log out from another device or ask Dropzyy Admin to increase your device limit."
+            )
+        
+        new_sess = models.UserDeviceSession(
+            user_id=user.id,
+            device_id=dev_id,
+            device_name=dev_name,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            is_active=True,
+            last_active_at=datetime.datetime.utcnow(),
+            created_at=datetime.datetime.utcnow()
+        )
+        db.add(new_sess)
+        db.commit()
+
+    if mongo_db.is_mongo_active():
+        mongo_db.mongo_add_or_update_user_device(
+            user.username,
+            {
+                "device_id": dev_id,
+                "device_name": dev_name,
+                "ip_address": client_ip,
+                "user_agent": user_agent
+            },
+            max_devices=max_dev
+        )
 
 @app.post("/api/auth/login", response_model=schemas.UserResponse)
 def login_user(credentials: schemas.UserLogin, request: Request, db: Session = Depends(get_db)):
@@ -1651,10 +1720,17 @@ def login_user(credentials: schemas.UserLogin, request: Request, db: Session = D
             db.commit()
 
     if user and is_valid_pw:
+        # Check supplier device limit
+        check_and_register_supplier_device(user, credentials, request, db)
         # Generate JWT Bearer Token
         token = auth.create_access_token(user.id, user.username, user.role)
         setattr(user, 'access_token', token)
         setattr(user, 'token_type', 'bearer')
+        act_cnt = db.query(models.UserDeviceSession).filter(
+            models.UserDeviceSession.user_id == user.id,
+            models.UserDeviceSession.is_active == True
+        ).count()
+        setattr(user, 'active_devices_count', act_cnt)
         return user
 
     # If not found or failed in SQLite, check MongoDB Atlas if active
@@ -1677,12 +1753,19 @@ def login_user(credentials: schemas.UserLogin, request: Request, db: Session = D
                         close_time=m_user.get("close_time") or "10:00 PM",
                         store_open=m_user.get("store_open") if m_user.get("store_open") is not None else True
                     )
+                    cached_user.max_devices = int(m_user.get("max_devices", 1) or 1)
                     db.add(cached_user)
                     db.commit()
                     db.refresh(cached_user)
+                    check_and_register_supplier_device(cached_user, credentials, request, db)
                     token = auth.create_access_token(cached_user.id, cached_user.username, cached_user.role)
                     setattr(cached_user, 'access_token', token)
                     setattr(cached_user, 'token_type', 'bearer')
+                    act_cnt = db.query(models.UserDeviceSession).filter(
+                        models.UserDeviceSession.user_id == cached_user.id,
+                        models.UserDeviceSession.is_active == True
+                    ).count()
+                    setattr(cached_user, 'active_devices_count', act_cnt)
                     return cached_user
                 except Exception as sync_err:
                     db.rollback()
@@ -2116,7 +2199,179 @@ def get_all_users(db: Session = Depends(get_db), _admin: dict = Depends(require_
             return res
         except Exception as e:
             print(f"[MONGODB USER GET ERR]: {e}")
-    return list(db.query(models.User).all())
+    all_users = list(db.query(models.User).all())
+    for u in all_users:
+        act_c = db.query(models.UserDeviceSession).filter(
+            models.UserDeviceSession.user_id == u.id,
+            models.UserDeviceSession.is_active == True
+        ).count()
+        setattr(u, 'active_devices_count', act_c)
+    return all_users
+
+
+@app.post("/api/auth/logout")
+def logout_user_session(
+    payload: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    caller: dict = Depends(require_authenticated_user)
+):
+    sub = caller.get("sub")
+    dev_id = payload.get("device_id")
+    if sub and dev_id:
+        try:
+            db.query(models.UserDeviceSession).filter(
+                models.UserDeviceSession.user_id == int(sub) if str(sub).isdigit() else False,
+                models.UserDeviceSession.device_id == str(dev_id).strip()
+            ).update({"is_active": False})
+            db.commit()
+        except Exception:
+            pass
+        if mongo_db.is_mongo_active():
+            mongo_db.mongo_remove_user_device(caller.get("username"), dev_id)
+    return {"message": "Logged out successfully"}
+
+# ==========================================
+# Supplier Device Access & Limits Management (Admin Direct Control)
+# ==========================================
+@app.get("/api/admin/suppliers/{identifier}/devices", response_model=schemas.SupplierDeviceAccessInfo)
+def get_supplier_devices(identifier: str, db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):
+    clean_id = identifier.strip().lower()
+    user = db.query(models.User).filter(
+        (models.User.username.ilike(clean_id)) | 
+        (models.User.email.ilike(clean_id)) |
+        (models.User.id == int(clean_id) if clean_id.isdigit() else False)
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail=f"Supplier '{identifier}' not found!")
+
+    sessions = db.query(models.UserDeviceSession).filter(
+        models.UserDeviceSession.user_id == user.id,
+        models.UserDeviceSession.is_active == True
+    ).all()
+
+    dev_list = []
+    for s in sessions:
+        dev_list.append(schemas.SupplierDeviceSessionResponse(
+            id=s.id,
+            device_id=s.device_id,
+            device_name=s.device_name or "Web Browser",
+            ip_address=s.ip_address or "Unknown",
+            last_active_at=s.last_active_at.isoformat() if s.last_active_at else None,
+            created_at=s.created_at.isoformat() if s.created_at else None,
+            is_active=s.is_active
+        ))
+
+    # Also merge MongoDB devices if available
+    if mongo_db.is_mongo_active():
+        m_devs = mongo_db.mongo_get_user_devices(user.username)
+        for md in m_devs:
+            if not any(d.device_id == md.get("device_id") for d in dev_list):
+                dev_list.append(schemas.SupplierDeviceSessionResponse(
+                    id=None,
+                    device_id=md.get("device_id", "unknown"),
+                    device_name=md.get("device_name", "Mobile / Web Device"),
+                    ip_address=md.get("ip_address", "Unknown IP"),
+                    last_active_at=md.get("last_active_at"),
+                    created_at=md.get("created_at"),
+                    is_active=True
+                ))
+
+    return schemas.SupplierDeviceAccessInfo(
+        user_id=user.id,
+        username=user.username,
+        full_name=user.full_name,
+        supplier_company_name=user.supplier_company_name,
+        max_devices=getattr(user, "max_devices", 1) or 1,
+        active_devices_count=len(dev_list),
+        devices=dev_list
+    )
+
+@app.put("/api/admin/suppliers/{identifier}/device-limit")
+def update_supplier_device_limit(
+    identifier: str,
+    payload: schemas.SupplierDeviceLimitUpdate,
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(require_admin)
+):
+    clean_id = identifier.strip().lower()
+    user = db.query(models.User).filter(
+        (models.User.username.ilike(clean_id)) | 
+        (models.User.email.ilike(clean_id)) |
+        (models.User.id == int(clean_id) if clean_id.isdigit() else False)
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail=f"Supplier '{identifier}' not found!")
+
+    if payload.max_devices < 1:
+        raise HTTPException(status_code=400, detail="Device limit must be at least 1!")
+
+    user.max_devices = payload.max_devices
+    db.commit()
+
+    if mongo_db.is_mongo_active():
+        mongo_db.mongo_set_user_device_limit(user.username, payload.max_devices)
+
+    return {
+        "message": f"Device limit updated to {payload.max_devices} for supplier '{user.username}'",
+        "username": user.username,
+        "max_devices": payload.max_devices
+    }
+
+@app.post("/api/admin/suppliers/{identifier}/reset-devices")
+def reset_supplier_devices(identifier: str, db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):
+    clean_id = identifier.strip().lower()
+    user = db.query(models.User).filter(
+        (models.User.username.ilike(clean_id)) | 
+        (models.User.email.ilike(clean_id)) |
+        (models.User.id == int(clean_id) if clean_id.isdigit() else False)
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail=f"Supplier '{identifier}' not found!")
+
+    db.query(models.UserDeviceSession).filter(
+        models.UserDeviceSession.user_id == user.id
+    ).update({"is_active": False})
+    db.commit()
+
+    if mongo_db.is_mongo_active():
+        mongo_db.mongo_reset_user_devices(user.username)
+
+    return {
+        "message": f"All active device sessions have been revoked for supplier '{user.username}'. Supplier can now log in on a new device."
+    }
+
+@app.delete("/api/admin/suppliers/{identifier}/devices/{device_id}")
+def revoke_single_supplier_device(
+    identifier: str,
+    device_id: str,
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(require_admin)
+):
+    clean_id = identifier.strip().lower()
+    user = db.query(models.User).filter(
+        (models.User.username.ilike(clean_id)) | 
+        (models.User.email.ilike(clean_id)) |
+        (models.User.id == int(clean_id) if clean_id.isdigit() else False)
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail=f"Supplier '{identifier}' not found!")
+
+    db.query(models.UserDeviceSession).filter(
+        models.UserDeviceSession.user_id == user.id,
+        models.UserDeviceSession.device_id == str(device_id).strip()
+    ).update({"is_active": False})
+    db.commit()
+
+    if mongo_db.is_mongo_active():
+        mongo_db.mongo_remove_user_device(user.username, device_id)
+
+    return {
+        "message": f"Device session '{device_id}' revoked for supplier '{user.username}'."
+    }
 
 @app.delete("/api/admin/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):

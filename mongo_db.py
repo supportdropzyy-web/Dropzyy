@@ -167,6 +167,127 @@ def mongo_update_user(identifier: str, update_dict: dict) -> bool:
         print(f"[MONGODB USER UPDATE ERR]: {e}")
         return False
 
+# ==========================================
+# Supplier Device Management (MongoDB Atlas)
+# ==========================================
+def mongo_get_user_devices(identifier: str) -> List[Dict[str, Any]]:
+    """Get active device sessions for a supplier from MongoDB Atlas."""
+    db = get_mongo_db()
+    if db is None or not identifier: return []
+    clean = str(identifier).strip().lower()
+    try:
+        user = db.users.find_one({"$or": [
+            {"username": clean},
+            {"email": clean},
+            {"supplier_company_name": str(identifier).strip()}
+        ]})
+        if user and "active_devices" in user and isinstance(user["active_devices"], list):
+            return user["active_devices"]
+    except Exception as e:
+        print(f"[MONGODB GET DEVICES ERR]: {e}")
+    return []
+
+def mongo_add_or_update_user_device(identifier: str, device_data: dict, max_devices: int = 1) -> tuple:
+    """
+    Register or refresh a device session in MongoDB Atlas for a supplier.
+    Enforces max_devices limit. Returns (success: bool, message: str).
+    """
+    db = get_mongo_db()
+    if db is None or not identifier or not device_data:
+        return True, "MongoDB offline; fallback to SQLite"
+    clean = str(identifier).strip().lower()
+    dev_id = str(device_data.get("device_id", "")).strip()
+    if not dev_id:
+        return True, "No device id supplied"
+
+    try:
+        user = db.users.find_one({"$or": [
+            {"username": clean},
+            {"email": clean},
+            {"supplier_company_name": str(identifier).strip()}
+        ]})
+        if not user:
+            return True, "User not in mongo"
+
+        # Check existing devices
+        active = user.get("active_devices") or []
+        existing_idx = next((i for i, d in enumerate(active) if d.get("device_id") == dev_id), -1)
+
+        now_str = datetime.datetime.utcnow().isoformat()
+        if existing_idx >= 0:
+            # Refresh existing device session
+            active[existing_idx]["last_active_at"] = now_str
+            active[existing_idx]["ip_address"] = device_data.get("ip_address") or active[existing_idx].get("ip_address")
+            active[existing_idx]["device_name"] = device_data.get("device_name") or active[existing_idx].get("device_name")
+            db.users.update_one({"_id": user["_id"]}, {"$set": {"active_devices": active}})
+            return True, "Session refreshed"
+        else:
+            # New device - verify device limit
+            user_max = int(user.get("max_devices") or max_devices or 1)
+            if len(active) >= user_max:
+                return False, f"Device limit reached ({len(active)}/{user_max} active devices)"
+            
+            new_dev = {
+                "device_id": dev_id,
+                "device_name": device_data.get("device_name") or "Web Browser",
+                "ip_address": device_data.get("ip_address") or "",
+                "user_agent": device_data.get("user_agent") or "",
+                "created_at": now_str,
+                "last_active_at": now_str,
+                "is_active": True
+            }
+            active.append(new_dev)
+            db.users.update_one({"_id": user["_id"]}, {"$set": {"active_devices": active}})
+            return True, "Device registered"
+    except Exception as e:
+        print(f"[MONGODB DEVICE REGISTER ERR]: {e}")
+        return True, str(e)
+
+def mongo_remove_user_device(identifier: str, device_id: str) -> bool:
+    """Remove a specific device session for a supplier in MongoDB."""
+    db = get_mongo_db()
+    if db is None or not identifier or not device_id: return False
+    clean = str(identifier).strip().lower()
+    try:
+        res = db.users.update_many(
+            {"$or": [{"username": clean}, {"email": clean}]},
+            {"$pull": {"active_devices": {"device_id": str(device_id).strip()}}}
+        )
+        return res.modified_count > 0
+    except Exception as e:
+        print(f"[MONGODB REMOVE DEVICE ERR]: {e}")
+        return False
+
+def mongo_reset_user_devices(identifier: str) -> bool:
+    """Clear all active device sessions for a supplier in MongoDB."""
+    db = get_mongo_db()
+    if db is None or not identifier: return False
+    clean = str(identifier).strip().lower()
+    try:
+        res = db.users.update_many(
+            {"$or": [{"username": clean}, {"email": clean}]},
+            {"$set": {"active_devices": []}}
+        )
+        return res.modified_count > 0
+    except Exception as e:
+        print(f"[MONGODB RESET DEVICES ERR]: {e}")
+        return False
+
+def mongo_set_user_device_limit(identifier: str, max_devices: int) -> bool:
+    """Directly update maximum allowed devices limit for a supplier in MongoDB."""
+    db = get_mongo_db()
+    if db is None or not identifier: return False
+    clean = str(identifier).strip().lower()
+    try:
+        res = db.users.update_many(
+            {"$or": [{"username": clean}, {"email": clean}, {"supplier_company_name": str(identifier).strip()}]},
+            {"$set": {"max_devices": int(max_devices)}}
+        )
+        return res.modified_count > 0
+    except Exception as e:
+        print(f"[MONGODB SET DEVICE LIMIT ERR]: {e}")
+        return False
+
 def mongo_get_all_restaurants() -> List[Dict[str, Any]]:
     """Retrieve all supplier partner restaurants and stores directly from MongoDB Atlas."""
     db = get_mongo_db()

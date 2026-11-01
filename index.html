@@ -869,6 +869,20 @@
                 <input type="text" id="adminRegCity" list="serviceableCitiesList" placeholder="e.g. Savda, Bhusawal, Jalgaon, Mumbai..." style="width: 100%; padding: 10px; border: 1.5px solid #CBD5E1; border-radius: 8px;">
             </div>
 
+            <div class="form-group" id="adminSupplierDeviceLimitGroup" style="margin-bottom: 12px;">
+                <label for="adminRegMaxDevices"><i class="fa-solid fa-mobile-screen text-primary"></i> Allowed Device Limit</label>
+                <select id="adminRegMaxDevices" class="sort-dropdown" style="width: 100%; padding: 10px;">
+                    <option value="1" selected>1 Device (Standard / Single Device Access)</option>
+                    <option value="2">2 Devices (Phone + PC / Tablet)</option>
+                    <option value="3">3 Devices</option>
+                    <option value="5">5 Devices</option>
+                    <option value="999">Unlimited Devices</option>
+                </select>
+                <small style="color: #64748B; font-size: 0.78rem; display: block; margin-top: 4px;">
+                    Admin directly limits concurrent logins for this supplier.
+                </small>
+            </div>
+
             <div class="form-group" style="margin-bottom: 12px;">
                 <label for="adminRegUsername">Username</label>
                 <input type="text" id="adminRegUsername" required placeholder="e.g. ramesh_wholesaler">
@@ -889,6 +903,59 @@
                 </button>
             </div>
         </form>
+    </div>
+
+    <!-- Admin Manage Supplier Device Access & Limits Modal -->
+    <div class="modal-overlay" id="supplierDeviceOverlay" onclick="closeModals()"></div>
+    <div class="admin-modal" id="supplierDeviceModal" style="max-width: 650px; width: 92%;">
+        <button type="button" class="close-modal-btn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+
+        <div style="margin-bottom: 12px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Panel
+            </button>
+        </div>
+
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-laptop-mobile text-primary"></i> Supplier Device Access & Rights</h2>
+            <p id="supplierDeviceSubtitle">Manage how many devices this supplier can log in from and control active sessions</p>
+        </div>
+
+        <div id="supplierDeviceNotice" style="margin-bottom: 14px;"></div>
+
+        <div style="background: var(--bg-secondary); padding: 16px; border-radius: var(--radius-md); margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px; color: #1E293B;"><i class="fa-solid fa-shield-halved text-primary"></i> Configure Device Login Limit</h4>
+            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label for="supplierDeviceLimitSelect" style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 0.85rem;">Max Allowed Concurrent Devices:</label>
+                    <select id="supplierDeviceLimitSelect" style="width: 100%; padding: 9px 12px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-weight: 600; font-size: 0.9rem; background: #FFF;">
+                        <option value="1">1 Device (Strict - Default)</option>
+                        <option value="2">2 Devices (e.g. Phone + PC)</option>
+                        <option value="3">3 Devices</option>
+                        <option value="5">5 Devices</option>
+                        <option value="10">10 Devices</option>
+                        <option value="999">Unlimited Devices (No Restriction)</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary" id="btnSaveSupplierDeviceLimit" onclick="handleSaveSupplierDeviceLimit()" style="height: 42px; padding: 0 16px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Limit
+                </button>
+            </div>
+            <small style="color: #64748B; font-size: 0.78rem; display: block; margin-top: 8px;">
+                <i class="fa-solid fa-circle-info text-primary"></i> If the supplier attempts to log in from more than this number of devices, login is immediately blocked.
+            </small>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <h3 style="margin: 0; font-size: 1.05rem;"><i class="fa-solid fa-mobile-screen-button text-primary"></i> Active Logged-in Devices</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="handleResetAllSupplierDevices()" style="color: #DC2626; border-color: #FECACA; background: #FEF2F2; font-weight: 700;" title="Kick out all sessions so supplier can login from a new phone">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout All Devices
+            </button>
+        </div>
+
+        <div id="supplierActiveDevicesListContainer" style="max-height: 280px; overflow-y: auto;">
+            <!-- Rendered by JS -->
+        </div>
     </div>
 
     <!-- Admin Delivery & Free Shipping Settings Modal -->

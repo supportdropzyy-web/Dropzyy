@@ -3122,14 +3122,44 @@ window.saveUserSession = function(user) {
     } catch (e) {}
 };
 
+function getOrCreateDeviceId() {
+    let devId = localStorage.getItem('dropzyy_device_id');
+    if (!devId || typeof devId !== 'string' || devId.trim() === '') {
+        devId = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
+        localStorage.setItem('dropzyy_device_id', devId);
+    }
+    return devId;
+}
+
+function getDeviceName() {
+    const ua = navigator.userAgent || '';
+    let browser = 'Browser';
+    if (ua.includes('Firefox')) browser = 'Firefox';
+    else if (ua.includes('SamsungBrowser')) browser = 'Samsung Internet';
+    else if (ua.includes('Opera') || ua.includes('OPR')) browser = 'Opera';
+    else if (ua.includes('Edge') || ua.includes('Edg')) browser = 'Edge';
+    else if (ua.includes('Chrome')) browser = 'Chrome';
+    else if (ua.includes('Safari')) browser = 'Safari';
+
+    let os = 'Device';
+    if (/android/i.test(ua)) os = 'Android Phone';
+    else if (/iPad|iPhone|iPod/.test(ua)) os = 'iPhone/iPad';
+    else if (/Windows/i.test(ua)) os = 'Windows PC';
+    else if (/Macintosh|Mac OS X/i.test(ua)) os = 'Mac';
+    else if (/Linux/i.test(ua)) os = 'Linux';
+
+    return `${browser} on ${os}`;
+}
+
 async function loginUser(username, password) {
     if (!username || !password) return;
 
     const cleanInput = username.trim().toLowerCase();
-
     const cleanAlpha = cleanInput.replace(/[^a-z0-9]/g, '');
+    const deviceId = getOrCreateDeviceId();
+    const deviceName = getDeviceName();
 
-    // 1. Check local registered users list for instant responsiveness
+    // 1. Check local registered users list
     const matchedUser = registeredUsers.find(u => {
         const uClean = (u.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const cClean = (u.supplier_company_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -3148,7 +3178,41 @@ async function loginUser(username, password) {
         return false;
     });
     
-    if (matchedUser) {
+    // For suppliers, strictly verify device limits with server BEFORE allowing access
+    if (matchedUser && matchedUser.role === 'supplier') {
+        try {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    username: matchedUser.username || username, 
+                    password, 
+                    device_id: deviceId, 
+                    device_name: deviceName 
+                })
+            }, 8000);
+
+            if (response) {
+                if (response.status === 403) {
+                    const errData = await response.json().catch(() => ({}));
+                    showToast(errData.detail || 'Device limit reached! You are already logged in on the maximum allowed devices. Please contact Dropzyy Admin or log out from another device.', 'error');
+                    return;
+                }
+                if (response.ok) {
+                    const apiUser = await response.json();
+                    state.currentUser = { ...matchedUser, ...apiUser };
+                    saveUserSession(state.currentUser);
+                    updateUserAuthUI();
+                    renderProducts();
+                    closeModals();
+                    showToast(`Logged in as <strong>${matchedUser.supplier_company_name || matchedUser.full_name}</strong> (${matchedUser.role})!`, 'success');
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Backend login verification failed:', e);
+        }
+    } else if (matchedUser) {
         state.currentUser = { ...matchedUser };
         saveUserSession(state.currentUser);
         updateUserAuthUI();
@@ -3156,11 +3220,11 @@ async function loginUser(username, password) {
         closeModals();
         showToast(`Logged in as <strong>${matchedUser.supplier_company_name || matchedUser.full_name}</strong> (${matchedUser.role})!`, 'success');
 
-        // Request fresh JWT bearer token from backend so product mutations are authenticated
+        // Request fresh JWT bearer token from backend in background
         fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ username, password, device_id: deviceId, device_name: deviceName })
         }, 5000).then(res => res && res.ok && res.json()).then(apiUser => {
             if (apiUser && (apiUser.access_token || apiUser.token)) {
                 state.currentUser = { ...matchedUser, ...apiUser };
@@ -3175,22 +3239,29 @@ async function loginUser(username, password) {
         const response = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        }, 5000);
+            body: JSON.stringify({ username, password, device_id: deviceId, device_name: deviceName })
+        }, 8000);
 
-        if (response && response.ok) {
-            const user = await response.json();
-            state.currentUser = user;
-            saveUserSession(user);
-            if (!registeredUsers.some(u => (u.username || '').toLowerCase() === (user.username || '').toLowerCase())) {
-                registeredUsers.push(user);
-                persistRegisteredUsers();
+        if (response) {
+            if (response.status === 403) {
+                const errData = await response.json().catch(() => ({}));
+                showToast(errData.detail || 'Device limit reached! You are already logged in on the maximum allowed devices. Please contact Dropzyy Admin or log out from another device.', 'error');
+                return;
             }
-            updateUserAuthUI();
-            renderProducts();
-            closeModals();
-            showToast(`Welcome back, <strong>${user.supplier_company_name || user.full_name}</strong> (${user.role})!`, 'success');
-            return;
+            if (response.ok) {
+                const user = await response.json();
+                state.currentUser = user;
+                saveUserSession(user);
+                if (!registeredUsers.some(u => (u.username || '').toLowerCase() === (user.username || '').toLowerCase())) {
+                    registeredUsers.push(user);
+                    persistRegisteredUsers();
+                }
+                updateUserAuthUI();
+                renderProducts();
+                closeModals();
+                showToast(`Welcome back, <strong>${user.supplier_company_name || user.full_name}</strong> (${user.role})!`, 'success');
+                return;
+            }
         }
     } catch (e) {
         console.log('FastAPI server offline or unreachable.');
@@ -4127,10 +4198,33 @@ async function registerUser(email, otp, password, fullName, role, supplierCompan
 }
 
 window.logoutUser = function() {
+    const savedDeviceId = localStorage.getItem('dropzyy_device_id');
+    const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : null;
+    
+    // Notify server to release device session immediately
+    if (savedDeviceId) {
+        try {
+            fetchWithTimeout(`${API_BASE_URL}/auth/logout`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({ device_id: savedDeviceId })
+            }, 3000).catch(() => {});
+        } catch (e) {}
+    }
+
     state.currentUser = null;
     localStorage.clear();
     sessionStorage.clear();
     purgeDatabaseKeysFromLocalStorage();
+
+    // Preserve physical device identifier across logins/logouts
+    if (savedDeviceId) {
+        localStorage.setItem('dropzyy_device_id', savedDeviceId);
+    }
+
     updateUserAuthUI();
     renderProducts();
     if (typeof renderCategories === 'function') renderCategories();
@@ -4459,6 +4553,11 @@ function renderAdminUsersDirectory() {
                                     <i class="fa-solid fa-ban"></i> BLOCKED
                                 </span>
                             ` : ''}
+                            ${u.role === 'supplier' ? `
+                                <span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;" title="Current active logged-in devices / allowed limit">
+                                    <i class="fa-solid fa-mobile-screen"></i> Devices: ${u.active_devices_count !== undefined ? u.active_devices_count : 0}/${(u.max_devices === 999) ? '∞' : (u.max_devices || 1)}
+                                </span>
+                            ` : ''}
                         </div>
                         <div style="font-size: 0.85rem; color: #64748B;">
                             Role: <span class="role-pill role-${u.role}">${u.role.toUpperCase()}</span>
@@ -4481,6 +4580,11 @@ function renderAdminUsersDirectory() {
                     <button type="button" class="btn btn-secondary btn-sm" onclick="adminEditUserAddress('${u.username}')" style="color: #0284C7; border-radius: 8px; padding: 6px 12px;" title="Edit Address & User Details">
                         <i class="fa-solid fa-user-pen"></i> Edit
                     </button>
+                    ${u.role === 'supplier' ? `
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openSupplierDeviceLimitModal('${u.username}')" style="background: #F0FDF4; color: #15803D; border: 1.5px solid #BBF7D0; font-weight: 700; border-radius: 8px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;" title="Manage Supplier Device Limits and Active Sessions">
+                            <i class="fa-solid fa-laptop-mobile"></i> Device Limit
+                        </button>
+                    ` : ''}
                     ${(u.username !== 'yashpatil' && state.currentUser && u.username !== state.currentUser.username) ? `
                         <button type="button" class="btn btn-secondary btn-sm text-danger" onclick="deleteUserAccount(${u.id || 0}, '${u.username}')" style="border-radius: 8px; padding: 6px 10px;" title="Delete User Account">
                             <i class="fa-solid fa-trash"></i>
@@ -4523,6 +4627,8 @@ async function syncUsersWithAPI() {
                             role: u.role,
                             supplier_company_name: u.supplier_company_name,
                             phone: u.phone,
+                            max_devices: u.max_devices !== undefined ? u.max_devices : 1,
+                            active_devices_count: u.active_devices_count !== undefined ? u.active_devices_count : 0,
                             open_time: u.open_time || '08:00 AM',
                             close_time: u.close_time || '10:00 PM',
                             store_open: u.store_open !== false
@@ -4532,6 +4638,8 @@ async function syncUsersWithAPI() {
                         registeredUsers[existingIdx].full_name = u.full_name || registeredUsers[existingIdx].full_name;
                         registeredUsers[existingIdx].supplier_company_name = u.supplier_company_name || registeredUsers[existingIdx].supplier_company_name;
                         registeredUsers[existingIdx].role = u.role || registeredUsers[existingIdx].role;
+                        if (u.max_devices !== undefined) registeredUsers[existingIdx].max_devices = u.max_devices;
+                        if (u.active_devices_count !== undefined) registeredUsers[existingIdx].active_devices_count = u.active_devices_count;
                         if (u.open_time) registeredUsers[existingIdx].open_time = u.open_time;
                         if (u.close_time) registeredUsers[existingIdx].close_time = u.close_time;
                         if (u.store_open !== undefined) registeredUsers[existingIdx].store_open = u.store_open;
@@ -4854,7 +4962,7 @@ window.handleAdminSaveUserSubmit = function(e) {
     }
 };
 
-async function createAccountByAdmin(username, password, fullName, role, supplierCompany = '', city = '') {
+async function createAccountByAdmin(username, password, fullName, role, supplierCompany = '', city = '', maxDevices = 1) {
     if (registeredUsers.some(u => u.username.toLowerCase() === username.toLowerCase())) {
         showToast(`Username <strong>@${username}</strong> already exists!`, 'info');
         return;
@@ -4877,6 +4985,8 @@ async function createAccountByAdmin(username, password, fullName, role, supplier
         full_name: fullName,
         role: role,
         city: finalCity,
+        max_devices: maxDevices,
+        active_devices_count: 0,
         address: { fullName, phone: '', streetAddress: '', city: finalCity, pincode: '' },
         supplier_company_name: role === 'supplier' ? (supplierCompany || fullName) : null
     };
@@ -4900,7 +5010,8 @@ async function createAccountByAdmin(username, password, fullName, role, supplier
                 full_name: fullName, 
                 role, 
                 supplier_company_name: supplierCompany,
-                city: finalCity
+                city: finalCity,
+                max_devices: maxDevices
             })
         }, 15000);
 
@@ -7211,6 +7322,11 @@ function setupEventListeners() {
                 if (isSup) adminSupplierCityGroup.classList.remove('hidden');
                 else adminSupplierCityGroup.classList.add('hidden');
             }
+            const adminSupplierDeviceLimitGroup = document.getElementById('adminSupplierDeviceLimitGroup');
+            if (adminSupplierDeviceLimitGroup) {
+                if (isSup) adminSupplierDeviceLimitGroup.classList.remove('hidden');
+                else adminSupplierDeviceLimitGroup.classList.add('hidden');
+            }
         });
     }
 
@@ -7221,6 +7337,8 @@ function setupEventListeners() {
             const fullName = document.getElementById('adminRegFullName').value.trim();
             const supplierCompany = document.getElementById('adminRegSupplierCompany') ? document.getElementById('adminRegSupplierCompany').value.trim() : '';
             const city = document.getElementById('adminRegCity') ? document.getElementById('adminRegCity').value.trim() : '';
+            const maxDevicesEl = document.getElementById('adminRegMaxDevices');
+            const maxDevices = maxDevicesEl ? (parseInt(maxDevicesEl.value, 10) || 1) : 1;
             const username = document.getElementById('adminRegUsername').value.trim();
             const password = document.getElementById('adminRegPassword').value.trim();
 
@@ -7231,7 +7349,7 @@ function setupEventListeners() {
             }
 
             if (username && password && fullName) {
-                createAccountByAdmin(username, password, fullName, role, supplierCompany, city);
+                createAccountByAdmin(username, password, fullName, role, supplierCompany, city, maxDevices);
             }
         });
     }
@@ -11979,3 +12097,248 @@ if (document.readyState === 'loading') {
         window.startBannerAutoScroll();
     }, 400);
 }
+
+// ==============================================================================
+// 📱 SUPPLIER DEVICE LIMITS & ACTIVE SESSIONS DIRECT ADMIN MANAGEMENT
+// ==============================================================================
+let currentManagingSupplier = null;
+
+window.openSupplierDeviceLimitModal = async function(username) {
+    currentManagingSupplier = username;
+    const modal = document.getElementById('supplierDeviceModal');
+    const overlay = document.getElementById('supplierDeviceOverlay');
+    const subtitle = document.getElementById('supplierDeviceSubtitle');
+    const notice = document.getElementById('supplierDeviceNotice');
+    const container = document.getElementById('supplierActiveDevicesListContainer');
+    const select = document.getElementById('supplierDeviceLimitSelect');
+
+    if (overlay) overlay.classList.add('active');
+    if (modal) modal.classList.add('active');
+
+    const matched = registeredUsers.find(u => (u.username || '').toLowerCase() === (username || '').toLowerCase());
+    const displayName = matched ? (matched.supplier_company_name || matched.full_name || username) : username;
+
+    if (subtitle) {
+        subtitle.innerHTML = `Managing device limit & active logins for <strong>${displayName}</strong> (@${username})`;
+    }
+    if (notice) {
+        notice.innerHTML = `<div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 10px 14px; border-radius: 8px; color: #1E40AF; font-size: 0.88rem; font-weight: 600;">
+            <i class="fa-solid fa-spinner fa-spin"></i> Fetching live device sessions from server...
+        </div>`;
+    }
+    if (container) {
+        container.innerHTML = `<div style="text-align: center; padding: 25px; color: #64748B;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 8px; display: block; color: #0284C7;"></i> Fetching active logged-in devices...</div>`;
+    }
+
+    try {
+        const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+        const res = await fetchWithTimeout(`${API_BASE_URL}/admin/suppliers/${encodeURIComponent(username)}/devices`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        }, 10000);
+
+        if (res && res.ok) {
+            const data = await res.json();
+            const maxDev = data.max_devices !== undefined ? data.max_devices : (data.device_limit !== undefined ? data.device_limit : 1);
+            const devices = data.devices || data.active_devices || [];
+            const activeCount = data.active_devices_count !== undefined ? data.active_devices_count : devices.length;
+
+            if (select) {
+                let found = false;
+                for (let i = 0; i < select.options.length; i++) {
+                    if (parseInt(select.options[i].value, 10) === maxDev) {
+                        select.selectedIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    const opt = document.createElement('option');
+                    opt.value = maxDev;
+                    opt.textContent = `${maxDev} Devices`;
+                    select.appendChild(opt);
+                    select.value = maxDev;
+                }
+            }
+
+            if (notice) {
+                const limitText = maxDev === 999 ? 'Unlimited' : `${maxDev} Device${maxDev > 1 ? 's' : ''}`;
+                notice.innerHTML = `
+                    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 12px 14px; border-radius: 8px; color: #166534; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <span><i class="fa-solid fa-circle-check"></i> Current Allowed Limit: <strong>${limitText}</strong></span>
+                        <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700; padding: 4px 10px; border-radius: 6px;">
+                            Active Devices: ${activeCount} / ${maxDev === 999 ? '∞' : maxDev}
+                        </span>
+                    </div>
+                `;
+            }
+
+            if (matched) {
+                matched.max_devices = maxDev;
+                matched.active_devices_count = activeCount;
+                persistRegisteredUsers();
+                if (typeof renderAdminUsersDirectory === 'function') renderAdminUsersDirectory();
+            }
+
+            renderSupplierDevicesList(devices);
+            return;
+        }
+    } catch (e) {
+        console.warn('Failed to load supplier devices:', e);
+    }
+
+    if (notice) {
+        notice.innerHTML = `<div style="background: #FEF2F2; border: 1px solid #FECACA; padding: 10px 14px; border-radius: 8px; color: #DC2626; font-size: 0.88rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Could not reach server to fetch live devices.
+        </div>`;
+    }
+    if (container) {
+        container.innerHTML = `<div style="text-align: center; padding: 20px; color: #94A3B8;">No active sessions available offline.</div>`;
+    }
+};
+
+function renderSupplierDevicesList(devices) {
+    const container = document.getElementById('supplierActiveDevicesListContainer');
+    if (!container) return;
+
+    if (!devices || devices.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 30px 16px; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 10px; color: #64748B;">
+                <i class="fa-solid fa-mobile-screen-button" style="font-size: 2rem; color: #94A3B8; margin-bottom: 8px; display: block;"></i>
+                <div style="font-weight: 700; color: #334155; margin-bottom: 4px;">No Active Device Logins</div>
+                <div style="font-size: 0.82rem;">This supplier is currently logged out across all devices.</div>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = devices.map((d) => {
+        const lastActive = d.last_active_at ? new Date(d.last_active_at).toLocaleString('en-IN', {
+            day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        }) : 'Recently';
+
+        return `
+            <div style="padding: 12px 14px; margin-bottom: 8px; background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                    <div style="width: 38px; height: 38px; border-radius: 8px; background: #EFF6FF; color: #2563EB; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
+                        <i class="fa-solid ${d.device_name && d.device_name.toLowerCase().includes('phone') ? 'fa-mobile-screen' : 'fa-laptop'}"></i>
+                    </div>
+                    <div style="min-width: 0;">
+                        <div style="font-weight: 700; color: #1E293B; font-size: 0.92rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span>${d.device_name || 'Authorized Device'}</span>
+                            <span class="badge" style="background: #DCFCE7; color: #166534; font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;">ACTIVE</span>
+                        </div>
+                        <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">
+                            ${d.ip_address ? `<span>IP: <strong>${d.ip_address}</strong> | </span>` : ''}
+                            <span>Last Active: ${lastActive}</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="handleRevokeSingleDevice('${d.device_id}')" style="background: #FEF2F2; color: #DC2626; border: 1.5px solid #FECACA; font-weight: 700; border-radius: 8px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;" title="Kick out this specific device">
+                        <i class="fa-solid fa-power-off"></i> Revoke
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.handleSaveSupplierDeviceLimit = async function() {
+    if (!currentManagingSupplier) return;
+    const select = document.getElementById('supplierDeviceLimitSelect');
+    const newLimit = select ? parseInt(select.value, 10) : 1;
+    const btn = document.getElementById('btnSaveSupplierDeviceLimit');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
+    }
+
+    try {
+        const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+        const res = await fetchWithTimeout(`${API_BASE_URL}/admin/suppliers/${encodeURIComponent(currentManagingSupplier)}/device-limit`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ max_devices: newLimit })
+        }, 8000);
+
+        if (res && res.ok) {
+            showToast(`Allowed device limit for <strong>@${currentManagingSupplier}</strong> updated to <strong>${newLimit === 999 ? 'Unlimited' : newLimit}</strong>!`, 'success');
+            
+            const matched = registeredUsers.find(u => (u.username || '').toLowerCase() === currentManagingSupplier.toLowerCase());
+            if (matched) {
+                matched.max_devices = newLimit;
+                persistRegisteredUsers();
+                if (typeof renderAdminUsersDirectory === 'function') renderAdminUsersDirectory();
+            }
+
+            openSupplierDeviceLimitModal(currentManagingSupplier);
+            return;
+        } else {
+            showToast('Failed to update device limit on server', 'error');
+        }
+    } catch (e) {
+        showToast('Network error while saving device limit', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Limit`;
+        }
+    }
+};
+
+window.handleResetAllSupplierDevices = async function() {
+    if (!currentManagingSupplier) return;
+    if (!confirm(`Are you sure you want to log out all devices for @${currentManagingSupplier}? The supplier will need to log in again.`)) {
+        return;
+    }
+
+    try {
+        const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+        const res = await fetchWithTimeout(`${API_BASE_URL}/admin/suppliers/${encodeURIComponent(currentManagingSupplier)}/reset-devices`, {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        }, 8000);
+
+        if (res && res.ok) {
+            showToast(`All active devices logged out for <strong>@${currentManagingSupplier}</strong>!`, 'success');
+            
+            const matched = registeredUsers.find(u => (u.username || '').toLowerCase() === currentManagingSupplier.toLowerCase());
+            if (matched) {
+                matched.active_devices_count = 0;
+                persistRegisteredUsers();
+                if (typeof renderAdminUsersDirectory === 'function') renderAdminUsersDirectory();
+            }
+
+            openSupplierDeviceLimitModal(currentManagingSupplier);
+        } else {
+            showToast('Failed to logout supplier devices', 'error');
+        }
+    } catch (e) {
+        showToast('Network error while resetting devices', 'error');
+    }
+};
+
+window.handleRevokeSingleDevice = async function(deviceId) {
+    if (!currentManagingSupplier || !deviceId) return;
+
+    try {
+        const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+        const res = await fetchWithTimeout(`${API_BASE_URL}/admin/suppliers/${encodeURIComponent(currentManagingSupplier)}/devices/${encodeURIComponent(deviceId)}`, {
+            method: 'DELETE',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        }, 8000);
+
+        if (res && res.ok) {
+            showToast(`Device session successfully revoked!`, 'success');
+            openSupplierDeviceLimitModal(currentManagingSupplier);
+        } else {
+            showToast('Failed to revoke device session', 'error');
+        }
+    } catch (e) {
+        showToast('Network error while revoking device', 'error');
+    }
+};

@@ -26,9 +26,26 @@ class User(Base):
     close_time = Column(String, default="10:00 PM")
     banner_image = Column(String, nullable=True) # Restaurant / Store Front Image / Banner
     menu_card_image = Column(String, nullable=True) # Full Restaurant Menu Card Image
+    max_devices = Column(Integer, default=1) # Maximum concurrent login devices allowed (Admin configurable, default 1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     products = relationship("Product", back_populates="supplier_user")
+    device_sessions = relationship("UserDeviceSession", back_populates="user", cascade="all, delete-orphan")
+
+class UserDeviceSession(Base):
+    __tablename__ = "user_device_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    device_id = Column(String, index=True, nullable=False)
+    device_name = Column(String, nullable=True) # e.g. 'Chrome on Windows PC', 'Safari on iPhone'
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    last_active_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="device_sessions")
 
 class Supplier(Base):
     __tablename__ = "suppliers"

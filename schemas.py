@@ -30,11 +30,14 @@ class UserRegister(BaseModel):
     role: Optional[str] = "customer" # 'customer', 'supplier', 'admin'
     supplier_company_name: Optional[str] = None
     city: Optional[str] = None
+    max_devices: Optional[int] = 1
 
 class UserLogin(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
     password: str
+    device_id: Optional[str] = None
+    device_name: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: int
@@ -53,6 +56,8 @@ class UserResponse(BaseModel):
     close_time: Optional[str] = "10:00 PM"
     banner_image: Optional[str] = None
     menu_card_image: Optional[str] = None
+    max_devices: Optional[int] = 1
+    active_devices_count: Optional[int] = 0
     access_token: Optional[str] = None
     token_type: Optional[str] = "bearer"
 
@@ -73,6 +78,28 @@ class AdminUserUpdate(BaseModel):
     store_open: Optional[bool] = None
     open_time: Optional[str] = None
     close_time: Optional[str] = None
+    max_devices: Optional[int] = None
+
+class SupplierDeviceLimitUpdate(BaseModel):
+    max_devices: int
+
+class SupplierDeviceSessionResponse(BaseModel):
+    id: Optional[int] = None
+    device_id: str
+    device_name: Optional[str] = None
+    ip_address: Optional[str] = None
+    last_active_at: Optional[str] = None
+    created_at: Optional[str] = None
+    is_active: bool = True
+
+class SupplierDeviceAccessInfo(BaseModel):
+    user_id: int
+    username: str
+    full_name: str
+    supplier_company_name: Optional[str] = None
+    max_devices: int = 1
+    active_devices_count: int = 0
+    devices: List[SupplierDeviceSessionResponse] = []
 
 class SupplierStoreImagesUpdate(BaseModel):
     user_id: Optional[int] = None
