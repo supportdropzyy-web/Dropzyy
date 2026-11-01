@@ -307,6 +307,40 @@ def get_logo():
         return FileResponse("dropzyy-logo.png", media_type="image/png")
     raise HTTPException(status_code=404, detail="logo.png not found")
 
+@app.get("/rangoli-banner.jpg")
+def get_rangoli_banner_jpg():
+    if os.path.exists("rangoli-banner.jpg"):
+        return FileResponse("rangoli-banner.jpg", media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
+    if os.path.exists("uploaded-rangoli.png"):
+        return FileResponse("uploaded-rangoli.png", media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+    raise HTTPException(status_code=404, detail="rangoli-banner.jpg not found")
+
+@app.get("/uploaded-rangoli.png")
+def get_uploaded_rangoli_png():
+    if os.path.exists("uploaded-rangoli.png"):
+        return FileResponse("uploaded-rangoli.png", media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+    if os.path.exists("rangoli-banner.jpg"):
+        return FileResponse("rangoli-banner.jpg", media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
+    raise HTTPException(status_code=404, detail="uploaded-rangoli.png not found")
+
+# General root static image server for cached static assets
+@app.get("/{image_filename}.{ext}")
+def get_root_static_image(image_filename: str, ext: str):
+    allowed_exts = {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "webp": "image/webp",
+        "svg": "image/svg+xml",
+        "ico": "image/x-icon"
+    }
+    ext_lower = ext.lower()
+    if ext_lower in allowed_exts:
+        target_file = f"{image_filename}.{ext}"
+        if os.path.exists(target_file):
+            return FileResponse(target_file, media_type=allowed_exts[ext_lower], headers={"Cache-Control": "public, max-age=86400"})
+    raise HTTPException(status_code=404, detail=f"{image_filename}.{ext} not found")
+
 # Static directory cache for user-uploaded store and menu images
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
