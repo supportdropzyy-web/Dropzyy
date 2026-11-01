@@ -1873,6 +1873,11 @@ window.renderRestaurants = function() {
                                     <i class="fa-solid fa-gear"></i> Manage
                                 </button>
                             ` : ''}
+                            ${(state.currentUser && (state.currentUser.role === 'admin' || (state.currentUser.role === 'supplier' && window.isSameSupplierEntity(sup, state.currentUser)))) ? `
+                                <button type="button" onclick="window.toggleStoreEmergencyOfflineStatus(${isOpen ? 'false' : 'true'}, '${sup.username || sup.id}'); event.stopPropagation();" style="background: ${isOpen ? '#FEF2F2' : '#ECFDF5'}; color: ${isOpen ? '#DC2626' : '#047857'}; border: 1.5px solid ${isOpen ? '#FECACA' : '#A7F3D0'}; border-radius: 8px; padding: 6px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="${isOpen ? 'Emergency take store offline immediately' : 'Bring store online'}">
+                                    <i class="fa-solid ${isOpen ? 'fa-power-off' : 'fa-circle-check'}"></i> ${isOpen ? '🚨 Emergency Offline' : '🟢 Bring Online'}
+                                </button>
+                            ` : ''}
                             <button type="button" class="btn-view-store-menu" onclick="openRestaurantMenuModal(${idx}); event.stopPropagation();" style="background: #10B981; color: #FFFFFF; border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);">
                                 View Menu <i class="fa-solid fa-arrow-right" style="font-size: 0.72rem;"></i>
                             </button>
@@ -2128,6 +2133,11 @@ window.renderRestaurantMenuModalContent = function(target) {
                     ${state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin') ? `
                         <button type="button" class="btn btn-sm" onclick="deleteRestaurantByAdmin('${target.username || target.id}', '${name.replace(/'/g, "\\'")}')" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; padding: 4px 10px; border-radius: 8px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
                             <i class="fa-solid fa-trash-can"></i> Delete
+                        </button>
+                    ` : ''}
+                    ${(state.currentUser && (state.currentUser.role === 'admin' || (state.currentUser.role === 'supplier' && window.isSameSupplierEntity(target, state.currentUser)))) ? `
+                        <button type="button" class="btn btn-sm" onclick="window.toggleStoreEmergencyOfflineStatus(${isOpen ? 'false' : 'true'}, '${target.username || target.id}')" style="background: ${isOpen ? '#DC2626' : '#10B981'}; color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);" title="${isOpen ? 'Emergency Store Offline' : 'Bring Store Online'}">
+                            <i class="fa-solid ${isOpen ? 'fa-power-off' : 'fa-circle-check'}"></i> ${isOpen ? '🚨 Emergency Offline' : '🟢 Bring Online'}
                         </button>
                     ` : ''}
                     ${state.currentUser && state.currentUser.role === 'supplier' && window.isSameSupplierEntity(target, state.currentUser) ? `
@@ -3048,11 +3058,33 @@ function updateUserAuthUI() {
 
         if (state.currentUser.role === 'supplier') {
             if (supplierDashboardBtn) supplierDashboardBtn.classList.remove('hidden');
+            const topEmergBtn = document.getElementById('supplierEmergencyTopBtn');
+            const topEmergText = document.getElementById('supplierEmergencyTopBtnText');
+            if (topEmergBtn) {
+                topEmergBtn.classList.remove('hidden');
+                const liveSup = registeredUsers.find(u => (u.username || '').toLowerCase() === (state.currentUser.username || '').toLowerCase()) || state.currentUser;
+                const isStoreOpen = (liveSup.store_open !== false);
+                if (isStoreOpen) {
+                    topEmergBtn.style.background = '#ECFDF5';
+                    topEmergBtn.style.color = '#047857';
+                    topEmergBtn.style.border = '1.5px solid #10B981';
+                    if (topEmergText) topEmergText.innerHTML = `Store: ONLINE 🟢 <small style="opacity:0.8; font-weight:600;">(Emergency Off)</small>`;
+                } else {
+                    topEmergBtn.style.background = '#DC2626';
+                    topEmergBtn.style.color = '#FFFFFF';
+                    topEmergBtn.style.border = '1.5px solid #991B1B';
+                    if (topEmergText) topEmergText.innerHTML = `🚨 Store: EMERGENCY OFFLINE 🔴 <small style="opacity:0.9; font-weight:700;">(Turn ON)</small>`;
+                }
+            }
             if (cartBtn) cartBtn.classList.add('hidden');
             if (mobileCartBtn) mobileCartBtn.classList.add('hidden');
             if (myOrdersBtn) myOrdersBtn.classList.add('hidden');
         } else {
             if (supplierDashboardBtn) supplierDashboardBtn.classList.add('hidden');
+        const topEmergBtnHide = document.getElementById('supplierEmergencyTopBtn');
+        if (topEmergBtnHide && (!state.currentUser || state.currentUser.role !== 'supplier')) {
+            topEmergBtnHide.classList.add('hidden');
+        }
             if (cartBtn) cartBtn.classList.remove('hidden');
             if (mobileCartBtn) mobileCartBtn.classList.remove('hidden');
         }
@@ -5886,6 +5918,7 @@ window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsern
             if (typeof renderRestaurants === 'function') renderRestaurants();
             if (typeof renderProducts === 'function') renderProducts();
             if (typeof renderSupplierDashboard === 'function') renderSupplierDashboard();
+            if (typeof updateAuthUI === 'function') updateAuthUI();
             if (typeof renderAdminUsersDirectory === 'function') renderAdminUsersDirectory();
 
             const statusText = newStatus ? 'ONLINE 🟢' : 'EMERGENCY OFFLINE 🔴';
