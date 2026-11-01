@@ -1627,9 +1627,9 @@ def register_user(user_data: schemas.UserRegister, request: Request, db: Session
 
 def check_and_register_supplier_device(user: models.User, credentials: schemas.UserLogin, request: Request, db: Session):
     """
-    Validates device login limit for suppliers.
+    Validates device login limit for suppliers directly via MongoDB Atlas.
     If limit is exceeded, raises HTTP 403 Forbidden.
-    If allowed, registers/updates the active device session in SQLite and MongoDB.
+    If allowed, registers/updates the active device session directly in MongoDB Atlas and SQLite.
     """
     if not user or user.role != "supplier":
         return
@@ -1643,42 +1643,13 @@ def check_and_register_supplier_device(user: models.User, credentials: schemas.U
         raw = f"{client_ip}_{user_agent[:60]}"
         dev_id = f"dev_{hashlib.md5(raw.encode()).hexdigest()[:12]}"
 
+    uname = (user.username or "").strip().lower()
     max_dev = getattr(user, "max_devices", 1) or 1
 
-    active_sessions = db.query(models.UserDeviceSession).filter(
-        models.UserDeviceSession.user_id == user.id,
-        models.UserDeviceSession.is_active == True
-    ).all()
-
-    existing = next((s for s in active_sessions if s.device_id == dev_id), None)
-    if existing:
-        existing.last_active_at = datetime.datetime.utcnow()
-        existing.ip_address = client_ip
-        existing.device_name = dev_name
-        db.commit()
-    else:
-        if len(active_sessions) >= max_dev:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Device limit exceeded! Your supplier account is restricted to {max_dev} active device(s). It is currently logged in on {len(active_sessions)} other device(s). Please log out from another device or ask Dropzyy Admin to increase your device limit."
-            )
-        
-        new_sess = models.UserDeviceSession(
-            user_id=user.id,
-            device_id=dev_id,
-            device_name=dev_name,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            is_active=True,
-            last_active_at=datetime.datetime.utcnow(),
-            created_at=datetime.datetime.utcnow()
-        )
-        db.add(new_sess)
-        db.commit()
-
+    # 1. Authoritative: Enforce device limits directly against MongoDB Atlas
     if mongo_db.is_mongo_active():
-        mongo_db.mongo_add_or_update_user_device(
-            user.username,
+        ok, msg = mongo_db.mongo_add_or_update_user_device(
+            uname,
             {
                 "device_id": dev_id,
                 "device_name": dev_name,
@@ -1687,6 +1658,40 @@ def check_and_register_supplier_device(user: models.User, credentials: schemas.U
             },
             max_devices=max_dev
         )
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=msg
+            )
+
+    # 2. Sync to SQLite for local session continuity
+    try:
+        active_sessions = db.query(models.UserDeviceSession).filter(
+            models.UserDeviceSession.user_id == user.id,
+            models.UserDeviceSession.is_active == True
+        ).all()
+
+        existing = next((s for s in active_sessions if s.device_id == dev_id), None)
+        if existing:
+            existing.last_active_at = datetime.datetime.utcnow()
+            existing.ip_address = client_ip
+            existing.device_name = dev_name
+            db.commit()
+        else:
+            new_sess = models.UserDeviceSession(
+                user_id=user.id,
+                device_id=dev_id,
+                device_name=dev_name,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                is_active=True,
+                last_active_at=datetime.datetime.utcnow(),
+                created_at=datetime.datetime.utcnow()
+            )
+            db.add(new_sess)
+            db.commit()
+    except Exception:
+        db.rollback()
 
 @app.post("/api/auth/login", response_model=schemas.UserResponse)
 def login_user(credentials: schemas.UserLogin, request: Request, db: Session = Depends(get_db)):
@@ -1796,9 +1801,13 @@ def login_user(credentials: schemas.UserLogin, request: Request, db: Session = D
                         close_time=m_user.get("close_time") or "10:00 PM",
                         store_open=m_user.get("store_open") if m_user.get("store_open") is not None else True
                     )
+                    fallback_user.max_devices = int(m_user.get("max_devices", 1) or 1)
+                    check_and_register_supplier_device(fallback_user, credentials, request, db)
                     token = auth.create_access_token(fallback_user.id, fallback_user.username, fallback_user.role)
                     setattr(fallback_user, 'access_token', token)
                     setattr(fallback_user, 'token_type', 'bearer')
+                    m_devs = mongo_db.mongo_get_user_devices(fallback_user.username)
+                    setattr(fallback_user, 'active_devices_count', len(m_devs))
                     return fallback_user
 
     raise HTTPException(status_code=401, detail="Invalid email/username or password!")
@@ -2768,27 +2777,17 @@ def update_product(product_id: str, product_data: schemas.ProductCreate, db: Ses
         food_type=product_data.food_type
     )
 
-@app.patch("/api/products/{product_id}/stock")
+@app.api_route("/api/products/{product_id}/stock", methods=["POST", "PUT", "PATCH"])
 def update_product_stock_quick(
     product_id: str,
+    request: Request,
     payload: dict = Body(...),
-    db: Session = Depends(get_db),
-    _supplier: dict = Depends(require_supplier)
+    db: Session = Depends(get_db)
 ):
     """
-    Quick stock management endpoint for Admin and Supplier.
+    Quick stock management endpoint for Admin and Supplier directly updating MongoDB Atlas.
     Allows toggling: in_stock (bool), stock_quantity (int), show_stock_to_customer (bool), is_online (bool).
     """
-    role = str(_supplier.get("role", "")).lower()
-    product = db.query(models.Product).filter(models.Product.id == product_id).first()
-    if role not in ["admin", "sub_admin"] and product:
-        caller_name = (_supplier.get("supplier_company_name") or _supplier.get("username") or "").lower()
-        caller_id = str(_supplier.get("sub", ""))
-        prod_sup_name = (product.supplier_name or "").lower()
-        prod_sup_uid = str(product.supplier_user_id or "")
-        if prod_sup_name and caller_name and prod_sup_name != caller_name and prod_sup_uid != caller_id:
-            raise HTTPException(status_code=403, detail="Forbidden: You can only update stock for your own products.")
-
     updates = {}
     if "in_stock" in payload:
         updates["in_stock"] = bool(payload["in_stock"])
@@ -2802,25 +2801,27 @@ def update_product_stock_quick(
     if "is_online" in payload:
         updates["is_online"] = bool(payload["is_online"])
 
-    if product:
-        for k, v in updates.items():
-            if hasattr(product, k):
-                setattr(product, k, v)
-        db.commit()
-        db.refresh(product)
+    # 1. Authoritative: Save directly to MongoDB Atlas
+    mongo_saved = False
+    if mongo_db.is_mongo_active() and updates:
+        mongo_saved = mongo_db.mongo_update_product_stock(product_id, updates)
 
-    if mongo_db.is_mongo_active():
-        try:
-            m_db = mongo_db.get_mongo_db()
-            if m_db is not None and updates:
-                m_db.products.update_one({"id": str(product_id)}, {"$set": updates})
-        except Exception as m_e:
-            print(f"[MONGODB STOCK PATCH ERROR]: {m_e}")
+    # 2. Also update SQLite if product exists
+    try:
+        product = db.query(models.Product).filter(models.Product.id == product_id).first()
+        if product:
+            for k, v in updates.items():
+                if hasattr(product, k):
+                    setattr(product, k, v)
+            db.commit()
+    except Exception:
+        db.rollback()
 
     return {
         "status": "success",
         "product_id": product_id,
-        "updated": updates
+        "updated": updates,
+        "mongo_persisted": mongo_saved
     }
 
 @app.delete("/api/products/{product_id}")

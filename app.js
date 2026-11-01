@@ -12385,3 +12385,135 @@ window.handleRevokeSingleDevice = async function(deviceId) {
         showToast('Network error while revoking device', 'error');
     }
 };
+
+// ==============================================================================
+// 📦 SUPPLIER & ADMIN STOCK MANAGEMENT ENGINE (DIRECT MONGODB ATLAS INTEGRATION)
+// ==============================================================================
+window.toggleProductStockStatus = async function(productId) {
+    const product = state.products.find(p => String(p.id) === String(productId));
+    if (!product) return;
+
+    const currentInStock = product.in_stock !== false && (product.stock_quantity === undefined || product.stock_quantity === null || Number(product.stock_quantity) > 0);
+    const newInStock = !currentInStock;
+    const newQty = newInStock ? (Number(product.stock_quantity) > 0 ? Number(product.stock_quantity) : 50) : 0;
+
+    product.in_stock = newInStock;
+    product.stock_quantity = newQty;
+
+    renderProducts();
+    if (typeof renderRestaurants === 'function') renderRestaurants();
+    if (typeof renderSupplierItemsList === 'function' && document.getElementById('supplierDashboardModal')?.classList.contains('active')) {
+        renderSupplierItemsList();
+    }
+    if (state.activeModalRestaurant && typeof renderRestaurantMenuModalContent === 'function') {
+        renderRestaurantMenuModalContent(state.activeModalRestaurant);
+    }
+
+    showToast(`'${product.title}' is now ${newInStock ? 'IN STOCK 🟢' : 'OUT OF STOCK 🔴'}`, newInStock ? 'success' : 'info');
+
+    // Persist directly to MongoDB Atlas
+    try {
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token)) 
+            || sessionStorage.getItem('dropzyy_auth_token') 
+            || localStorage.getItem('dropzyy_auth_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin')) {
+            headers['X-Admin-Role'] = 'admin';
+        }
+
+        await fetchWithTimeout(`${API_BASE_URL}/products/${encodeURIComponent(productId)}/stock`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                in_stock: newInStock,
+                stock_quantity: newQty
+            })
+        }, 10000);
+    } catch (e) {
+        console.warn('Could not persist stock status to MongoDB:', e);
+    }
+};
+
+window.toggleProductStockVisibility = async function(productId) {
+    const product = state.products.find(p => String(p.id) === String(productId));
+    if (!product) return;
+
+    const newVisibility = product.show_stock_to_customer === false ? true : false;
+    product.show_stock_to_customer = newVisibility;
+
+    renderProducts();
+    if (typeof renderRestaurants === 'function') renderRestaurants();
+    if (typeof renderSupplierItemsList === 'function' && document.getElementById('supplierDashboardModal')?.classList.contains('active')) {
+        renderSupplierItemsList();
+    }
+    if (state.activeModalRestaurant && typeof renderRestaurantMenuModalContent === 'function') {
+        renderRestaurantMenuModalContent(state.activeModalRestaurant);
+    }
+
+    showToast(`Customer stock count display for '${product.title}' is now ${newVisibility ? 'VISIBLE 👁️' : 'HIDDEN 🙈'}`, 'info');
+
+    // Persist directly to MongoDB Atlas
+    try {
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token)) 
+            || sessionStorage.getItem('dropzyy_auth_token') 
+            || localStorage.getItem('dropzyy_auth_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin')) {
+            headers['X-Admin-Role'] = 'admin';
+        }
+
+        await fetchWithTimeout(`${API_BASE_URL}/products/${encodeURIComponent(productId)}/stock`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                show_stock_to_customer: newVisibility
+            })
+        }, 10000);
+    } catch (e) {
+        console.warn('Could not persist stock visibility to MongoDB:', e);
+    }
+};
+
+window.quickUpdateStockQuantity = async function(productId, qty) {
+    const product = state.products.find(p => String(p.id) === String(productId));
+    if (!product) return;
+    const newQty = Math.max(0, parseInt(qty, 10) || 0);
+    const newInStock = newQty > 0;
+    product.stock_quantity = newQty;
+    product.in_stock = newInStock;
+
+    renderProducts();
+    if (typeof renderRestaurants === 'function') renderRestaurants();
+    if (typeof renderSupplierItemsList === 'function' && document.getElementById('supplierDashboardModal')?.classList.contains('active')) {
+        renderSupplierItemsList();
+    }
+    if (state.activeModalRestaurant && typeof renderRestaurantMenuModalContent === 'function') {
+        renderRestaurantMenuModalContent(state.activeModalRestaurant);
+    }
+
+    showToast(`Updated stock for '${product.title}' to ${newQty} units`, 'success');
+
+    try {
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token)) 
+            || sessionStorage.getItem('dropzyy_auth_token') 
+            || localStorage.getItem('dropzyy_auth_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin')) {
+            headers['X-Admin-Role'] = 'admin';
+        }
+
+        await fetchWithTimeout(`${API_BASE_URL}/products/${encodeURIComponent(productId)}/stock`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                stock_quantity: newQty,
+                in_stock: newInStock
+            })
+        }, 10000);
+    } catch (e) {
+        console.warn('Could not persist stock quantity to MongoDB:', e);
+    }
+};
