@@ -986,7 +986,7 @@ button {
 }
 .cart-overlay.active, .modal-overlay.active { opacity: 1; visibility: visible; }
 
-.quick-view-modal, .checkout-modal, .order-success-modal, .auth-modal, .admin-modal, .supplier-dashboard-modal {
+.quick-view-modal, .checkout-modal, .order-success-modal, .admin-modal, .supplier-dashboard-modal {
     position: fixed;
     top: 50%;
     left: 50%;
@@ -3494,5 +3494,189 @@ input:checked + .slider-veg:before {
     }
     .supplier-item-actions .btn-delete-mobile-span {
         grid-column: span 2 !important;
+    }
+}
+
+/* ==========================================================================
+   🔐 PREMIUM RESPONSIVE AUTH MODAL (LOGIN & REGISTRATION)
+   ========================================================================== */
+.auth-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.92);
+    z-index: 1000;
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 24px !important;
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+    padding: 32px 36px !important;
+    width: 92% !important;
+    max-width: 460px !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-sizing: border-box !important;
+}
+
+.auth-modal.register-active {
+    max-width: 500px !important;
+}
+
+.auth-modal.active {
+    transform: translate(-50%, -50%) scale(1) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Modern Segmented Tab Switcher */
+.auth-tabs {
+    display: flex !important;
+    background: #F1F5F9 !important;
+    padding: 4px !important;
+    border-radius: 14px !important;
+    margin-bottom: 22px !important;
+    border: none !important;
+    gap: 4px !important;
+}
+
+.auth-tab {
+    flex: 1 !important;
+    padding: 10px 14px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    color: #64748B !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    text-align: center !important;
+    border-bottom: none !important;
+}
+
+.auth-tab.active {
+    background: #FFFFFF !important;
+    color: #10B981 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Header & Typography */
+.auth-header {
+    text-align: center !important;
+    margin-bottom: 20px !important;
+}
+
+.auth-header .auth-brand-logo {
+    height: 48px;
+    width: auto;
+    object-fit: contain;
+    margin-bottom: 10px;
+}
+
+.auth-header h2 {
+    font-size: 1.45rem !important;
+    font-weight: 800 !important;
+    color: #0F172A !important;
+    margin: 0 0 4px 0 !important;
+    letter-spacing: -0.3px !important;
+}
+
+.auth-header p {
+    font-size: 0.86rem !important;
+    color: #64748B !important;
+    margin: 0 !important;
+    line-height: 1.4 !important;
+}
+
+/* Form Groups & Inputs */
+.auth-form .form-group {
+    margin-bottom: 16px !important;
+}
+
+.auth-form label {
+    display: block !important;
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    margin-bottom: 6px !important;
+}
+
+.auth-form input[type="text"],
+.auth-form input[type="email"],
+.auth-form input[type="tel"],
+.auth-form input[type="password"] {
+    width: 100% !important;
+    height: 46px !important;
+    padding: 0 14px !important;
+    background: #F8FAFC !important;
+    border: 1.5px solid #E2E8F0 !important;
+    border-radius: 10px !important;
+    font-size: 0.92rem !important;
+    font-weight: 600 !important;
+    color: #0F172A !important;
+    transition: all 0.2s ease !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+}
+
+.auth-form input:focus {
+    background: #FFFFFF !important;
+    border-color: #10B981 !important;
+    box-shadow: 0 0 0 3.5px rgba(16, 185, 129, 0.12) !important;
+}
+
+.auth-form input::placeholder {
+    color: #94A3B8 !important;
+    font-weight: 400 !important;
+}
+
+.auth-form button[type="submit"] {
+    width: 100% !important;
+    height: 48px !important;
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+    transition: all 0.2s ease !important;
+    margin-top: 18px !important;
+}
+
+.auth-form button[type="submit"]:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45) !important;
+}
+
+/* Mobile Responsiveness for Auth Modal */
+@media (max-width: 768px) {
+    .auth-modal {
+        width: 92% !important;
+        max-width: 420px !important;
+        padding: 24px 18px !important;
+        border-radius: 20px !important;
+        max-height: 90vh !important;
+    }
+    .auth-header .auth-brand-logo {
+        height: 40px !important;
+    }
+    .auth-header h2 {
+        font-size: 1.25rem !important;
+    }
+    .auth-tabs {
+        margin-bottom: 18px !important;
+    }
+    .auth-tab {
+        padding: 8px 12px !important;
+        font-size: 0.88rem !important;
     }
 }

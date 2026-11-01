@@ -7417,22 +7417,36 @@ window.openAuthModal = function() {
     if (authModal) authModal.classList.add('active');
 };
 
+window.togglePasswordVisibility = function(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isPass = input.type === 'password';
+    input.type = isPass ? 'text' : 'password';
+    const icon = btn.querySelector('i');
+    if (icon) {
+        icon.className = isPass ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+    }
+};
+
 window.switchAuthTab = function(tabName) {
     const loginTab = document.getElementById('loginTab');
     const registerTab = document.getElementById('registerTab');
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
+    const authModal = document.getElementById('authModal');
 
     if (tabName === 'login') {
         if (loginTab) loginTab.classList.add('active');
         if (registerTab) registerTab.classList.remove('active');
         if (loginForm) loginForm.classList.remove('hidden');
         if (registerForm) registerForm.classList.add('hidden');
+        if (authModal) authModal.classList.remove('register-active');
     } else if (tabName === 'register') {
         if (registerTab) registerTab.classList.add('active');
         if (loginTab) loginTab.classList.remove('active');
         if (registerForm) registerForm.classList.remove('hidden');
         if (loginForm) loginForm.classList.add('hidden');
+        if (authModal) authModal.classList.add('register-active');
     }
 };
 
