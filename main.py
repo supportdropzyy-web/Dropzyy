@@ -1309,119 +1309,6 @@ def send_customer_delivery_bill_email(order_id: str, customer_email: str, custom
     subject = f"Your Dropzyy Order #{order_id} Has Been Delivered! 📦 Bill Invoice"
     return send_smtp_email(customer_email, subject, html_body)
 
-
-
-def send_order_whatsapp_alert(order_id: str, customer_info: dict, items: list, total_amount: float, recipient_phone: str = None, db: Session = None) -> bool:
-    """
-    Sends an instant WhatsApp message to Admin or Restaurant Supplier mobile number via Meta WhatsApp Cloud API.
-    """
-    token = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
-    phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
-
-    if not token or not phone_number_id:
-        # WhatsApp credentials not configured yet
-        return False
-
-    c_name = customer_info.get("name") or customer_info.get("fullName") or "Customer"
-    c_phone = customer_info.get("phone") or "N/A"
-    c_addr = customer_info.get("address") or "N/A"
-    c_pay = customer_info.get("payment") or "COD"
-
-    item_summary_list = []
-    for item in (items or []):
-        t = item.get("title") or item.get("name") or "Item"
-        q = item.get("quantity") or item.get("qty") or 1
-        p = item.get("price") or 0
-        item_summary_list.append(f"• {t} (x{q}) - ₹{p}")
-
-    items_str = "\n".join(item_summary_list[:6])
-    if len(item_summary_list) > 6:
-        items_str += f"\n• ...and {len(item_summary_list) - 6} more item(s)"
-
-    # Format phone number to E.164 without '+'
-    target_num = recipient_phone or os.getenv("ADMIN_WHATSAPP_PHONE", os.getenv("ADMIN_MOBILE_NUMBER", "917020447482"))
-    clean_phone = re.sub(r"[^0-9]", "", str(target_num))
-    if len(clean_phone) == 10:
-        clean_phone = "91" + clean_phone
-
-    message_body = (
-        f"🚨 *DROPZYY NEW ORDER RECEIVED!*\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 *Order ID:* #{order_id}\n"
-        f"💰 *Total Amount:* ₹{total_amount:.2f} ({c_pay.upper()})\n\n"
-        f"📦 *Items:*\n{items_str}\n\n"
-        f"👤 *Customer:* {c_name}\n"
-        f"📞 *Phone:* {c_phone}\n"
-        f"📍 *Delivery Address:* {c_addr}\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"👉 *Open & Accept Order:* https://dropzyy.com/?order={order_id}"
-    )
-
-    url = f"https://graph.facebook.com/v20.0/{phone_number_id}/messages"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": clean_phone,
-        "type": "text",
-        "text": {
-            "preview_url": True,
-            "body": message_body
-        }
-    }
-
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=10)
-        res_data = resp.json()
-        if resp.status_code in (200, 201):
-            print(f"[WHATSAPP ALERT SUCCESS] Sent WhatsApp order #{order_id} alert to {clean_phone}!")
-            return True
-        else:
-            print(f"[WHATSAPP ALERT ERROR] Failed response from Meta API: {res_data}")
-            return False
-    except Exception as e:
-        print(f"[WHATSAPP EXCEPTION] {e}")
-        return False
-
-@app.post("/api/whatsapp/test")
-def test_whatsapp_notification(phone: str = None):
-    token = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
-    phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()
-
-    if not token or not phone_number_id:
-        return {
-            "success": False,
-            "message": "WhatsApp credentials not configured yet. Please set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID in .env"
-        }
-
-    target_phone = phone or os.getenv("ADMIN_WHATSAPP_PHONE", "917020447482")
-    sample_items = [
-        {"name": "Margarita Pizza", "qty": 1, "price": 140},
-        {"name": "Kitkat Cold Coffee", "qty": 2, "price": 92}
-    ]
-    sample_customer = {
-        "name": "Yash Patil (Test Order)",
-        "phone": "+91 7020447482",
-        "address": "Faizpur Market Road, Jalgaon",
-        "payment": "COD"
-    }
-
-    ok = send_order_whatsapp_alert(
-        order_id="TEST-WA-101",
-        customer_info=sample_customer,
-        items=sample_items,
-        total_amount=324.0,
-        recipient_phone=target_phone
-    )
-
-    if ok:
-        return {"success": True, "message": f"Test WhatsApp alert delivered to {target_phone}!"}
-    else:
-        return {"success": False, "message": "Failed to send WhatsApp message. Please check token or phone number ID in Meta dashboard."}
-
 def send_admin_order_sms_alert(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session = None) -> bool:
     """
     Dispatches an instant SMS alert to all registered Admin account mobile numbers from SQLite database via Twilio or Fast2SMS.
@@ -3432,15 +3319,6 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
 
     # 3. True Web Push Notification (Wakes locked screens on mobile & desktop)
     send_order_web_push(
-        order_id=new_order.id,
-        customer_info=delivery_info,
-        items=items_list,
-        total_amount=new_order.total,
-        db=db
-    )
-
-    # 4. Instant WhatsApp Order Alert via Meta Cloud API
-    send_order_whatsapp_alert(
         order_id=new_order.id,
         customer_info=delivery_info,
         items=items_list,
