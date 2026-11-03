@@ -525,21 +525,33 @@ if (bUser) {
     try { persistRegisteredUsers(); } catch(e){}
 }
 
-// Ensure Banjos Cafe is restored if previously in deleted restaurants
+// Ensure core partner restaurants are NEVER blacklisted in deleted restaurants
 try {
-    const delRest = JSON.parse(localStorage.getItem('dropzyy_deleted_restaurants') || '[]');
+    let delRest = JSON.parse(localStorage.getItem('dropzyy_deleted_restaurants') || '[]');
     if (Array.isArray(delRest) && delRest.length > 0) {
-        const cleaned = delRest.filter(r => !String(r).toLowerCase().includes('banjo'));
-        /* cleaned */
-}
+        const protectedRest = ['banjo', 'urban', 'tadka', 'arnav', 'katta', 'biryani', 'pranav'];
+        delRest = delRest.filter(r => !protectedRest.some(pk => String(r).toLowerCase().includes(pk)));
+        localStorage.setItem('dropzyy_deleted_restaurants', JSON.stringify(delRest));
+    }
 } catch (e) {}
 
 DEFAULT_REGISTERED_USERS.forEach(defaultUser => {
     const existing = registeredUsers.find(u => u.username.toLowerCase() === defaultUser.username.toLowerCase());
     if (!existing) {
         registeredUsers.unshift(defaultUser);
-    } else if (defaultUser.city && (!existing.city || existing.city === 'Mumbai')) {
-        existing.city = defaultUser.city;
+    } else {
+        // Core partner accounts (arnav, pranav, banjos) ALWAYS maintain supplier role and company name
+        if (defaultUser.role === 'supplier') {
+            existing.role = 'supplier';
+            existing.supplier_company_name = defaultUser.supplier_company_name;
+            existing.restaurant_name = defaultUser.restaurant_name;
+            if (defaultUser.telegram_chat_id && !existing.telegram_chat_id) {
+                existing.telegram_chat_id = defaultUser.telegram_chat_id;
+            }
+        }
+        if (defaultUser.city && (!existing.city || existing.city === 'Mumbai')) {
+            existing.city = defaultUser.city;
+        }
     }
 });
 // Ensure any suppliers without city get Savda as sensible default
@@ -1533,12 +1545,7 @@ window.isSameSupplierEntity = function(supA, supB) {
     if (nameA && userB && nameA === userB) return true;
     if (nameB && userA && nameB === userA) return true;
 
-    if (typeof state !== 'undefined' && Array.isArray(state.products)) {
-        const hasSharedProduct = state.products.some(p => 
-            doesProductBelongToSupplier(p, supA) && doesProductBelongToSupplier(p, supB)
-        );
-        if (hasSharedProduct) return true;
-    }
+    // Strict supplier matching: do not match across stores by products
 
     return false;
 };
@@ -5808,17 +5815,8 @@ async function executeSupplierDeleteMyRestaurantConfirmed(identifier, storeName)
 
     persistCustomProducts();
 
-    // Reset supplier info on current user
-    state.currentUser.supplier_company_name = '';
-    state.currentUser.role = 'customer';
-    saveUserSession(state.currentUser);
-
-    const uIdx = registeredUsers.findIndex(u => (u.username || '').toLowerCase() === (state.currentUser.username || '').toLowerCase());
-    if (uIdx > -1) {
-        registeredUsers[uIdx].supplier_company_name = '';
-        registeredUsers[uIdx].role = 'customer';
-        persistRegisteredUsers();
-    }
+    // Maintain supplier account active even if products/storefront is cleared
+    showToast('Store catalog cleared. Your supplier account remains active.', 'info');
 
     closeModals();
     if (typeof renderCategories === 'function') renderCategories();

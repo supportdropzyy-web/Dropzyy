@@ -845,9 +845,16 @@ def mongo_delete_restaurant(identifier: str, store_name: Optional[str] = None) -
         if u.get("_id"):
             user_or.append({"_id": u["_id"]})
 
+    PROTECTED_MONGO_USERS = {"arnav", "pranav", "banjos", "supplier", "admin", "yashpatil"}
     user_deleted = 0
     if user_or:
-        user_res = db.users.delete_many({"$or": user_or})
+        # Exclude protected partner usernames
+        user_res = db.users.delete_many({
+            "$and": [
+                {"$or": user_or},
+                {"username": {"$nin": list(PROTECTED_MONGO_USERS)}}
+            ]
+        })
         user_deleted = user_res.deleted_count
 
     # Also clean suppliers collection

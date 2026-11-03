@@ -2524,9 +2524,13 @@ def delete_restaurant(
     for n in all_names_list:
         db.query(models.Supplier).filter(models.Supplier.name.ilike(n)).delete(synchronize_session=False)
 
-    users_deleted_count = len(matched_users)
+    PROTECTED_USERNAMES = {"arnav", "pranav", "banjos", "supplier", "admin", "yashpatil"}
+    users_deleted_count = 0
     for u in matched_users:
+        if u.username and u.username.lower() in PROTECTED_USERNAMES:
+            continue
         db.delete(u)
+        users_deleted_count += 1
 
     db.commit()
 
