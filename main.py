@@ -1314,70 +1314,167 @@ def send_customer_delivery_bill_email(order_id: str, customer_email: str, custom
 
 def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session = None) -> bool:
     """
-    Sends an instant loud order alert to the restaurant owner or kitchen staff via Telegram Bot API (100% Free).
+    Multi-Store Telegram Dispatcher with Customer Privacy Protection:
+    1. Admin: Full master order containing all stores, grand total, and full customer details.
+    2. Each Supplier: ONLY their store's items, store subtotal, and customer details PROTECTED for privacy.
     """
+    import re
     from dotenv import load_dotenv
-    load_dotenv(override=True)
+    dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(dotenv_path):
+        load_dotenv(dotenv_path=dotenv_path, override=True)
+    else:
+        load_dotenv(override=True)
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    admin_chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID", os.getenv("TELEGRAM_CHAT_ID", "")).strip()
 
-    if not token or not chat_id:
+    if not token:
         return False
 
     c_name = customer_info.get("name") or customer_info.get("fullName") or "Customer"
     c_phone = customer_info.get("phone") or "N/A"
     c_addr = customer_info.get("address") or "N/A"
     c_pay = customer_info.get("payment") or "COD"
+    c_city = customer_info.get("city") or customer_info.get("area") or "Faizpur"
 
-    item_lines = []
-    for item in (items or []):
-        t = item.get("title") or item.get("name") or "Item"
-        q = item.get("quantity") or item.get("qty") or 1
-        p = item.get("price") or 0
-        item_lines.append(f"• <b>{t}</b> (x{q}) — ₹{p}")
+    # ========================================================
+    # 1. DISPATCH TO MASTER ADMIN (Full Order + Customer Info)
+    # ========================================================
+    if admin_chat_id:
+        admin_item_lines = []
+        for item in (items or []):
+            t = item.get("title") or item.get("name") or "Item"
+            q = item.get("quantity") or item.get("qty") or 1
+            p = item.get("price") or 0
+            s = item.get("supplier_name") or item.get("supplier_company_name") or item.get("supplier") or ""
+            sup_suffix = f" [<i>{s}</i>]" if s else ""
+            admin_item_lines.append(f"• <b>{t}</b> (x{q}){sup_suffix} — ₹{p}")
 
-    items_str = "\n".join(item_lines[:8])
-    if len(item_lines) > 8:
-        items_str += f"\n• ...and {len(item_lines) - 8} more item(s)"
+        admin_items_str = "\n".join(admin_item_lines[:10])
+        if len(admin_item_lines) > 10:
+            admin_items_str += f"\n• ...and {len(admin_item_lines) - 10} more item(s)"
 
-    message = (
-        f"🚨 <b>DROPZYY NEW LIVE ORDER!</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 <b>Order ID:</b> <code>#{order_id}</code>\n"
-        f"💰 <b>Total Bill:</b> <b>₹{total_amount:.2f}</b> ({c_pay.upper()})\n\n"
-        f"📦 <b>Items Ordered:</b>\n{items_str}\n\n"
-        f"👤 <b>Customer:</b> {c_name}\n"
-        f"📞 <b>Phone:</b> <code>{c_phone}</code>\n"
-        f"📍 <b>Delivery Address:</b>\n{c_addr}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"⚡ <b>Priority:</b> High • Ready for Kitchen Preparation!"
-    )
+        admin_message = (
+            f"👑 <b>DROPZYY MASTER ORDER ALERT (ADMIN)</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 <b>Order ID:</b> <code>#{order_id}</code>\n"
+            f"💰 <b>Grand Total:</b> <b>₹{total_amount:.2f}</b> ({c_pay.upper()})\n\n"
+            f"📦 <b>All Items Ordered ({len(items or [])}):</b>\n{admin_items_str}\n\n"
+            f"👤 <b>Customer:</b> {c_name}\n"
+            f"📞 <b>Phone:</b> <code>{c_phone}</code>\n"
+            f"📍 <b>Delivery Address:</b>\n{c_addr}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"⚡ <b>Status:</b> Ready for Rider Assignment!"
+        )
 
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "HTML",
-        "reply_markup": {
-            "inline_keyboard": [
-                [
-                    {"text": "🟢 Open Dropzyy Order", "url": f"https://dropzyy.onrender.com/?open_order={order_id}"}
+        admin_payload = {
+            "chat_id": admin_chat_id,
+            "text": admin_message,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [
+                    [
+                        {"text": "🟢 Open Master Order in Dropzyy", "url": f"https://dropzyy.onrender.com/?open_order={order_id}"}
+                    ]
                 ]
-            ]
+            }
         }
-    }
+        try:
+            requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=admin_payload, timeout=8)
+            print(f"[TELEGRAM ADMIN SUCCESS] Sent master order #{order_id} to Admin ({admin_chat_id})")
+        except Exception as e:
+            print(f"[TELEGRAM ADMIN EXCEPTION] {e}")
 
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    try:
-        resp = requests.post(url, json=payload, timeout=8)
-        if resp.status_code == 200:
-            print(f"[TELEGRAM ALERT SUCCESS] Sent order #{order_id} alert to Telegram chat {chat_id}!")
-            return True
-        else:
-            print(f"[TELEGRAM ALERT ERROR] Status: {resp.status_code}, Response: {resp.text}")
-            return False
-    except Exception as e:
-        print(f"[TELEGRAM ALERT EXCEPTION] {e}")
-        return False
+    # ========================================================
+    # 2. GROUP ITEMS BY STORE & DISPATCH WITH PRIVACY
+    # ========================================================
+    supplier_groups = {}
+    for itm in (items or []):
+        store_key = (
+            itm.get("supplier_company_name") or
+            itm.get("supplier_name") or
+            itm.get("restaurant_name") or
+            itm.get("supplier_username") or
+            itm.get("supplier") or
+            "Dropzyy Store"
+        ).strip()
+        if store_key not in supplier_groups:
+            supplier_groups[store_key] = []
+        supplier_groups[store_key].append(itm)
+
+    for store_name, store_items in supplier_groups.items():
+        sup_chat_id = None
+        if db:
+            sup_user = db.query(models.User).filter(
+                models.User.role == "supplier",
+                (models.User.supplier_company_name.ilike(f"%{store_name}%")) |
+                (models.User.username.ilike(f"%{store_name}%")) |
+                (models.User.full_name.ilike(f"%{store_name}%"))
+            ).first()
+            if sup_user and sup_user.telegram_chat_id:
+                sup_chat_id = sup_user.telegram_chat_id.strip()
+
+        # Fallback to .env mapping (e.g. TELEGRAM_CHAT_ID_URBAN_TADKA)
+        if not sup_chat_id:
+            env_var_name = "TELEGRAM_CHAT_ID_" + re.sub(r"[^A-Za-z0-9]", "_", store_name).upper()
+            sup_chat_id = os.getenv(env_var_name, "").strip()
+
+        # Fallback for Urban Tadka if not set
+        if not sup_chat_id and ("urban" in store_name.lower() or "tadka" in store_name.lower()):
+            sup_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+        if not sup_chat_id:
+            continue
+
+        store_subtotal = sum(float(i.get("price", 0)) * int(i.get("quantity") or i.get("qty") or 1) for i in store_items)
+
+        sup_item_lines = []
+        for i in store_items:
+            t = i.get("title") or i.get("name") or "Food Item"
+            q = i.get("quantity") or i.get("qty") or 1
+            p = i.get("price") or 0
+            sup_item_lines.append(f"• <b>{t}</b> (x{q}) — ₹{p}")
+
+        sup_items_str = "\n".join(sup_item_lines[:8])
+        if len(sup_item_lines) > 8:
+            sup_items_str += f"\n• ...and {len(sup_item_lines) - 8} more item(s)"
+
+        # FULL PRIVACY PROTECTION: Customer exact phone and address are HIDDEN
+        supplier_ticket_message = (
+            f"🚨 <b>DROPZYY KITCHEN ORDER TICKET</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏪 <b>Store:</b> <b>{store_name}</b>\n"
+            f"🆔 <b>Order ID:</b> <code>#{order_id}</code>\n"
+            f"💰 <b>Store Subtotal:</b> <b>₹{store_subtotal:.2f}</b> (Kitchen Items Total)\n\n"
+            f"🍳 <b>Items to Prepare ({len(store_items)}):</b>\n{sup_items_str}\n\n"
+            f"🔒 <b>Customer Details (Protected View):</b>\n"
+            f"👤 <b>Customer:</b> [Protected for Privacy - Supplier View]\n"
+            f"📞 <b>Phone:</b> <i>*** Protected by Dropzyy ***</i>\n"
+            f"📍 <b>Delivery:</b> <i>[Handled by Dropzyy Rider • {c_city}]</i>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"⚡ <b>Kitchen Status:</b> Ready for Preparation!"
+        )
+
+        sup_payload = {
+            "chat_id": sup_chat_id,
+            "text": supplier_ticket_message,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [
+                    [
+                        {"text": f"🟢 Open {store_name} Kitchen Ticket", "url": f"https://dropzyy.onrender.com/?open_order={order_id}"}
+                    ]
+                ]
+            }
+        }
+
+        try:
+            requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=sup_payload, timeout=8)
+            print(f"[TELEGRAM SUPPLIER SUCCESS] Sent store order #{order_id} to {store_name} ({sup_chat_id}) with privacy protection!")
+        except Exception as e:
+            print(f"[TELEGRAM SUPPLIER EXCEPTION] {e}")
+
+    return True
 
 @app.get("/api/telegram/detect-chat-id")
 def detect_telegram_chat_id():

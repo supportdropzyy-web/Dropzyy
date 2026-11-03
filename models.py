@@ -25,6 +25,8 @@ class User(Base):
     open_time = Column(String, default="08:00 AM")
     close_time = Column(String, default="10:00 PM")
     banner_image = Column(String, nullable=True) # Restaurant / Store Front Image / Banner
+    telegram_chat_id = Column(String, nullable=True) # Connected Telegram Chat ID for kitchen order alerts
+
     menu_card_image = Column(String, nullable=True) # Full Restaurant Menu Card Image
     max_devices = Column(Integer, default=1) # Maximum concurrent login devices allowed (Admin configurable, default 1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
