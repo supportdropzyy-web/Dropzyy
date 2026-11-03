@@ -2885,6 +2885,10 @@ def get_orders(user_id: Optional[str] = Query(None), db: Session = Depends(get_d
     role = str(token_user.get("role", "")).lower() if token_user else ""
     is_privileged = role in ["admin", "sub_admin", "supplier"]
 
+    # If caller has a valid token and is a customer, automatically bind to their own username
+    if not user_id and token_user and not is_privileged:
+        user_id = token_user.get("username")
+
     if not user_id or str(user_id).lower() in ["admin", "yashpatil", "supplier", "all"]:
         if not is_privileged:
             raise HTTPException(

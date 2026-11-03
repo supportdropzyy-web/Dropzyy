@@ -8601,12 +8601,31 @@ function renderLiveNotificationsList() {
 }
 
 async function fetchOrdersFromAPI() {
+    // 0. Only authenticated users can access order streams
+    if (!state.currentUser) {
+        return;
+    }
+
     try {
-        const userId = state.currentUser ? (state.currentUser.username || state.currentUser.id) : null;
-        const url = (userId && state.currentUser.role !== 'admin' && state.currentUser.role !== 'supplier')
-            ? `${API_BASE_URL}/orders?user_id=${userId}`
-            : `${API_BASE_URL}/orders`;
-        const res = await fetchWithTimeout(url, {}, 2000);
+        const isPrivileged = state.currentUser.role === 'admin' || state.currentUser.role === 'supplier' || state.currentUser.role === 'sub_admin';
+        const userId = state.currentUser.username || state.currentUser.id || '';
+        const url = isPrivileged
+            ? `${API_BASE_URL}/orders`
+            : `${API_BASE_URL}/orders?user_id=${encodeURIComponent(userId)}`;
+
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token');
+
+        const reqHeaders = { 'Content-Type': 'application/json' };
+        if (token) reqHeaders['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetchWithTimeout(url, { headers: reqHeaders }, 3500);
+
+        if (res && res.status === 401) {
+            // Token expired or invalid session, skip quietly
+            return;
+        }
         if (res && res.ok) {
             const apiOrders = await res.json();
             if (Array.isArray(apiOrders)) {
@@ -8652,9 +8671,11 @@ async function fetchOrdersFromAPI() {
     }
 }
 
-// Auto poll live orders every 5 seconds
+// Auto poll live orders every 5 seconds ONLY when user is authenticated
 setInterval(() => {
-    fetchOrdersFromAPI();
+    if (state.currentUser) {
+        fetchOrdersFromAPI();
+    }
 }, 5000);
 
 async function openMyOrdersModal() {
@@ -9640,9 +9661,15 @@ window.updateBookingStatus = async function(orderId, newStatus) {
 
     order.status = newStatus;
     try {
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token');
+        const reqHeaders = { 'Content-Type': 'application/json' };
+        if (token) reqHeaders['Authorization'] = `Bearer ${token}`;
+
         await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: reqHeaders,
             body: JSON.stringify({ status: newStatus })
         });
     } catch (e) {
