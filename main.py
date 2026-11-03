@@ -28,6 +28,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+import requests
 from dotenv import load_dotenv
 
 # Load secure environment variables from .env
@@ -1315,6 +1316,8 @@ def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, t
     """
     Sends an instant loud order alert to the restaurant owner or kitchen staff via Telegram Bot API (100% Free).
     """
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
@@ -1331,29 +1334,29 @@ def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, t
         t = item.get("title") or item.get("name") or "Item"
         q = item.get("quantity") or item.get("qty") or 1
         p = item.get("price") or 0
-        item_lines.append(f"• *{t}* (x{q}) — ₹{p}")
+        item_lines.append(f"• <b>{t}</b> (x{q}) — ₹{p}")
 
     items_str = "\n".join(item_lines[:8])
     if len(item_lines) > 8:
         items_str += f"\n• ...and {len(item_lines) - 8} more item(s)"
 
     message = (
-        f"🚨 *DROPZYY NEW LIVE ORDER!*\n"
+        f"🚨 <b>DROPZYY NEW LIVE ORDER!</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 *Order ID:* `#{order_id}`\n"
-        f"💰 *Total Amount:* *₹{total_amount:.2f}* ({c_pay.upper()})\n\n"
-        f"📦 *Items Ordered:*\n{items_str}\n\n"
-        f"👤 *Customer:* {c_name}\n"
-        f"📞 *Phone:* `{c_phone}`\n"
-        f"📍 *Delivery Address:*\n{c_addr}\n"
+        f"🆔 <b>Order ID:</b> <code>#{order_id}</code>\n"
+        f"💰 <b>Total Bill:</b> <b>₹{total_amount:.2f}</b> ({c_pay.upper()})\n\n"
+        f"📦 <b>Items Ordered:</b>\n{items_str}\n\n"
+        f"👤 <b>Customer:</b> {c_name}\n"
+        f"📞 <b>Phone:</b> <code>{c_phone}</code>\n"
+        f"📍 <b>Delivery Address:</b>\n{c_addr}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"⚡ *Status:* Ready for Kitchen Preparation!"
+        f"⚡ <b>Priority:</b> High • Ready for Kitchen Preparation!"
     )
 
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": "Markdown",
+        "parse_mode": "HTML",
         "reply_markup": {
             "inline_keyboard": [
                 [
@@ -1413,6 +1416,8 @@ def detect_telegram_chat_id():
 
 @app.post("/api/telegram/test")
 def test_telegram_alert():
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
