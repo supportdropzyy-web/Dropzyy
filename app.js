@@ -3017,6 +3017,10 @@ function updateUserAuthUI() {
         const mobileAnalyticsNavBtn = document.getElementById('mobileAnalyticsNavBtn');
         const mobileAddItemNavBtn = document.getElementById('mobileAddItemNavBtn');
 
+        const mobileHeaderNotificationBtn = document.getElementById('mobileHeaderNotificationBtn');
+        const mobileNavNotificationBtn = document.getElementById('mobileNavNotificationBtn');
+        const toolbarNotificationBtn = document.getElementById('toolbarNotificationBtn');
+
         if (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin') {
             if (adminControlCenterBtn) adminControlCenterBtn.classList.remove('hidden');
             if (adminAnalyticsBtn) adminAnalyticsBtn.classList.remove('hidden');
@@ -3026,6 +3030,9 @@ function updateUserAuthUI() {
             if (trackBookingsBtn) trackBookingsBtn.classList.remove('hidden');
             if (adminToolbarRow) adminToolbarRow.classList.remove('hidden');
             if (headerNotificationBtn) headerNotificationBtn.classList.remove('hidden');
+            if (mobileHeaderNotificationBtn) mobileHeaderNotificationBtn.classList.remove('hidden');
+            if (mobileNavNotificationBtn) mobileNavNotificationBtn.classList.remove('hidden');
+            if (toolbarNotificationBtn) toolbarNotificationBtn.classList.remove('hidden');
             if (mobileAdminNavBtn) mobileAdminNavBtn.classList.remove('hidden');
             if (mobileAnalyticsNavBtn) mobileAnalyticsNavBtn.classList.remove('hidden');
             if (mobileAddItemNavBtn) mobileAddItemNavBtn.classList.remove('hidden');
@@ -3038,6 +3045,9 @@ function updateUserAuthUI() {
             if (trackBookingsBtn) trackBookingsBtn.classList.remove('hidden');
             if (adminToolbarRow) adminToolbarRow.classList.remove('hidden');
             if (headerNotificationBtn) headerNotificationBtn.classList.remove('hidden');
+            if (mobileHeaderNotificationBtn) mobileHeaderNotificationBtn.classList.remove('hidden');
+            if (mobileNavNotificationBtn) mobileNavNotificationBtn.classList.remove('hidden');
+            if (toolbarNotificationBtn) toolbarNotificationBtn.classList.remove('hidden');
             if (mobileAdminNavBtn) mobileAdminNavBtn.classList.add('hidden');
             if (mobileAnalyticsNavBtn) mobileAnalyticsNavBtn.classList.add('hidden');
             if (mobileAddItemNavBtn) mobileAddItemNavBtn.classList.remove('hidden');
@@ -3050,6 +3060,9 @@ function updateUserAuthUI() {
             if (trackBookingsBtn) trackBookingsBtn.classList.add('hidden');
             if (adminToolbarRow) adminToolbarRow.classList.add('hidden');
             if (headerNotificationBtn) headerNotificationBtn.classList.add('hidden');
+            if (mobileHeaderNotificationBtn) mobileHeaderNotificationBtn.classList.add('hidden');
+            if (mobileNavNotificationBtn) mobileNavNotificationBtn.classList.add('hidden');
+            if (toolbarNotificationBtn) toolbarNotificationBtn.classList.add('hidden');
             if (mobileAdminNavBtn) mobileAdminNavBtn.classList.add('hidden');
             if (mobileAnalyticsNavBtn) mobileAnalyticsNavBtn.classList.add('hidden');
             if (mobileAddItemNavBtn) mobileAddItemNavBtn.classList.add('hidden');
@@ -3109,6 +3122,12 @@ function updateUserAuthUI() {
         }
         if (headerTrackOrderBtn) headerTrackOrderBtn.classList.add('hidden');
         if (headerNotificationBtn) headerNotificationBtn.classList.add('hidden');
+        const mobileHeaderNotificationBtn = document.getElementById('mobileHeaderNotificationBtn');
+        const mobileNavNotificationBtn = document.getElementById('mobileNavNotificationBtn');
+        const toolbarNotificationBtn = document.getElementById('toolbarNotificationBtn');
+        if (mobileHeaderNotificationBtn) mobileHeaderNotificationBtn.classList.add('hidden');
+        if (mobileNavNotificationBtn) mobileNavNotificationBtn.classList.add('hidden');
+        if (toolbarNotificationBtn) toolbarNotificationBtn.classList.add('hidden');
         if (adminControlCenterBtn) adminControlCenterBtn.classList.add('hidden');
         if (adminPortalBtn) adminPortalBtn.classList.add('hidden');
         if (supplierDashboardBtn) supplierDashboardBtn.classList.add('hidden');
@@ -8691,19 +8710,45 @@ window.toggleOrderSoundAlert = function() {
 };
 
 window.updateNotificationBadgeUI = function() {
-    const badge = document.getElementById('liveNotificationBadge');
-    const modalBadge = document.getElementById('notificationModalCountBadge');
     const count = unreadOrdersList.length;
+    const badgeIds = [
+        'liveNotificationBadge',
+        'mobileLiveNotificationBadge',
+        'mobileBottomNavNotificationBadge',
+        'toolbarNotificationBadge'
+    ];
 
-    if (badge) {
-        if (count > 0) {
-            badge.textContent = count;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
+    badgeIds.forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
         }
-    }
+    });
 
+    // Add ringing shake animation to mobile & desktop bell icons when unread count > 0
+    const bellBtnIds = [
+        'headerNotificationBtn',
+        'mobileHeaderNotificationBtn',
+        'mobileNavNotificationBtn',
+        'toolbarNotificationBtn'
+    ];
+    bellBtnIds.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            if (count > 0) {
+                btn.classList.add('bell-ringing-active');
+            } else {
+                btn.classList.remove('bell-ringing-active');
+            }
+        }
+    });
+
+    const modalBadge = document.getElementById('notificationModalCountBadge');
     if (modalBadge) {
         modalBadge.textContent = `${count} New`;
     }

@@ -179,6 +179,12 @@
                     </div>
                 </div>
 
+                <!-- Mobile Header Live Orders Bell (Admin & Supplier) -->
+                <button class="action-btn mobile-notification-bell-btn hidden" id="mobileHeaderNotificationBtn" onclick="openLiveNotificationModal()" title="Live Order Notifications" style="position: relative; background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 50%; width: 38px; height: 38px; min-width: 38px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.06); cursor: pointer; padding: 0;">
+                    <i class="fa-solid fa-bell text-warning" style="font-size: 1.15rem;"></i>
+                    <span class="badge notification-count-badge hidden" id="mobileLiveNotificationBadge" style="position: absolute; top: -5px; right: -5px; background: #EF4444; color: #FFFFFF; font-weight: 800; font-size: 0.68rem; padding: 1px 5px; border-radius: 10px; min-width: 16px; text-align: center; border: 2px solid #FFFFFF;">0</span>
+                </button>
+
                 <!-- Login / Register Button (Same as Desktop View) -->
                 <div class="user-auth-wrapper mobile-auth-wrapper" id="mobileUserAuthWrapper" style="flex-shrink: 0;">
                     <button class="action-btn login-trigger-btn" id="mobileOpenAuthBtn" onclick="openAuthModal()" title="Login / Register" style="padding: 6px 10px; font-size: 0.75rem; font-weight: 700; background: #10B981; color: #FFF; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(16,185,129,0.3); white-space: nowrap;">
@@ -220,6 +226,14 @@
                 <button class="action-btn supplier-dashboard-btn hidden" id="supplierDashboardBtn" title="Supplier Dashboard">
                     <i class="fa-solid fa-boxes-packing text-primary"></i>
                     <span>My Products</span>
+                </button>
+
+                <button class="action-btn toolbar-notification-btn hidden" id="toolbarNotificationBtn" onclick="openLiveNotificationModal()" title="Live Order Notifications" style="position: relative; font-weight: 700;">
+                    <div style="position: relative; display: inline-flex; align-items: center;">
+                        <i class="fa-solid fa-bell text-warning"></i>
+                        <span class="badge notification-count-badge hidden" id="toolbarNotificationBadge" style="position: absolute; top: -8px; right: -10px; background: #EF4444; color: #FFFFFF; font-weight: 800; font-size: 0.68rem; padding: 1px 5px; border-radius: 8px; min-width: 15px; text-align: center; border: 1.5px solid #FFFFFF;">0</span>
+                    </div>
+                    <span style="margin-left: 4px;">Live Orders 🔔</span>
                 </button>
 
                 <button class="action-btn supplier-emergency-top-btn hidden" id="supplierEmergencyTopBtn" onclick="window.toggleCurrentSupplierEmergencyOffline()" title="Immediate Emergency Store Status Toggle" style="font-weight: 700; border-radius: 8px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
@@ -2704,6 +2718,14 @@
         <button class="mobile-nav-item hidden" id="mobileOrdersBtn" onclick="openBookingTrackingModal()">
             <i class="fa-solid fa-map-location-dot"></i>
             <span>Track Order</span>
+        </button>
+        <!-- Mobile Bottom Nav Live Orders Bell (Admin & Supplier) -->
+        <button class="mobile-nav-item hidden" id="mobileNavNotificationBtn" onclick="openLiveNotificationModal()" title="Live Order Notifications">
+            <div style="position: relative; display: inline-block;">
+                <i class="fa-solid fa-bell text-warning" style="font-size: 1.25rem;"></i>
+                <span class="badge notification-count-badge hidden" id="mobileBottomNavNotificationBadge" style="position: absolute; top: -6px; right: -10px; background: #EF4444; color: #FFFFFF; font-weight: 800; font-size: 0.65rem; padding: 1px 5px; border-radius: 8px; min-width: 15px; text-align: center; border: 1.5px solid #FFFFFF;">0</span>
+            </div>
+            <span>Live Orders</span>
         </button>
         <button class="mobile-nav-item hidden" id="mobileAdminNavBtn" onclick="openAdminControlCenter()" title="Admin Control Center">
             <i class="fa-solid fa-user-shield text-primary"></i>
