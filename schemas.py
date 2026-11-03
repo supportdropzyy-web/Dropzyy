@@ -388,3 +388,15 @@ class DeliverySettingsResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+
+# Web Push Notification Schemas
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+class PushSubscriptionCreate(BaseModel):
+    endpoint: str
+    keys: PushSubscriptionKeys
+    role: Optional[str] = "customer"
+    username: Optional[str] = None

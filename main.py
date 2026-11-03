@@ -307,6 +307,15 @@ def get_js(response: Response):
         return FileResponse("app.js", media_type="application/javascript", headers=response.headers)
     raise HTTPException(status_code=404, detail="app.js not found")
 
+@app.get("/sw.js")
+def get_service_worker():
+    if os.path.exists("sw.js"):
+        return FileResponse("sw.js", media_type="application/javascript", headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Service-Worker-Allowed": "/"
+        })
+    raise HTTPException(status_code=404, detail="sw.js not found")
+
 @app.get("/menu_card_data.js")
 def get_menu_card_data():
     if os.path.exists("menu_card_data.js"):
@@ -3308,6 +3317,15 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
         db=db
     )
 
+    # 3. True Web Push Notification (Wakes locked screens on mobile & desktop)
+    send_order_web_push(
+        order_id=new_order.id,
+        customer_info=delivery_info,
+        items=items_list,
+        total_amount=new_order.total,
+        db=db
+    )
+
     return schemas.OrderResponse(
         id=new_order.id,
         userId=new_order.user_id,
@@ -4532,3 +4550,175 @@ if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
 
+
+
+# ============================================================
+# WEB PUSH NOTIFICATIONS BACKEND (VAPID / FCM - SCREEN-OFF)
+# ============================================================
+def get_vapid_config():
+    keys_file = os.path.join(os.path.dirname(__file__), "vapid_keys.json")
+    if not os.path.exists(keys_file):
+        from py_vapid import Vapid
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+        import base64
+        vapid = Vapid()
+        vapid.generate_keys()
+        raw_pub = vapid.public_key.public_bytes(
+            encoding=Encoding.X962,
+            format=PublicFormat.UncompressedPoint
+        )
+        b64_pub = base64.urlsafe_b64encode(raw_pub).rstrip(b"=").decode("utf-8")
+        pem_priv = vapid.private_pem().decode("utf-8")
+        data = {
+            "public_key": b64_pub,
+            "private_key": pem_priv,
+            "claims": {"sub": "mailto:support@dropzyy.com"}
+        }
+        with open(keys_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        return data
+    with open(keys_file, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+@app.get("/api/push/vapid-public-key")
+def get_vapid_public_key():
+    config = get_vapid_config()
+    return {"publicKey": config["public_key"]}
+
+@app.post("/api/push/subscribe")
+def register_push_subscription(payload: schemas.PushSubscriptionCreate, request: Request, db: Session = Depends(get_db)):
+    # Check if subscription already exists
+    existing = db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == payload.endpoint).first()
+    user_agent = request.headers.get("User-Agent", "")
+
+    if existing:
+        existing.p256dh = payload.keys.p256dh
+        existing.auth = payload.keys.auth
+        existing.role = payload.role or existing.role
+        existing.username = payload.username or existing.username
+        existing.user_agent = user_agent
+        db.commit()
+        return {"success": True, "message": "Push subscription updated"}
+    
+    new_sub = models.PushSubscription(
+        endpoint=payload.endpoint,
+        p256dh=payload.keys.p256dh,
+        auth=payload.keys.auth,
+        role=payload.role or "customer",
+        username=payload.username or None,
+        user_agent=user_agent
+    )
+    db.add(new_sub)
+    db.commit()
+    return {"success": True, "message": "Push subscription created"}
+
+@app.post("/api/push/test")
+def test_push_notification(request: Request, db: Session = Depends(get_db)):
+    from pywebpush import webpush, WebPushException
+    config = get_vapid_config()
+    subs = db.query(models.PushSubscription).all()
+    if not subs:
+        return {"success": False, "message": "No push subscriptions found on this server"}
+
+    # Target the most recent subscription
+    target_sub = subs[-1]
+    sub_info = {
+        "endpoint": target_sub.endpoint,
+        "keys": {
+            "p256dh": target_sub.p256dh,
+            "auth": target_sub.auth
+        }
+    }
+
+    test_payload = json.dumps({
+        "title": "🔔 Dropzyy Alert Test (Screen-Off Mode)",
+        "body": "Hardware vibration & lock-screen push working! Your phone will wake up when real orders arrive.",
+        "icon": "/dropzyy-logo.png",
+        "badge": "/dropzyy-logo.png",
+        "orderId": "TEST-101",
+        "url": "/"
+    })
+
+    try:
+        webpush(
+            subscription_info=sub_info,
+            data=test_payload,
+            vapid_private_key=config["private_key"],
+            vapid_claims=config["claims"],
+            headers={"Urgency": "high", "TTL": "86400"}
+        )
+        return {"success": True, "message": "Test push delivered to device!"}
+    except WebPushException as ex:
+        print("[TEST PUSH ERROR]", ex)
+        return {"success": False, "message": f"Push delivery error: {str(ex)}"}
+    except Exception as e:
+        print("[TEST PUSH GENERAL ERROR]", e)
+        return {"success": False, "message": str(e)}
+
+def send_order_web_push(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session):
+    try:
+        from pywebpush import webpush, WebPushException
+        config = get_vapid_config()
+
+        subs = db.query(models.PushSubscription).all()
+        if not subs:
+            return
+
+        # Determine affected suppliers
+        supplier_usernames = set()
+        for itm in (items or []):
+            sup = itm.get("supplier_username") or itm.get("supplier") or itm.get("supplier_name")
+            if sup:
+                supplier_usernames.add(str(sup).lower())
+
+        item_names = [i.get("title") or i.get("name") or "Item" for i in (items or [])[:3]]
+        items_summary = ", ".join(item_names)
+        if len(items or []) > 3:
+            items_summary += f" +{len(items)-3} more"
+
+        c_name = customer_info.get("name") or "Customer"
+
+        payload_data = {
+            "title": f"🚨 NEW ORDER #{order_id} (₹{total_amount:.0f})",
+            "body": f"{c_name}: {items_summary} • Tap to view & accept",
+            "icon": "/dropzyy-logo.png",
+            "badge": "/dropzyy-logo.png",
+            "orderId": str(order_id),
+            "total": total_amount,
+            "url": f"/?open_live_order={order_id}"
+        }
+        payload_json = json.dumps(payload_data)
+
+        for sub in subs:
+            is_admin = sub.role in ("admin", "sub_admin")
+            is_relevant_supplier = sub.role == "supplier" and (not sub.username or sub.username.lower() in supplier_usernames)
+            if not (is_admin or is_relevant_supplier):
+                continue
+
+            sub_info = {
+                "endpoint": sub.endpoint,
+                "keys": {
+                    "p256dh": sub.p256dh,
+                    "auth": sub.auth
+                }
+            }
+            try:
+                webpush(
+                    subscription_info=sub_info,
+                    data=payload_json,
+                    vapid_private_key=config["private_key"],
+                    vapid_claims=config["claims"],
+                    headers={"Urgency": "high", "TTL": "86400"}
+                )
+            except WebPushException as ex:
+                if ex.response is not None and ex.response.status_code in (404, 410):
+                    # Subscription is expired or invalid
+                    try:
+                        db.delete(sub)
+                        db.commit()
+                    except:
+                        pass
+            except Exception as e:
+                print(f"[PUSH SEND NOTICE] Error sending to {sub.endpoint[:40]}...: {e}")
+    except Exception as overall_e:
+        print("[WEB PUSH ENGINE NOTICE]", overall_e)

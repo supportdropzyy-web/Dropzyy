@@ -554,6 +554,9 @@
                 <button type="button" class="btn btn-secondary btn-sm" onclick="window.testDualAlertSystem()" title="Test Restaurant Audio Bell & Phone Vibration" style="padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 1px solid #CBD5E1; background: #FFFFFF; color: #0F172A; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                     <i class="fa-solid fa-bell text-warning"></i> 🔊 Test Bell & Vibration
                 </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testScreenOffWebPush()" title="Test Screen-Off Lock Screen Push (Lock phone after tapping)" style="padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 1.5px solid #3B82F6; background: #EFF6FF; color: #1D4ED8; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(59,130,246,0.15);">
+                    <i class="fa-solid fa-mobile-screen-button"></i> 📲 Test Screen-Off Push
+                </button>
                 <button id="supplierEmergencyToggleBtn" onclick="window.toggleCurrentSupplierEmergencyOffline()" style="padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: none; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25); transition: all 0.2s;">
                     <i class="fa-solid fa-power-off"></i> 🚨 Immediate Emergency Offline
                 </button>
@@ -2152,7 +2155,10 @@
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="window.testDualAlertSystem()" style="font-size: 0.8rem; font-weight: 700; padding: 5px 12px; border-radius: 6px; border: 1px solid #CBD5E1; background: #FFF; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
-                    <i class="fa-solid fa-bell text-warning"></i> 🔊 Test Alert
+                    <i class="fa-solid fa-bell text-warning"></i> 🔊 Test Bell
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testScreenOffWebPush()" style="font-size: 0.8rem; font-weight: 700; padding: 5px 12px; border-radius: 6px; border: 1.5px solid #3B82F6; background: #EFF6FF; color: #1D4ED8; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Test Screen-Off Lock Screen Push Alert">
+                    <i class="fa-solid fa-mobile-screen-button"></i> 📲 Test Screen-Off
                 </button>
                 <button class="close-modal-btn" onclick="closeLiveNotificationModal()"><i class="fa-solid fa-xmark"></i></button>
             </div>

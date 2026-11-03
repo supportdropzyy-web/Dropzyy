@@ -196,3 +196,16 @@ class BlockedContact(Base):
     reason = Column(String, nullable=True)
     blocked_by = Column(String, default="admin")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True)
+    username = Column(String, nullable=True, index=True)
+    role = Column(String, default="customer")  # admin, supplier, rider, customer
+    endpoint = Column(Text, unique=True, index=True)
+    p256dh = Column(Text, nullable=False)
+    auth = Column(Text, nullable=False)
+    user_agent = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)

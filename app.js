@@ -3037,6 +3037,9 @@ function updateUserAuthUI() {
             if (mobileAnalyticsNavBtn) mobileAnalyticsNavBtn.classList.remove('hidden');
             if (mobileAddItemNavBtn) mobileAddItemNavBtn.classList.remove('hidden');
         } else if (state.currentUser.role === 'supplier') {
+            if (typeof window.subscribeDropzyyPushNotifications === 'function') {
+                window.subscribeDropzyyPushNotifications(true);
+            }
             if (adminControlCenterBtn) adminControlCenterBtn.classList.add('hidden');
             if (adminAnalyticsBtn) adminAnalyticsBtn.classList.add('hidden');
             if (adminPortalBtn) adminPortalBtn.classList.remove('hidden');
@@ -8708,6 +8711,156 @@ window.toggleOrderSoundAlert = function() {
         showToast('🔕 Live Audio Bell & Vibration: OFF', 'info');
     }
 };
+
+
+// ============================================================
+// DROPZYY WEB PUSH NOTIFICATIONS ENGINE (SCREEN-OFF WAKEUP)
+// ============================================================
+let dropzyyPushSubscription = null;
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+window.registerDropzyyServiceWorker = async function() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('Web Push / ServiceWorker not supported on this browser.');
+        return null;
+    }
+
+    try {
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        console.log('Dropzyy ServiceWorker registered successfully:', reg.scope);
+
+        // Listen for messages from sw.js when user clicks push notification
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'DROPZYY_PUSH_OPEN_ORDER') {
+                if (typeof openLiveNotificationModal === 'function') {
+                    openLiveNotificationModal();
+                }
+            }
+        });
+
+        return reg;
+    } catch (err) {
+        console.warn('ServiceWorker registration notice:', err);
+        return null;
+    }
+};
+
+window.subscribeDropzyyPushNotifications = async function(isSilent = false) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        if (!isSilent) showToast('Push notifications not supported on this browser', 'info');
+        return false;
+    }
+
+    try {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') {
+            if (!isSilent) showToast('Notification permission denied by browser settings', 'warning');
+            return false;
+        }
+
+        const reg = await window.registerDropzyyServiceWorker();
+        if (!reg) return false;
+
+        // Fetch VAPID public key
+        const keyRes = await fetch('/api/push/vapid-public-key');
+        if (!keyRes.ok) return false;
+        const keyData = await keyRes.json();
+        const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
+
+        // Get or create push subscription
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: applicationServerKey
+            });
+        }
+
+        dropzyyPushSubscription = sub;
+        const subJson = sub.toJSON();
+
+        // Send to backend with current user role and username
+        const payload = {
+            endpoint: sub.endpoint,
+            keys: {
+                p256dh: subJson.keys.p256dh,
+                auth: subJson.keys.auth
+            },
+            role: (state.currentUser && state.currentUser.role) || 'customer',
+            username: (state.currentUser && state.currentUser.username) || ''
+        };
+
+        const headers = { 'Content-Type': 'application/json' };
+        const token = sessionStorage.getItem('dropzyy_auth_token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+        });
+
+        if (!isSilent) {
+            showToast('✅ Screen-Off Push Notifications Activated!', 'success');
+        }
+        return true;
+    } catch (err) {
+        console.warn('Push subscription notice:', err);
+        if (!isSilent) showToast('Could not enable push: ' + err.message, 'error');
+        return false;
+    }
+};
+
+window.testScreenOffWebPush = async function() {
+    showToast('⏳ Priming push subscription... Please lock/turn off your screen after the next message!', 'info');
+    const subscribed = await window.subscribeDropzyyPushNotifications(true);
+    if (!subscribed) {
+        showToast('Please allow notification permission to test screen-off alerts', 'info');
+        return;
+    }
+
+    try {
+        const token = sessionStorage.getItem('dropzyy_auth_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch('/api/push/test', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                endpoint: dropzyyPushSubscription ? dropzyyPushSubscription.endpoint : null
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast('📲 Push sent! Turn OFF your phone screen right now to see the lock screen ring & vibrate!', 'success');
+        } else {
+            showToast(data.message || 'Push test triggered', 'info');
+        }
+    } catch (e) {
+        showToast('Error testing push: ' + e.message, 'error');
+    }
+};
+
+// Auto-register ServiceWorker on page load
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        window.registerDropzyyServiceWorker();
+    });
+}
 
 window.updateNotificationBadgeUI = function() {
     const count = unreadOrdersList.length;

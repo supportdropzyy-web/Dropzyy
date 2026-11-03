@@ -1,0 +1,7 @@
+{
+  "public_key": "BE4AsBny4CjVf4rWRmdn9WPzd0Wq1eUz3KjunQsFFs0jMysd-BCZOnXcyAvb0TZrLeiGkxL2HYnm3CNFUfOLc0c",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg3RGTm6MRugYu+UoG\nLpvOou6BNkoSR5w8kpRaNQZ7CmChRANCAAROALAZ8uAo1X+K1kZnZ/Vj83dFqtXl\nM9yo7p0LBRbNIzMrHfgQmTp13MgL29E2ay3ohpMS9h2J5twjRVHzi3NH\n-----END PRIVATE KEY-----\n",
+  "claims": {
+    "sub": "mailto:support@dropzyy.com"
+  }
+}
