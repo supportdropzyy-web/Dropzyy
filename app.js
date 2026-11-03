@@ -8823,6 +8823,22 @@ window.subscribeDropzyyPushNotifications = async function(isSilent = false) {
     }
 };
 
+
+window.testTelegramAlert = async function() {
+    showToast('⏳ Sending Telegram alert to your phone... Turn screen off to test ringtone!', 'info');
+    try {
+        const res = await fetch('/api/telegram/test', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('✈️ ' + data.message, 'success');
+        } else {
+            showToast(data.message || 'Could not send Telegram test', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+};
+
 window.testScreenOffWebPush = async function() {
     showToast('⏳ Priming push subscription... Please lock/turn off your screen after the next message!', 'info');
     const subscribed = await window.subscribeDropzyyPushNotifications(true);
