@@ -566,6 +566,47 @@
             </div>
         </div>
 
+        <!-- Restaurant Telegram Live Kitchen Order Alerts Setup Card -->
+        <div class="supplier-telegram-card" id="supplierTelegramAlertsCard" style="background: linear-gradient(135deg, #F0F9FF, #E0F2FE); border: 1.5px solid #BAE6FD; border-radius: 14px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(2,132,199,0.06);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                <h4 style="margin: 0; font-size: 0.98rem; font-weight: 700; color: #0369A1; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-brands fa-telegram" style="color: #0284C7; font-size: 1.25rem;"></i> Telegram Live Kitchen Order Alerts
+                </h4>
+                <span id="supplierTelegramStatusBadge" style="font-size: 0.8rem; font-weight: 700; padding: 4px 12px; border-radius: 20px; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-circle-exclamation"></i> Checking Status...
+                </span>
+            </div>
+            
+            <p style="font-size: 0.84rem; color: #0C4A6E; margin-bottom: 14px; line-height: 1.45;">
+                Connect your Telegram to receive instant loud ringtones and phone vibrations for every live order placed for your restaurant.
+            </p>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px;">
+                <a href="https://t.me/Dropzyy_live_order_bot" target="_blank" class="btn btn-sm" style="background: #0284C7; color: #FFFFFF; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.84rem; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; box-shadow: 0 2px 6px rgba(2,132,199,0.25);">
+                    <i class="fa-brands fa-telegram"></i> 1. Open Bot &amp; Tap START
+                </a>
+                <button type="button" class="btn btn-sm" onclick="window.autoDetectAndLinkSupplierTelegram()" style="background: #10B981; color: #FFFFFF; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.84rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 2px 6px rgba(16,185,129,0.25);">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> 2. Auto-Detect My Telegram
+                </button>
+                <button type="button" class="btn btn-sm" onclick="window.testSupplierTelegramAlert()" style="background: #FFFFFF; border: 1.5px solid #0284C7; color: #0369A1; padding: 7px 14px; border-radius: 8px; font-weight: 700; font-size: 0.84rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <i class="fa-solid fa-bell text-warning"></i> Send Test Ring
+                </button>
+            </div>
+
+            <!-- Manual Chat ID Entry and Status -->
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #FFFFFF; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #CBD5E1;">
+                <label style="font-size: 0.82rem; font-weight: 700; color: #334155; min-width: 130px;">Telegram Chat ID:</label>
+                <input type="text" id="supplierTelegramChatIdInput" placeholder="e.g. 1785587097" style="flex: 1; min-width: 150px; padding: 7px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 0.88rem; font-weight: 600; font-family: monospace; color: #0F172A;">
+                <button type="button" onclick="window.saveSupplierTelegramChatId()" style="background: #0284C7; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; cursor: pointer;">
+                    Save ID
+                </button>
+                <button type="button" onclick="window.disconnectSupplierTelegram()" style="background: #EF4444; color: white; border: none; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; cursor: pointer;" title="Disconnect Telegram">
+                    Disconnect
+                </button>
+            </div>
+            <div id="supplierTelegramFeedbackText" style="font-size: 0.78rem; font-weight: 600; color: #0369A1; margin-top: 6px;"></div>
+        </div>
+
         <!-- Supplier Stats Cards -->
         <div class="supplier-stats-grid">
             <div class="stat-card">

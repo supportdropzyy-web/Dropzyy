@@ -1511,41 +1511,137 @@ def detect_telegram_chat_id():
     except Exception as e:
         return {"success": False, "message": str(e)}
 
-@app.post("/api/telegram/test")
-def test_telegram_alert():
-    from dotenv import load_dotenv
-    load_dotenv(override=True)
-    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+@app.post("/api/supplier/telegram-chat-id")
+def update_supplier_telegram_chat_id(
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    caller: Optional[Dict[str, Any]] = Depends(get_current_user_token)
+):
+    chat_id = data.get("chat_id")
+    chat_id = str(chat_id).strip() if chat_id else None
+    
+    # Identify supplier username
+    uname = (data.get("username") or "").strip()
+    if not uname and caller:
+        uname = (caller.get("username") or "").strip()
 
-    if not token or not chat_id:
-        return {
-            "success": False,
-            "message": "Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env before testing."
-        }
+    if not uname:
+        raise HTTPException(status_code=400, detail="Supplier username is required.")
 
-    sample_items = [
-        {"name": "Margarita Pizza", "qty": 1, "price": 140},
-        {"name": "Double Tikki Burger", "qty": 1, "price": 150}
-    ]
-    sample_customer = {
-        "name": "Yash Patil (Test Order)",
-        "phone": "+91 7020447482",
-        "address": "Faizpur Market Road, Near SBI Bank, Jalgaon",
-        "payment": "COD"
+    # 1. Update SQLite
+    sup_user = db.query(models.User).filter(
+        (models.User.username.ilike(uname)) |
+        (models.User.supplier_company_name.ilike(uname))
+    ).first()
+
+    if sup_user:
+        sup_user.telegram_chat_id = chat_id
+        db.commit()
+        db.refresh(sup_user)
+
+    # 2. Update MongoDB Atlas
+    if mongo_db.is_mongo_active():
+        try:
+            mongo_db.mongo_update_user(uname, {"telegram_chat_id": chat_id})
+        except Exception as e:
+            print(f"[MONGO SUPPLIER CHAT_ID UPDATE ERR]: {e}")
+
+    # If newly connected, send a live welcome confirmation message to Telegram
+    if chat_id:
+        from dotenv import load_dotenv
+        dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
+        if os.path.exists(dotenv_path):
+            load_dotenv(dotenv_path=dotenv_path, override=True)
+        else:
+            load_dotenv(override=True)
+        token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+        store_display = (sup_user.supplier_company_name if sup_user else uname) or "your restaurant"
+        if token:
+            try:
+                requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={
+                    "chat_id": chat_id,
+                    "text": (
+                        f"🎉 <b>DROPZYY KITCHEN BOT CONNECTED!</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━━━\n"
+                        f"🏪 <b>Store:</b> <b>{store_display}</b>\n"
+                        f"🆔 <b>Chat ID:</b> <code>{chat_id}</code>\n"
+                        f"✅ <b>Status:</b> Ready for Live Kitchen Orders!\n\n"
+                        f"Whenever customers order food from <b>{store_display}</b> on Dropzyy, "
+                        f"your phone will instantly ring with loud sound & vibration showing your kitchen preparation tickets! 🛎️"
+                    ),
+                    "parse_mode": "HTML"
+                }, timeout=6)
+            except Exception as e:
+                print(f"[TELEGRAM WELCOME ERR]: {e}")
+
+    return {
+        "success": True,
+        "chat_id": chat_id,
+        "message": f"Telegram {'connected' if chat_id else 'disconnected'} successfully for {uname}!"
     }
 
-    ok = send_order_telegram_alert(
-        order_id="TEST-101",
-        customer_info=sample_customer,
-        items=sample_items,
-        total_amount=290.0
+@app.post("/api/telegram/test")
+def test_telegram_alert(payload: Optional[dict] = Body(default=None)):
+    from dotenv import load_dotenv
+    dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(dotenv_path):
+        load_dotenv(dotenv_path=dotenv_path, override=True)
+    else:
+        load_dotenv(override=True)
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+
+    target_chat_id = None
+    store_name = "Kitchen Partner"
+    if payload and isinstance(payload, dict):
+        target_chat_id = payload.get("chat_id")
+        store_name = payload.get("store_name") or payload.get("supplier_company_name") or store_name
+
+    if not target_chat_id:
+        target_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+    if not token or not target_chat_id:
+        return {
+            "success": False,
+            "message": "Please connect your Telegram Bot or provide a valid Chat ID before testing."
+        }
+
+    test_ticket_message = (
+        f"🚨 <b>DROPZYY KITCHEN LIVE ALERT TEST</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🏪 <b>Store:</b> <b>{store_name}</b>\n"
+        f"🆔 <b>Order ID:</b> <code>#TEST-LOUD-ALERT</code>\n"
+        f"💰 <b>Store Subtotal:</b> <b>₹140.00</b> (Kitchen Items Total)\n\n"
+        f"🍳 <b>Items to Prepare (1):</b>\n"
+        f"• <b>Margarita Cheese Pizza 7 inch</b> (x1) — ₹140.0\n\n"
+        f"🔒 <b>Customer Details (Protected View):</b>\n"
+        f"👤 <b>Customer:</b> [Protected for Privacy - Supplier View]\n"
+        f"📞 <b>Phone:</b> <i>*** Protected by Dropzyy ***</i>\n"
+        f"📍 <b>Delivery:</b> <i>[Handled by Dropzyy Rider • Faizpur]</i>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"⚡ <b>Status:</b> Connection Successful! Loud Alert & Vibration Verified! 🎉"
     )
 
-    if ok:
-        return {"success": True, "message": "Test order alert sent to your Telegram! Check your phone."}
-    else:
-        return {"success": False, "message": "Failed to send Telegram message. Please check token or chat ID."}
+    test_payload = {
+        "chat_id": target_chat_id,
+        "text": test_ticket_message,
+        "parse_mode": "HTML",
+        "reply_markup": {
+            "inline_keyboard": [
+                [
+                    {"text": f"🟢 Open {store_name} Dashboard", "url": "https://dropzyy.onrender.com"}
+                ]
+            ]
+        }
+    }
+
+    try:
+        resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=test_payload, timeout=8)
+        if resp.status_code == 200:
+            return {"success": True, "message": f"Test alert sent successfully to Telegram ({target_chat_id})!"}
+        else:
+            return {"success": False, "message": f"Telegram API error: {resp.text}"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 def send_admin_order_sms_alert(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session = None) -> bool:
     """
@@ -2103,7 +2199,8 @@ def get_current_user_profile(
                     open_time=m_user.get("open_time", "08:00 AM"),
                     close_time=m_user.get("close_time", "10:00 PM"),
                     banner_image=m_user.get("banner_image") or m_user.get("cover_image"),
-                    menu_card_image=m_user.get("menu_card_image")
+                    menu_card_image=m_user.get("menu_card_image"),
+                    telegram_chat_id=m_user.get("telegram_chat_id")
                 )
         except Exception as e:
             print(f"[AUTH ME MONGO ERR]: {e}")

@@ -56,6 +56,7 @@ class UserResponse(BaseModel):
     close_time: Optional[str] = "10:00 PM"
     banner_image: Optional[str] = None
     menu_card_image: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
     max_devices: Optional[int] = 1
     active_devices_count: Optional[int] = 0
     access_token: Optional[str] = None

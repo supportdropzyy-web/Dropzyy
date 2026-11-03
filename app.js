@@ -727,6 +727,7 @@ let state = {
                                 state.currentUser.city = me.city || state.currentUser.city;
                                 state.currentUser.role = me.role || state.currentUser.role;
                                 state.currentUser.supplier_company_name = me.supplier_company_name || state.currentUser.supplier_company_name;
+                                state.currentUser.telegram_chat_id = me.telegram_chat_id || state.currentUser.telegram_chat_id;
                                 if (typeof updateUserAuthUI === 'function') updateUserAuthUI();
                             }
                         }
@@ -5168,6 +5169,11 @@ function renderSupplierDashboard() {
     const totalVal = supplierProducts.reduce((sum, p) => sum + (p.price || 0), 0);
     statCatalogValue.textContent = `₹${totalVal.toLocaleString()}`;
 
+    // Telegram Live Kitchen Alerts Card Sync
+    if (typeof window.renderSupplierTelegramStatus === 'function') {
+        window.renderSupplierTelegramStatus();
+    }
+
     // Emergency Store Status Box & 1-Click Offline Button
     const emergencyBox = document.getElementById('supplierEmergencyStoreBox');
     const emergencyBadge = document.getElementById('supplierEmergencyStatusBadge');
@@ -8823,6 +8829,182 @@ window.subscribeDropzyyPushNotifications = async function(isSilent = false) {
     }
 };
 
+
+window.renderSupplierTelegramStatus = function() {
+    const badge = document.getElementById('supplierTelegramStatusBadge');
+    const input = document.getElementById('supplierTelegramChatIdInput');
+    const feedback = document.getElementById('supplierTelegramFeedbackText');
+    if (!badge || !input) return;
+
+    const u = state.currentUser;
+    if (!u) return;
+    const regUser = registeredUsers.find(ru => (ru.username || '').toLowerCase() === (u.username || '').toLowerCase()) || u;
+    const chatId = u.telegram_chat_id || regUser.telegram_chat_id || '';
+
+    input.value = chatId;
+    if (chatId) {
+        badge.style.background = '#10B981';
+        badge.style.color = '#FFFFFF';
+        badge.style.border = '1px solid #059669';
+        badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> Connected (${chatId})`;
+        if (feedback) feedback.innerHTML = `🟢 Live Kitchen Bot Active for <strong>${u.supplier_company_name || u.full_name || u.username}</strong>! Kitchen orders will ring loudly on Telegram.`;
+    } else {
+        badge.style.background = '#FEF3C7';
+        badge.style.color = '#92400E';
+        badge.style.border = '1px solid #FCD34D';
+        badge.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Not Connected`;
+        if (feedback) feedback.innerHTML = `⚠️ Connect your Telegram above to receive live kitchen orders with loud sound & vibration.`;
+    }
+};
+
+window.autoDetectAndLinkSupplierTelegram = async function() {
+    const feedback = document.getElementById('supplierTelegramFeedbackText');
+    if (feedback) feedback.innerHTML = `⏳ Checking Telegram updates for recent /start messages...`;
+    showToast('Checking Telegram Bot updates... Please ensure you tapped START in @Dropzyy_live_order_bot', 'info');
+
+    try {
+        const res = await fetch('/api/telegram/detect-chat-id');
+        const data = await res.json();
+
+        if (!data.success || !data.chat_id) {
+            if (feedback) feedback.innerHTML = `<span style="color: #DC2626;">❌ ${data.message || 'No recent messages found. Please open @Dropzyy_live_order_bot and tap START first!'}</span>`;
+            showToast(data.message || 'No message detected. Tap START in Telegram bot first!', 'warning');
+            return;
+        }
+
+        const detectedId = data.chat_id;
+        const detectedName = data.name || 'Partner';
+        
+        // Save to backend
+        const updateRes = await fetch('/api/supplier/telegram-chat-id', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': state.currentUser?.token ? `Bearer ${state.currentUser.token}` : ''
+            },
+            body: JSON.stringify({
+                chat_id: detectedId,
+                username: state.currentUser?.username
+            })
+        });
+        const updateData = await updateRes.json();
+
+        if (updateData.success) {
+            if (state.currentUser) state.currentUser.telegram_chat_id = detectedId;
+            const regUser = registeredUsers.find(ru => (ru.username || '').toLowerCase() === (state.currentUser?.username || '').toLowerCase());
+            if (regUser) {
+                regUser.telegram_chat_id = detectedId;
+                try { persistRegisteredUsers(); } catch(e){}
+            }
+            window.renderSupplierTelegramStatus();
+            showToast(`🎉 Connected to ${detectedName} (${detectedId})! Kitchen Bot is now Live!`, 'success');
+        } else {
+            showToast(updateData.message || 'Could not link Telegram Chat ID', 'error');
+        }
+    } catch(err) {
+        showToast('Error detecting Telegram: ' + err.message, 'error');
+        if (feedback) feedback.innerHTML = `<span style="color: #DC2626;">❌ Error: ${err.message}</span>`;
+    }
+};
+
+window.saveSupplierTelegramChatId = async function() {
+    const input = document.getElementById('supplierTelegramChatIdInput');
+    const chatId = (input ? input.value : '').trim();
+    if (!chatId) {
+        showToast('Please enter a valid Telegram Chat ID or use Auto-Detect', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/supplier/telegram-chat-id', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': state.currentUser?.token ? `Bearer ${state.currentUser.token}` : ''
+            },
+            body: JSON.stringify({
+                chat_id: chatId,
+                username: state.currentUser?.username
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (state.currentUser) state.currentUser.telegram_chat_id = chatId;
+            const regUser = registeredUsers.find(ru => (ru.username || '').toLowerCase() === (state.currentUser?.username || '').toLowerCase());
+            if (regUser) {
+                regUser.telegram_chat_id = chatId;
+                try { persistRegisteredUsers(); } catch(e){}
+            }
+            window.renderSupplierTelegramStatus();
+            showToast(`✅ Telegram Chat ID ${chatId} saved successfully!`, 'success');
+        } else {
+            showToast(data.message || 'Could not save Chat ID', 'error');
+        }
+    } catch(err) {
+        showToast('Error saving Chat ID: ' + err.message, 'error');
+    }
+};
+
+window.disconnectSupplierTelegram = async function() {
+    if (!confirm('Are you sure you want to disconnect Telegram order alerts for this restaurant?')) return;
+    try {
+        const res = await fetch('/api/supplier/telegram-chat-id', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': state.currentUser?.token ? `Bearer ${state.currentUser.token}` : ''
+            },
+            body: JSON.stringify({
+                chat_id: null,
+                username: state.currentUser?.username
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (state.currentUser) state.currentUser.telegram_chat_id = null;
+            const regUser = registeredUsers.find(ru => (ru.username || '').toLowerCase() === (state.currentUser?.username || '').toLowerCase());
+            if (regUser) {
+                regUser.telegram_chat_id = null;
+                try { persistRegisteredUsers(); } catch(e){}
+            }
+            window.renderSupplierTelegramStatus();
+            showToast('Telegram alerts disconnected.', 'info');
+        }
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+};
+
+window.testSupplierTelegramAlert = async function() {
+    const input = document.getElementById('supplierTelegramChatIdInput');
+    const chatId = (input ? input.value : '') || state.currentUser?.telegram_chat_id;
+    const storeName = state.currentUser?.supplier_company_name || state.currentUser?.full_name || state.currentUser?.username || 'Kitchen Partner';
+
+    if (!chatId) {
+        showToast('Please connect your Telegram Bot first or enter your Chat ID', 'warning');
+        return;
+    }
+
+    showToast('🚀 Sending test kitchen ticket to your Telegram... Turn off screen to test loud ringtone!', 'info');
+    try {
+        const res = await fetch('/api/telegram/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                store_name: storeName
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('🎉 ' + data.message, 'success');
+        } else {
+            showToast(data.message || 'Could not send Telegram test', 'error');
+        }
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+};
 
 window.testTelegramAlert = async function() {
     showToast('⏳ Sending Telegram alert to your phone... Turn screen off to test ringtone!', 'info');
