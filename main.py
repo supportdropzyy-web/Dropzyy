@@ -1309,6 +1309,142 @@ def send_customer_delivery_bill_email(order_id: str, customer_email: str, custom
     subject = f"Your Dropzyy Order #{order_id} Has Been Delivered! 📦 Bill Invoice"
     return send_smtp_email(customer_email, subject, html_body)
 
+
+
+def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session = None) -> bool:
+    """
+    Sends an instant loud order alert to the restaurant owner or kitchen staff via Telegram Bot API (100% Free).
+    """
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+    if not token or not chat_id:
+        return False
+
+    c_name = customer_info.get("name") or customer_info.get("fullName") or "Customer"
+    c_phone = customer_info.get("phone") or "N/A"
+    c_addr = customer_info.get("address") or "N/A"
+    c_pay = customer_info.get("payment") or "COD"
+
+    item_lines = []
+    for item in (items or []):
+        t = item.get("title") or item.get("name") or "Item"
+        q = item.get("quantity") or item.get("qty") or 1
+        p = item.get("price") or 0
+        item_lines.append(f"• *{t}* (x{q}) — ₹{p}")
+
+    items_str = "\n".join(item_lines[:8])
+    if len(item_lines) > 8:
+        items_str += f"\n• ...and {len(item_lines) - 8} more item(s)"
+
+    message = (
+        f"🚨 *DROPZYY NEW LIVE ORDER!*\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 *Order ID:* `#{order_id}`\n"
+        f"💰 *Total Amount:* *₹{total_amount:.2f}* ({c_pay.upper()})\n\n"
+        f"📦 *Items Ordered:*\n{items_str}\n\n"
+        f"👤 *Customer:* {c_name}\n"
+        f"📞 *Phone:* `{c_phone}`\n"
+        f"📍 *Delivery Address:*\n{c_addr}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"⚡ *Status:* Ready for Kitchen Preparation!"
+    )
+
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown",
+        "reply_markup": {
+            "inline_keyboard": [
+                [
+                    {"text": "🟢 Open Dropzyy Order", "url": f"https://dropzyy.onrender.com/?open_order={order_id}"}
+                ]
+            ]
+        }
+    }
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    try:
+        resp = requests.post(url, json=payload, timeout=8)
+        if resp.status_code == 200:
+            print(f"[TELEGRAM ALERT SUCCESS] Sent order #{order_id} alert to Telegram chat {chat_id}!")
+            return True
+        else:
+            print(f"[TELEGRAM ALERT ERROR] Status: {resp.status_code}, Response: {resp.text}")
+            return False
+    except Exception as e:
+        print(f"[TELEGRAM ALERT EXCEPTION] {e}")
+        return False
+
+@app.get("/api/telegram/detect-chat-id")
+def detect_telegram_chat_id():
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    if not token:
+        return {"success": False, "message": "TELEGRAM_BOT_TOKEN is not set in .env"}
+
+    url = f"https://api.telegram.org/bot{token}/getUpdates"
+    try:
+        resp = requests.get(url, timeout=10)
+        data = resp.json()
+        if not data.get("ok"):
+            return {"success": False, "message": f"Telegram API error: {data.get('description')}"}
+
+        results = data.get("result", [])
+        if not results:
+            return {
+                "success": False,
+                "message": "No messages received yet. Please open your bot in Telegram and tap START or send /start."
+            }
+
+        last_update = results[-1]
+        msg = last_update.get("message") or last_update.get("channel_post") or {}
+        chat = msg.get("chat", {})
+        chat_id = str(chat.get("id"))
+        user_name = chat.get("first_name") or chat.get("title") or "User"
+
+        return {
+            "success": True,
+            "chat_id": chat_id,
+            "name": user_name,
+            "message": f"Detected Chat ID for {user_name}: {chat_id}"
+        }
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+@app.post("/api/telegram/test")
+def test_telegram_alert():
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+    if not token or not chat_id:
+        return {
+            "success": False,
+            "message": "Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env before testing."
+        }
+
+    sample_items = [
+        {"name": "Margarita Pizza", "qty": 1, "price": 140},
+        {"name": "Double Tikki Burger", "qty": 1, "price": 150}
+    ]
+    sample_customer = {
+        "name": "Yash Patil (Test Order)",
+        "phone": "+91 7020447482",
+        "address": "Faizpur Market Road, Near SBI Bank, Jalgaon",
+        "payment": "COD"
+    }
+
+    ok = send_order_telegram_alert(
+        order_id="TEST-101",
+        customer_info=sample_customer,
+        items=sample_items,
+        total_amount=290.0
+    )
+
+    if ok:
+        return {"success": True, "message": "Test order alert sent to your Telegram! Check your phone."}
+    else:
+        return {"success": False, "message": "Failed to send Telegram message. Please check token or chat ID."}
+
 def send_admin_order_sms_alert(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session = None) -> bool:
     """
     Dispatches an instant SMS alert to all registered Admin account mobile numbers from SQLite database via Twilio or Fast2SMS.
@@ -3319,6 +3455,15 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
 
     # 3. True Web Push Notification (Wakes locked screens on mobile & desktop)
     send_order_web_push(
+        order_id=new_order.id,
+        customer_info=delivery_info,
+        items=items_list,
+        total_amount=new_order.total,
+        db=db
+    )
+
+    # 4. Instant Telegram Loud Order Alert (100% Free - Lock Screen Ring)
+    send_order_telegram_alert(
         order_id=new_order.id,
         customer_info=delivery_info,
         items=items_list,
