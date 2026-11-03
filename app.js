@@ -8393,67 +8393,253 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// 18. MY ORDERS & LIVE ORDER AUDIO RINGING LOGIC
+// 18. MY ORDERS & LIVE ORDER DUAL ALERT ENGINE (AUDIO BELL + HARDWARE VIBRATION + SYSTEM PUSH)
 let knownOrderIds = new Set();
 let unreadOrdersList = [];
 let isOrderSoundEnabled = true;
+let isOrderVibrationEnabled = true;
 let alarmRingInterval = null;
 let activeOscillators = [];
+let dropzyyAudioCtx = null;
 
-window.playOrderAlertRing = function() {
-    if (!isOrderSoundEnabled) return;
-    
-    // Stop any existing ringing sequence
-    stopOrderAlertRing();
-
+// Reusable unlocked Web Audio Context
+function getDropzyyAudioContext() {
     try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
-
-        let elapsed = 0;
-
-        // Function for 1 ring burst chime
-        const triggerChime = () => {
-            const notes = [783.99, 1046.50, 783.99, 1046.50, 1318.51];
-            notes.forEach((freq, idx) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
-
-                gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.12);
-                gain.gain.linearRampToValueAtTime(0.9, ctx.currentTime + idx * 0.12 + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.35);
-
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-
-                osc.start(ctx.currentTime + idx * 0.12);
-                osc.stop(ctx.currentTime + idx * 0.12 + 0.4);
-                activeOscillators.push(osc);
-            });
-        };
-
-        // Trigger immediate 1st ring
-        triggerChime();
-
-        // Repeat ringing every 1.2 seconds for 10 SECONDS total (~8 ring bursts)
-        alarmRingInterval = setInterval(() => {
-            elapsed += 1.2;
-            if (elapsed >= 10.5) {
-                stopOrderAlertRing();
-                return;
+        if (!dropzyyAudioCtx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                dropzyyAudioCtx = new AudioCtx();
             }
-            triggerChime();
-        }, 1200);
+        }
+        if (dropzyyAudioCtx && dropzyyAudioCtx.state === 'suspended') {
+            dropzyyAudioCtx.resume().catch(() => {});
+        }
+        return dropzyyAudioCtx;
+    } catch (e) {
+        console.warn('Dropzyy AudioContext initialization notice:', e);
+        return null;
+    }
+}
 
-    } catch (err) {
-        console.warn('Audio ring playback notice:', err);
+// Automatically unlock AudioContext on first user interaction on the page
+['click', 'touchstart', 'keydown'].forEach(evt => {
+    document.addEventListener(evt, () => {
+        getDropzyyAudioContext();
+    }, { once: false, passive: true });
+});
+
+// Hardware device vibration trigger (runs on mobile browsers)
+window.triggerDeviceVibration = function(pattern = [700, 200, 700, 200, 1000]) {
+    if (!isOrderVibrationEnabled) return;
+    try {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            navigator.vibrate(pattern);
+        }
+    } catch (e) {
+        // Ignored on desktop devices without vibration motors
     }
 };
 
+// Play realistic restaurant counter service bell chime ("Ding-Ding!")
+window.playRestaurantBellChime = function() {
+    try {
+        const ctx = getDropzyyAudioContext();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+
+        const now = ctx.currentTime;
+        const masterGain = ctx.createGain();
+        masterGain.gain.setValueAtTime(1.0, now);
+        masterGain.connect(ctx.destination);
+
+        // Strike 1 (t = 0): Fundamental A5 (880Hz) + bright overtones (1760Hz, 2640Hz)
+        const strike1Notes = [
+            { freq: 880.0, gain: 0.85, decay: 0.55 },
+            { freq: 1760.0, gain: 0.50, decay: 0.40 },
+            { freq: 2640.0, gain: 0.30, decay: 0.30 }
+        ];
+
+        strike1Notes.forEach(n => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(n.freq, now);
+
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(n.gain, now + 0.004);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + n.decay);
+
+            osc.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(now);
+            osc.stop(now + n.decay + 0.05);
+            activeOscillators.push(osc);
+        });
+
+        // Strike 2 (t = 0.16s): High chime C#6 (1108.7Hz) + overtone (2217.4Hz)
+        const strike2Time = now + 0.16;
+        const strike2Notes = [
+            { freq: 1108.7, gain: 0.90, decay: 0.65 },
+            { freq: 2217.4, gain: 0.55, decay: 0.45 },
+            { freq: 3326.1, gain: 0.25, decay: 0.35 }
+        ];
+
+        strike2Notes.forEach(n => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(n.freq, strike2Time);
+
+            gain.gain.setValueAtTime(0, strike2Time);
+            gain.gain.linearRampToValueAtTime(n.gain, strike2Time + 0.004);
+            gain.gain.exponentialRampToValueAtTime(0.0001, strike2Time + n.decay);
+
+            osc.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(strike2Time);
+            osc.stop(strike2Time + n.decay + 0.05);
+            activeOscillators.push(osc);
+        });
+    } catch (err) {
+        console.warn('Bell chime synthesis notice:', err);
+    }
+};
+
+// Dispatch native system push notification (visible on desktop screen & mobile lock screen)
+window.triggerNativeNotification = function(title, body, orderId) {
+    if (!('Notification' in window)) return;
+
+    if (Notification.permission === 'granted') {
+        try {
+            const notif = new Notification(title, {
+                body: body,
+                icon: '/dropzyy-logo.png',
+                badge: '/dropzyy-logo.png',
+                tag: 'dropzyy-order-' + (orderId || Date.now()),
+                renotify: true,
+                requireInteraction: true,
+                vibrate: [700, 200, 700, 200, 1000]
+            });
+            notif.onclick = function() {
+                window.focus();
+                if (typeof openLiveNotificationModal === 'function') {
+                    openLiveNotificationModal();
+                }
+                notif.close();
+            };
+        } catch (err) {
+            console.warn('Native notification trigger notice:', err);
+        }
+    } else if (Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+};
+
+// Request desktop & mobile notification permissions
+window.requestAlertPermissions = async function() {
+    getDropzyyAudioContext();
+    if ('Notification' in window && Notification.permission === 'default') {
+        try {
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                showToast('✅ Screen Push Notifications Activated!', 'success');
+            }
+        } catch(e) {}
+    }
+};
+
+// Floating on-screen live ringing banner
+function showLiveRingingBanner(info) {
+    let banner = document.getElementById('dropzyyLiveRingingBanner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'dropzyyLiveRingingBanner';
+        banner.className = 'dropzyy-live-ringing-banner';
+        document.body.appendChild(banner);
+    }
+
+    const orderId = info && info.orderId ? `#${info.orderId}` : 'New Order';
+    const total = info && info.total ? `₹${info.total}` : '';
+    const store = info && info.storeName ? info.storeName : 'Dropzyy';
+    const count = info && info.count && info.count > 1 ? `(${info.count} Orders)` : '';
+
+    banner.innerHTML = `
+        <div class="ringing-banner-inner">
+            <div class="ringing-bell-pulse">
+                <i class="fa-solid fa-bell"></i>
+            </div>
+            <div class="ringing-banner-content">
+                <div class="ringing-banner-title">
+                    🚨 NEW ORDER RECEIVED! ${count}
+                </div>
+                <div class="ringing-banner-subtitle">
+                    ${store} • <strong>${orderId}</strong> ${total ? `• Total: <strong>${total}</strong>` : ''} • Bell & Vibration Active
+                </div>
+            </div>
+            <div class="ringing-banner-actions">
+                <button type="button" class="btn-ring-accept" onclick="window.openLiveNotificationModal()">
+                    <i class="fa-solid fa-circle-check"></i> View & Accept
+                </button>
+                <button type="button" class="btn-ring-stop" onclick="window.stopOrderAlertRing()" title="Stop Alarm Ringing">
+                    <i class="fa-solid fa-bell-slash"></i> Stop Bell
+                </button>
+            </div>
+        </div>
+    `;
+    banner.classList.remove('hidden');
+    banner.classList.add('active');
+}
+
+function hideLiveRingingBanner() {
+    const banner = document.getElementById('dropzyyLiveRingingBanner');
+    if (banner) {
+        banner.classList.remove('active');
+        banner.classList.add('hidden');
+    }
+}
+
+// Master dual-alert trigger (Continuous Audio Bell + Hardware Vibration + Floating Banner)
+window.playOrderAlertRing = function(info = {}) {
+    if (!isOrderSoundEnabled) return;
+
+    // Stop any existing ringing sequence
+    stopOrderAlertRing();
+
+    // Show floating on-screen banner
+    showLiveRingingBanner(info);
+
+    // Audio context unlock
+    getDropzyyAudioContext();
+
+    let elapsed = 0;
+
+    const executeRingBurst = () => {
+        // 1. Dual-tone metallic restaurant bell chime
+        playRestaurantBellChime();
+
+        // 2. Hardware device vibration pulse
+        triggerDeviceVibration([700, 200, 700, 200, 1000]);
+    };
+
+    // Trigger immediate ring burst
+    executeRingBurst();
+
+    // Repeat ringing every 1.5 seconds for up to 20 seconds (~13 ring bursts)
+    alarmRingInterval = setInterval(() => {
+        elapsed += 1.5;
+        if (elapsed >= 20.0) {
+            stopOrderAlertRing();
+            return;
+        }
+        executeRingBurst();
+    }, 1500);
+};
+
+// Immediate stop for Bell, Vibration, and Banner
 window.stopOrderAlertRing = function() {
     if (alarmRingInterval) {
         clearInterval(alarmRingInterval);
@@ -8461,16 +8647,46 @@ window.stopOrderAlertRing = function() {
     }
     activeOscillators.forEach(osc => { try { osc.stop(); } catch(e){} });
     activeOscillators = [];
+
+    // Halt device vibration immediately
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate(0); } catch(e){}
+    }
+
+    // Hide floating alert banner
+    hideLiveRingingBanner();
+};
+
+// Test helper: Tests both Bell and Hardware Vibration simultaneously
+window.testDualAlertSystem = function() {
+    getDropzyyAudioContext();
+    requestAlertPermissions();
+
+    const currentStore = (state.currentUser && (state.currentUser.supplier_company_name || state.currentUser.full_name)) || 'Dropzyy Partner';
+
+    playOrderAlertRing({
+        orderId: 'DEMO-88',
+        total: 180,
+        storeName: currentStore,
+        count: 1
+    });
+
+    triggerNativeNotification(
+        '🔔 Dropzyy Alert Test: Bell & Vibration',
+        'Hardware vibration & loud bell alert working properly on this device!'
+    );
+
+    showToast('🔔 Loud Audio Bell + 📳 Phone Vibration Alert Tested!', 'success');
 };
 
 window.toggleOrderSoundAlert = function() {
     isOrderSoundEnabled = !isOrderSoundEnabled;
     if (isOrderSoundEnabled) {
-        playOrderAlertRing();
-        showToast('🔔 Live 10-Sec Order Audio Alert: ON', 'success');
+        window.testDualAlertSystem();
+        showToast('🔔 Live Audio Bell & Vibration: ON', 'success');
     } else {
         stopOrderAlertRing();
-        showToast('🔕 Live Order Audio Alert: OFF', 'info');
+        showToast('🔕 Live Audio Bell & Vibration: OFF', 'info');
     }
 };
 
@@ -8653,12 +8869,40 @@ async function fetchOrdersFromAPI() {
                         }
                     });
 
-                    updateNotificationBadgeUI();
-                    playOrderAlertRing(); // 10-second loud alarm ring ONLY for Admin!
+                    // Supplier filter: Suppliers ONLY alerted for orders with their items; Admin alerted for all
+                    let relevantOrders = newOrdersFound;
+                    const isSupplier = state.currentUser.role === 'supplier';
+                    if (isSupplier) {
+                        relevantOrders = newOrdersFound.filter(no => (no.items || []).some(item => isItemFromSupplier(item)));
+                    }
 
-                    const latestOrder = newOrdersFound[0];
-                    const custName = (latestOrder.delivery && latestOrder.delivery.name) || latestOrder.customerName || 'Customer';
-                    showToast(`🚨 <strong>${newOrdersFound.length} NEW LIVE ORDER(S) RECEIVED!</strong><br>Latest Order: #${latestOrder.id} (₹${latestOrder.total}) - ${custName}`, 'success');
+                    if (relevantOrders.length > 0) {
+                        updateNotificationBadgeUI();
+
+                        const latestOrder = relevantOrders[0];
+                        const latestTotal = isSupplier
+                            ? (latestOrder.items || []).filter(i => isItemFromSupplier(i)).reduce((s, i) => s + (parseFloat(i.price || 0) * parseInt(i.qty || i.quantity || 1)), 0)
+                            : latestOrder.total;
+                        const custName = (latestOrder.delivery && latestOrder.delivery.name) || latestOrder.customerName || 'Customer';
+                        const storeTitle = isSupplier ? (state.currentUser.supplier_company_name || 'Your Store') : 'Dropzyy';
+
+                        // 1. Play loud 20s repeating audio bell + trigger hardware vibration + show floating banner
+                        playOrderAlertRing({
+                            orderId: latestOrder.id,
+                            total: latestTotal,
+                            count: relevantOrders.length,
+                            storeName: storeTitle
+                        });
+
+                        // 2. Dispatch native system push notification (visible on desktop / mobile lock screen)
+                        triggerNativeNotification(
+                            `🚨 New Order #${latestOrder.id} (${storeTitle})`,
+                            `${relevantOrders.length > 1 ? `${relevantOrders.length} New Orders! ` : ''}Amount: ₹${latestTotal} • Tap to view & accept`,
+                            latestOrder.id
+                        );
+
+                        showToast(`🚨 <strong>${relevantOrders.length} NEW ORDER(S) RECEIVED!</strong><br>Order #${latestOrder.id} (₹${latestTotal}) - ${custName}`, 'success');
+                    }
 
                     if (typeof bookingTrackingContainer !== 'undefined' && bookingTrackingContainer) {
                         renderBookingTracking();

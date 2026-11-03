@@ -3724,3 +3724,162 @@ input:checked + .slider-veg:before {
         font-size: 0.88rem !important;
     }
 }
+
+
+/* ============================================================
+   DROPZYY LIVE ORDER ALERT: BELL + VIBRATION + FLOATING BANNER
+   ============================================================ */
+.dropzyy-live-ringing-banner {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999999;
+    width: 92%;
+    max-width: 680px;
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+    border: 2px solid #F59E0B;
+    border-radius: 16px;
+    box-shadow: 0 12px 36px rgba(245, 158, 11, 0.45), 0 0 0 4px rgba(245, 158, 11, 0.2);
+    padding: 12px 18px;
+    color: #FFFFFF;
+    display: none;
+    animation: ringBannerPulse 1.2s infinite ease-in-out;
+}
+
+.dropzyy-live-ringing-banner.active {
+    display: block !important;
+}
+
+.dropzyy-live-ringing-banner.hidden {
+    display: none !important;
+}
+
+@keyframes ringBannerPulse {
+    0% {
+        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.35), 0 0 0 2px rgba(245, 158, 11, 0.15);
+        border-color: #F59E0B;
+    }
+    50% {
+        box-shadow: 0 14px 45px rgba(239, 68, 68, 0.65), 0 0 0 6px rgba(239, 68, 68, 0.35);
+        border-color: #EF4444;
+    }
+    100% {
+        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.35), 0 0 0 2px rgba(245, 158, 11, 0.15);
+        border-color: #F59E0B;
+    }
+}
+
+.ringing-banner-inner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.ringing-bell-pulse {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #F59E0B, #EF4444);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    color: #FFFFFF;
+    animation: bellSwing 0.4s infinite alternate ease-in-out;
+    flex-shrink: 0;
+}
+
+@keyframes bellSwing {
+    0% { transform: rotate(-18deg); }
+    100% { transform: rotate(18deg); }
+}
+
+.ringing-banner-content {
+    flex: 1;
+    min-width: 200px;
+}
+
+.ringing-banner-title {
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: #FBBF24;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ringing-banner-subtitle {
+    font-size: 0.84rem;
+    color: #CBD5E1;
+    margin-top: 2px;
+}
+
+.ringing-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-ring-accept {
+    background: linear-gradient(135deg, #10B981, #059669);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+    transition: all 0.15s ease;
+}
+
+.btn-ring-accept:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+}
+
+.btn-ring-stop {
+    background: #334155;
+    color: #F1F5F9;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s ease;
+}
+
+.btn-ring-stop:hover {
+    background: #475569;
+    color: #FFFFFF;
+}
+
+@media (max-width: 600px) {
+    .dropzyy-live-ringing-banner {
+        top: 8px;
+        width: 95%;
+        padding: 10px 14px;
+    }
+    .ringing-banner-inner {
+        gap: 10px;
+    }
+    .ringing-banner-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    .btn-ring-accept, .btn-ring-stop {
+        flex: 1;
+        justify-content: center;
+    }
+}

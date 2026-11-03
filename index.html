@@ -536,9 +536,14 @@
                     Store is open & accepting customer orders.
                 </span>
             </div>
-            <button id="supplierEmergencyToggleBtn" onclick="window.toggleCurrentSupplierEmergencyOffline()" style="padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: none; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25); transition: all 0.2s;">
-                <i class="fa-solid fa-power-off"></i> 🚨 Immediate Emergency Offline
-            </button>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testDualAlertSystem()" title="Test Restaurant Audio Bell & Phone Vibration" style="padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 1px solid #CBD5E1; background: #FFFFFF; color: #0F172A; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <i class="fa-solid fa-bell text-warning"></i> 🔊 Test Bell & Vibration
+                </button>
+                <button id="supplierEmergencyToggleBtn" onclick="window.toggleCurrentSupplierEmergencyOffline()" style="padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: none; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25); transition: all 0.2s;">
+                    <i class="fa-solid fa-power-off"></i> 🚨 Immediate Emergency Offline
+                </button>
+            </div>
         </div>
 
         <!-- Supplier Stats Cards -->
@@ -2124,14 +2129,19 @@
     <!-- Live Order Notifications Modal -->
     <div class="modal-overlay" id="liveNotificationOverlay"></div>
     <div class="supplier-dashboard-modal" id="liveNotificationModal" style="max-width: 680px; width: 92%;">
-        <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px;">
+        <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.15rem; color: #0F172A;">
                     <i class="fa-solid fa-bell text-warning"></i> Live Incoming Orders Notifications
                 </h3>
                 <span class="badge" id="notificationModalCountBadge" style="background: #EF4444; color: #FFFFFF; font-weight: 800; border-radius: 20px; padding: 2px 10px; font-size: 0.78rem;">0 New</span>
             </div>
-            <button class="close-modal-btn" onclick="closeLiveNotificationModal()"><i class="fa-solid fa-xmark"></i></button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testDualAlertSystem()" style="font-size: 0.8rem; font-weight: 700; padding: 5px 12px; border-radius: 6px; border: 1px solid #CBD5E1; background: #FFF; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-bell text-warning"></i> 🔊 Test Alert
+                </button>
+                <button class="close-modal-btn" onclick="closeLiveNotificationModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
         </div>
         <div class="modal-body" style="padding: 16px 0; max-height: 70vh; overflow-y: auto;">
             <div id="liveNotificationsList">
@@ -2721,6 +2731,9 @@
     </nav>
 
     <!-- Toast Notification Container -->
+        <!-- Live Order Ringing Floating Alert Banner (Bell + Vibration Active) -->
+    <div id="dropzyyLiveRingingBanner" class="dropzyy-live-ringing-banner hidden"></div>
+
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Footer -->
