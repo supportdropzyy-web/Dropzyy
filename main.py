@@ -4,6 +4,7 @@ Run locally with: uvicorn main:app --reload --port 8000
 """
 import uuid
 import os
+import re
 import random
 import datetime
 import smtplib
@@ -745,6 +746,47 @@ def seed_initial_data(db: Session):
         db.add_all([l1, l2, l3, l4])
         db.commit()
 
+def sync_mongo_users_to_sqlite(db: Session):
+    """Ensure all accounts in MongoDB Atlas exist in SQLite with consistent credentials."""
+    if not mongo_db.is_mongo_active():
+        return
+    try:
+        m_users = mongo_db.mongo_get_all_users()
+        for u in m_users:
+            uname = (u.get("username") or "").strip()
+            if not uname:
+                continue
+            email = (u.get("email") or "").strip().lower()
+            existing = db.query(models.User).filter(
+                (models.User.username.ilike(uname)) |
+                (models.User.email == email if email else False)
+            ).first()
+            if not existing:
+                new_u = models.User(
+                    username=uname,
+                    email=email if email else f"{uname.lower()}@dropzyy.com",
+                    password_hash=u.get("password_hash") or auth.hash_password("Dropzyy@2026"),
+                    full_name=u.get("full_name") or uname,
+                    phone=u.get("phone"),
+                    role=u.get("role") or "customer",
+                    supplier_company_name=u.get("supplier_company_name"),
+                    city=u.get("city") or "Faizpur",
+                    is_verified=True,
+                    store_open=u.get("store_open", True),
+                    banner_image=u.get("banner_image"),
+                    telegram_chat_id=u.get("telegram_chat_id")
+                )
+                db.add(new_u)
+            else:
+                if u.get("password_hash") and existing.password_hash != u.get("password_hash"):
+                    existing.password_hash = u.get("password_hash")
+                if u.get("telegram_chat_id") and not existing.telegram_chat_id:
+                    existing.telegram_chat_id = u.get("telegram_chat_id")
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[STARTUP USER SYNC NOTICE]: {e}")
+
 @app.on_event("startup")
 def on_startup():
     auto_migrate_db()
@@ -752,6 +794,8 @@ def on_startup():
     seed_initial_data(db)
     if mongo_db.is_mongo_active():
         print("[FASTAPI STARTUP] MongoDB Cloud Database Active & Connected!")
+        sync_mongo_users_to_sqlite(db)
+
 
 # SMTP & Resend API Mail Server Configuration (loaded securely from .env)
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "supportdropzyy@gmail.com").strip()
@@ -1782,41 +1826,104 @@ def verify_otp(payload: schemas.VerifyOTPRequest):
 @app.post("/api/auth/forgot-password/send-otp")
 def forgot_password_send_otp(payload: schemas.ForgotPasswordOTPRequest, request: Request, db: Session = Depends(get_db)):
     client_ip = request.client.host if request.client else "unknown"
-    if not check_rate_limit(f"forgot_otp_{client_ip}", limit=5, window_sec=60):
+    if not check_rate_limit(f"forgot_otp_{client_ip}", limit=8, window_sec=60):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many password reset requests. Please wait 1 minute."
         )
 
-    email_clean = payload.email.strip().lower()
-    if not email_clean or "@" not in email_clean:
-        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
-    
-    target_email = email_clean
-    existing_user = db.query(models.User).filter(
-        (models.User.email == email_clean) | (models.User.username == email_clean)
-    ).first()
-    if existing_user and existing_user.email:
-        target_email = existing_user.email
+    ident = (payload.email or "").strip()
+    if not ident:
+        raise HTTPException(status_code=400, detail="Please enter your registered email address or username.")
 
-    # Generate 6-digit OTP
+    ident_clean = ident.lower()
+
+    # 1. Search SQLite Database
+    user = db.query(models.User).filter(
+        (models.User.email.ilike(ident_clean)) |
+        (models.User.username.ilike(ident)) |
+        (models.User.phone == ident)
+    ).first()
+
+    # 2. Search MongoDB Atlas Cloud Database
+    m_user = None
+    if not user and mongo_db.is_mongo_active():
+        m_user = mongo_db.mongo_find_user(ident)
+        if not m_user:
+            mdb = mongo_db.get_mongo_db()
+            if mdb is not None:
+                m_user = mdb.users.find_one({
+                    "$or": [
+                        {"email": ident_clean},
+                        {"username": ident},
+                        {"phone": ident}
+                    ]
+                })
+        if m_user:
+            uname = m_user.get("username") or ident
+            email_val = (m_user.get("email") or f"{uname.lower()}@dropzyy.com").strip().lower()
+            user = models.User(
+                username=uname,
+                email=email_val,
+                password_hash=m_user.get("password_hash") or auth.hash_password("Dropzyy@2026"),
+                full_name=m_user.get("full_name") or uname,
+                phone=m_user.get("phone"),
+                role=m_user.get("role") or "customer",
+                supplier_company_name=m_user.get("supplier_company_name"),
+                city=m_user.get("city") or "Faizpur",
+                is_verified=True,
+                store_open=m_user.get("store_open", True),
+                banner_image=m_user.get("banner_image"),
+                telegram_chat_id=m_user.get("telegram_chat_id")
+            )
+            try:
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            except Exception:
+                db.rollback()
+
+    if not user and not m_user:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No account found matching '{ident}'. Please verify your registered email or create a new account."
+        )
+
+    target_email = None
+    if user and user.email and "@" in user.email:
+        target_email = user.email.strip().lower()
+    elif m_user and m_user.get("email") and "@" in m_user.get("email"):
+        target_email = m_user.get("email").strip().lower()
+    elif "@" in ident:
+        target_email = ident_clean
+
+    if not target_email or "@" not in target_email:
+        raise HTTPException(
+            status_code=400,
+            detail="This account does not have a registered email address on file. Please contact Dropzyy Admin."
+        )
+
+    # Generate 6-digit OTP code
     otp_code = f"{random.randint(100000, 999999)}"
-    otp_store[email_clean] = {
+    otp_store[ident_clean] = {
         "code": otp_code,
         "created_at": datetime.datetime.utcnow()
     }
-    
-    # Send email via Gmail SMTP
+    otp_store[target_email] = {
+        "code": otp_code,
+        "created_at": datetime.datetime.utcnow()
+    }
+
+    # Send email via Gmail SMTP / Resend
     email_sent = send_email_otp(target_email, otp_code)
 
-    res_data = {
+    return {
         "message": f"Password reset code sent to {target_email}",
         "email": target_email,
         "sender": SENDER_EMAIL,
         "live_email_sent": email_sent,
         "otp_preview": otp_code
     }
-    return res_data
 
 @app.post("/api/auth/forgot-password/reset", response_model=schemas.UserResponse)
 def forgot_password_reset(payload: schemas.ForgotPasswordResetRequest, db: Session = Depends(get_db)):
@@ -1826,24 +1933,73 @@ def forgot_password_reset(payload: schemas.ForgotPasswordResetRequest, db: Sessi
             detail="Password must be at least 6 characters long (letters, numbers and symbols allowed)!"
         )
 
-    email_clean = payload.email.strip().lower()
-    otp_record = otp_store.get(email_clean)
+    ident = (payload.email or "").strip()
+    ident_clean = ident.lower()
+
+    otp_record = otp_store.get(ident_clean) or otp_store.get(ident)
     if not otp_record or otp_record["code"] != payload.otp.strip():
         raise HTTPException(status_code=400, detail="Invalid or expired verification code!")
-    
+
+    # Find user across SQLite
     user = db.query(models.User).filter(
-        (models.User.email == email_clean) | (models.User.username == email_clean)
+        (models.User.email.ilike(ident_clean)) |
+        (models.User.username.ilike(ident)) |
+        (models.User.phone == ident)
     ).first()
+
+    # Check MongoDB Atlas if missing in SQLite
+    if not user and mongo_db.is_mongo_active():
+        m_user = mongo_db.mongo_find_user(ident)
+        if not m_user:
+            mdb = mongo_db.get_mongo_db()
+            if mdb is not None:
+                m_user = mdb.users.find_one({"$or": [{"email": ident_clean}, {"username": ident}, {"phone": ident}]})
+        if m_user:
+            uname = m_user.get("username") or ident
+            email_val = (m_user.get("email") or f"{uname.lower()}@dropzyy.com").strip().lower()
+            user = models.User(
+                username=uname,
+                email=email_val,
+                password_hash=m_user.get("password_hash") or auth.hash_password("Dropzyy@2026"),
+                full_name=m_user.get("full_name") or uname,
+                phone=m_user.get("phone"),
+                role=m_user.get("role") or "customer",
+                supplier_company_name=m_user.get("supplier_company_name"),
+                city=m_user.get("city") or "Faizpur",
+                is_verified=True,
+                store_open=m_user.get("store_open", True),
+                banner_image=m_user.get("banner_image"),
+                telegram_chat_id=m_user.get("telegram_chat_id")
+            )
+            try:
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            except Exception:
+                db.rollback()
+
     if not user:
         raise HTTPException(status_code=404, detail="Account not found!")
-    
-    # Update password in SQLite database using bcrypt
-    user.password_hash = auth.hash_password(payload.new_password)
+
+    # Update password in SQLite
+    new_hash = auth.hash_password(payload.new_password)
+    user.password_hash = new_hash
     db.commit()
     db.refresh(user)
-    
+
+    # Update password in MongoDB Atlas
+    if mongo_db.is_mongo_active():
+        try:
+            mongo_db.mongo_update_user(user.username, {"password_hash": new_hash})
+            if user.email:
+                mongo_db.mongo_update_user(user.email, {"password_hash": new_hash})
+        except Exception as m_e:
+            print(f"[MONGO RESET PW ERR]: {m_e}")
+
     # Clear OTP from memory store
-    otp_store.pop(email_clean, None)
+    otp_store.pop(ident_clean, None)
+    if user.email:
+        otp_store.pop(user.email.strip().lower(), None)
 
     token = auth.create_access_token(user.id, user.username, user.role)
     setattr(user, 'access_token', token)
@@ -1859,23 +2015,70 @@ def register_user(user_data: schemas.UserRegister, request: Request, db: Session
         )
 
     client_ip = request.client.host if request.client else "unknown"
-    if not check_rate_limit(f"reg_{client_ip}", limit=8, window_sec=60):
+    if not check_rate_limit(f"reg_{client_ip}", limit=12, window_sec=60):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many registration attempts. Please wait 1 minute."
         )
 
-    email_raw = (user_data.email or "").strip().lower()
-    derived_username = (user_data.username or (email_raw.split("@")[0] if "@" in email_raw else "user_" + str(uuid.uuid4())[:6])).strip()
-    
-    email_clean = email_raw if (email_raw and "@" in email_raw) else f"{derived_username.lower()}@dropzyy.com"
+    email_clean = (user_data.email or "").strip().lower()
+    if not email_clean or "@" not in email_clean:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
 
-    existing = db.query(models.User).filter(
-        (models.User.email == email_clean) | (models.User.username == derived_username)
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail=f"An account with username '@{derived_username}' or email '{email_clean}' already exists!")
-    
+    # 1. Check if EMAIL already exists in SQLite or MongoDB Atlas
+    existing_by_email = db.query(models.User).filter(models.User.email.ilike(email_clean)).first()
+    if not existing_by_email and mongo_db.is_mongo_active():
+        mdb = mongo_db.get_mongo_db()
+        if mdb is not None:
+            existing_by_email = mdb.users.find_one({"email": email_clean})
+
+    if existing_by_email:
+        raise HTTPException(
+            status_code=400,
+            detail=f"An account with email '{email_clean}' is already registered! Please log in or use Forgot Password to reset your password."
+        )
+
+    # 2. Check if PHONE already exists (if provided)
+    clean_phone = re.sub(r"\D", "", user_data.phone or "")
+    if clean_phone and len(clean_phone) >= 10:
+        existing_by_phone = db.query(models.User).filter(models.User.phone.contains(clean_phone[-10:])).first()
+        if not existing_by_phone and mongo_db.is_mongo_active():
+            mdb = mongo_db.get_mongo_db()
+            if mdb is not None:
+                existing_by_phone = mdb.users.find_one({"phone": {"$regex": clean_phone[-10:]}})
+        if existing_by_phone:
+            raise HTTPException(
+                status_code=400,
+                detail=f"An account with phone number '{clean_phone}' is already registered! Please log in."
+            )
+
+    # 3. Determine unique username
+    if user_data.username and user_data.username.strip():
+        explicit_uname = user_data.username.strip()
+        existing_uname = db.query(models.User).filter(models.User.username.ilike(explicit_uname)).first()
+        if not existing_uname and mongo_db.is_mongo_active():
+            existing_uname = mongo_db.mongo_find_user(explicit_uname)
+        if existing_uname:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Username '@{explicit_uname}' is already taken! Please choose another username."
+            )
+        derived_username = explicit_uname
+    else:
+        # Standard customer signup: auto-generate unique username so collisions never block customer
+        base_uname = email_clean.split("@")[0].replace(".", "_").replace("-", "_").strip()
+        if not base_uname:
+            base_uname = "user"
+        candidate = base_uname
+        counter = 1
+        while db.query(models.User).filter(models.User.username.ilike(candidate)).first() or (mongo_db.is_mongo_active() and mongo_db.mongo_find_user(candidate)):
+            candidate = f"{base_uname}_{random.randint(10, 9999)}"
+            counter += 1
+            if counter > 50:
+                candidate = f"{base_uname}_{str(uuid.uuid4())[:6]}"
+                break
+        derived_username = candidate
+
     req_role = (user_data.role or "customer").lower()
     assigned_role = "customer"
 
@@ -1903,7 +2106,7 @@ def register_user(user_data: schemas.UserRegister, request: Request, db: Session
     supplier_comp = user_data.supplier_company_name if assigned_role == "supplier" else None
     user_city = (user_data.city or "").strip()
     if not user_city and assigned_role == "supplier":
-        user_city = "Savda"
+        user_city = "Faizpur"
 
     max_dev_val = int(user_data.max_devices or 1) if user_data.max_devices else 1
 
@@ -1955,19 +2158,15 @@ def register_user(user_data: schemas.UserRegister, request: Request, db: Session
                 name=s_name,
                 contact_person=user_data.full_name,
                 phone=user_data.phone or "+91 98000 00000",
-                city=user_city or "Savda"
+                city=user_city or "Faizpur"
             )
             db.add(new_s)
-            db.commit()
-        elif user_city:
-            existing_s.city = user_city
             db.commit()
 
     token = auth.create_access_token(new_user.id, new_user.username, new_user.role)
     setattr(new_user, 'access_token', token)
     setattr(new_user, 'token_type', 'bearer')
     return new_user
-
 
 def check_and_register_supplier_device(user: models.User, credentials: schemas.UserLogin, request: Request, db: Session):
     """

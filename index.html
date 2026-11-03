@@ -1626,9 +1626,9 @@
         <form class="auth-form" id="forgotPasswordForm" onsubmit="handleForgotPasswordSubmit(event)">
             <!-- Step 1: Email Input + Send OTP button -->
             <div class="form-group">
-                <label for="forgotEmail">Registered Email Address</label>
+                <label for="forgotEmail">Registered Email Address or Username</label>
                 <div style="display: flex; gap: 8px;">
-                    <input type="email" id="forgotEmail" required placeholder="e.g. name@gmail.com" style="flex: 1;">
+                    <input type="text" id="forgotEmail" required placeholder="e.g. name@gmail.com or username" style="flex: 1;">
                     <button type="button" class="btn btn-secondary btn-sm" id="sendForgotOTPBtn" onclick="sendForgotPasswordOTP()" style="white-space: nowrap;">
                         Send Code <i class="fa-solid fa-paper-plane"></i>
                     </button>

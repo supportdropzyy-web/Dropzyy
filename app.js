@@ -4219,43 +4219,14 @@ async function registerUser(email, otp, password, fullName, role, supplierCompan
         return;
     }
 
-    // Check if email already registered locally
-    if (registeredUsers.some(u => u.email && u.email.toLowerCase() === email.toLowerCase())) {
-        showToast(`Email <strong>${email}</strong> is already registered! Please sign in instead.`, 'info');
-        return;
+    const regBtn = document.getElementById('regSubmitBtn') || document.querySelector('#registerForm button[type="submit"]');
+    if (regBtn) {
+        regBtn.disabled = true;
+        regBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registering...';
     }
 
-    const derivedUsername = email.split('@')[0];
     const finalCity = (city || '').trim() || (role === 'supplier' ? 'Savda' : '');
 
-    const newUser = {
-        id: Date.now(),
-        username: derivedUsername,
-        email: email,
-        password: password,
-        full_name: fullName,
-        phone: phone,
-        role: role,
-        is_verified: true,
-        city: finalCity,
-        address: { fullName, phone, streetAddress: '', city: finalCity, pincode: '' },
-        supplier_company_name: role === 'supplier' ? (supplierCompany || fullName) : null
-    };
-
-    // Save to local registered accounts list immediately (0ms delay)
-    registeredUsers.push(newUser);
-
-    // Log user in automatically
-    state.currentUser = newUser;
-    saveUserSession(newUser);
-    
-    updateUserAuthUI();
-    renderProducts();
-    if (typeof renderRestaurants === 'function') renderRestaurants();
-    closeModals();
-    showToast(`Email verified! Account created for <strong>${newUser.full_name}</strong>. Welcome to Dropzyy!`, 'success');
-
-    // Async background sync with API
     try {
         const response = await fetchWithTimeout(`${API_BASE_URL}/auth/register`, {
             method: 'POST',
@@ -4267,15 +4238,41 @@ async function registerUser(email, otp, password, fullName, role, supplierCompan
 
         if (response && response.ok) {
             const user = await response.json();
-            if (user && user.id) newUser.id = user.id;
-            if (user && (user.access_token || user.token)) {
-                newUser.access_token = user.access_token || user.token;
-                saveUserSession(newUser);
+            
+            // Sync locally only AFTER verified successful backend creation
+            const existingIdx = registeredUsers.findIndex(u => 
+                (u.email && u.email.toLowerCase() === email.toLowerCase()) || 
+                (u.username && u.username.toLowerCase() === (user.username || '').toLowerCase())
+            );
+            if (existingIdx > -1) {
+                registeredUsers[existingIdx] = user;
+            } else {
+                registeredUsers.push(user);
             }
-            showToast(`Account registered successfully!`, 'success');
+            try { persistRegisteredUsers(); } catch(e){}
+
+            state.currentUser = user;
+            saveUserSession(user);
+            updateUserAuthUI();
+            renderProducts();
+            if (typeof renderRestaurants === 'function') renderRestaurants();
+            closeModals();
+            showToast(`Welcome to Dropzyy, <strong>${user.full_name}</strong>! Account created successfully.`, 'success');
+        } else {
+            let errorMsg = 'Registration failed. Please check your details.';
+            try {
+                const errJson = await response.json();
+                if (errJson && errJson.detail) errorMsg = errJson.detail;
+            } catch(e) {}
+            showToast(errorMsg, 'error');
         }
     } catch (e) {
-        console.log('FastAPI offline. Account registered locally.');
+        showToast('Connection error during registration. Please try again.', 'error');
+    } finally {
+        if (regBtn) {
+            regBtn.disabled = false;
+            regBtn.innerHTML = 'Complete Registration <i class="fa-solid fa-check"></i>';
+        }
     }
 }
 
@@ -8251,59 +8248,65 @@ window.sendForgotPasswordOTP = async function() {
     const sendBtn = document.getElementById('sendForgotOTPBtn');
     const notice = document.getElementById('forgotOTPNotice');
 
-    if (!emailInput || !emailInput.value.trim() || !emailInput.value.includes('@')) {
-        showToast('Please enter a valid registered email address!', 'info');
+    const ident = (emailInput ? emailInput.value : '').trim();
+    if (!ident) {
+        showToast('Please enter your registered email address or username!', 'info');
         return;
     }
 
-    const email = emailInput.value.trim().toLowerCase();
     if (sendBtn) {
         sendBtn.disabled = true;
         sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
     }
 
     let success = false;
+    let targetEmailDisplay = ident;
     let errorMsg = '';
 
     try {
         const response = await fetchWithTimeout(`${API_BASE_URL}/auth/forgot-password/send-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        }, 8000);
+            body: JSON.stringify({ email: ident })
+        }, 12000);
 
         if (response && response.ok) {
             const data = await response.json();
+            targetEmailDisplay = data.email || ident;
             window._forgot_email_otp = data.otp_preview || '';
             if (window._forgot_email_otp) {
-                sendOTPViaEmailJS(email, window._forgot_email_otp, 'Valued Customer');
+                sendOTPViaEmailJS(targetEmailDisplay, window._forgot_email_otp, 'Valued Customer');
             }
             success = true;
         } else {
-            errorMsg = 'Failed to send reset code. Please check your email.';
+            errorMsg = 'Failed to send reset code. Please check your email or username.';
             try {
                 const errJson = await response.json();
                 if (errJson && errJson.detail) errorMsg = errJson.detail;
             } catch (e) {}
         }
     } catch (err) {
-        // If network timed out but backend sent email, mark success
-        success = true;
+        errorMsg = 'Connection error. Please check your internet connection.';
     }
 
     if (success) {
-        showToast(`📩 Reset code sent to <strong>${email}</strong>! Check your inbox / spam folder.`, 'success');
+        showToast(`📩 Verification code sent to <strong>${targetEmailDisplay}</strong>! Check your inbox / spam folder.`, 'success');
         if (notice) {
             notice.classList.remove('hidden');
-            notice.innerHTML = `<i class="fa-solid fa-circle-check"></i> Reset code sent to <strong>${email}</strong>! Check inbox / spam folder.`;
+            notice.innerHTML = `<i class="fa-solid fa-circle-check"></i> Verification code sent to <strong>${targetEmailDisplay}</strong>! Check inbox / spam folder.`;
         }
     } else if (errorMsg) {
         showToast(errorMsg, 'error');
+        if (notice) {
+            notice.classList.remove('hidden');
+            notice.style.color = '#DC2626';
+            notice.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${errorMsg}`;
+        }
     }
 
     if (sendBtn) {
         sendBtn.disabled = false;
-        sendBtn.innerHTML = 'Resend Code <i class="fa-solid fa-rotate-right"></i>';
+        sendBtn.innerHTML = 'Send Code <i class="fa-solid fa-paper-plane"></i>';
     }
 };
 
