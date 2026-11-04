@@ -1539,9 +1539,11 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top: 14px;">
-                Log In <i class="fa-solid fa-right-to-bracket"></i>
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="loginSubmitBtn" style="margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span id="loginSubmitBtnText">Log In</span>
+                <i class="fa-solid fa-right-to-bracket" id="loginSubmitBtnIcon"></i>
             </button>
+            <div id="loginStatusNotice" style="margin-top: 10px; font-size: 0.82rem; text-align: center; display: none; padding: 6px 10px; border-radius: 8px;"></div>
         </form>
 
         <!-- Register Form -->

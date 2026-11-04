@@ -3252,6 +3252,8 @@ function getDeviceName() {
     return `${browser} on ${os}`;
 }
 
+let isLoggingIn = false;
+
 async function loginUser(username, password) {
     if (!username || !password) return;
 
@@ -3259,6 +3261,7 @@ async function loginUser(username, password) {
     const cleanAlpha = cleanInput.replace(/[^a-z0-9]/g, '');
     const deviceId = getOrCreateDeviceId();
     const deviceName = getDeviceName();
+    const statusNotice = document.getElementById('loginStatusNotice');
 
     // 1. Check local registered users list
     const matchedUser = registeredUsers.find(u => {
@@ -3291,12 +3294,20 @@ async function loginUser(username, password) {
                     device_id: deviceId, 
                     device_name: deviceName 
                 })
-            }, 8000);
+            }, 15000);
 
             if (response) {
                 if (response.status === 403) {
                     const errData = await response.json().catch(() => ({}));
-                    showToast(errData.detail || 'Device limit reached! You are already logged in on the maximum allowed devices. Please contact Dropzyy Admin or log out from another device.', 'error');
+                    const msg = errData.detail || 'Device limit reached! You are already logged in on the maximum allowed devices. Please contact Dropzyy Admin or log out from another device.';
+                    if (statusNotice) {
+                        statusNotice.style.display = 'block';
+                        statusNotice.style.background = '#FEF2F2';
+                        statusNotice.style.color = '#991B1B';
+                        statusNotice.style.border = '1px solid #FECACA';
+                        statusNotice.innerHTML = `<i class="fa-solid fa-mobile-screen-button" style="margin-right: 6px;"></i> ${msg}`;
+                    }
+                    showToast(msg, 'error');
                     return;
                 }
                 if (response.ok) {
@@ -3309,12 +3320,29 @@ async function loginUser(username, password) {
                     showToast(`Logged in as <strong>${matchedUser.supplier_company_name || matchedUser.full_name}</strong> (${matchedUser.role})!`, 'success');
                     return;
                 }
-                showToast('Unable to authenticate supplier with server. Please check credentials.', 'error');
+                const errData = await response.json().catch(() => ({}));
+                const msg = errData.detail || 'Unable to authenticate supplier with server. Please check credentials.';
+                if (statusNotice) {
+                    statusNotice.style.display = 'block';
+                    statusNotice.style.background = '#FEF2F2';
+                    statusNotice.style.color = '#991B1B';
+                    statusNotice.style.border = '1px solid #FECACA';
+                    statusNotice.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i> ${msg}`;
+                }
+                showToast(msg, 'error');
                 return;
             }
         } catch (e) {
             console.warn('Backend login verification failed:', e);
-            showToast('Cannot reach server to verify supplier device session. Ensure backend server is running.', 'error');
+            const msg = 'Cannot reach server to verify supplier device session. Ensure backend server is running.';
+            if (statusNotice) {
+                statusNotice.style.display = 'block';
+                statusNotice.style.background = '#FEF2F2';
+                statusNotice.style.color = '#991B1B';
+                statusNotice.style.border = '1px solid #FECACA';
+                statusNotice.innerHTML = `<i class="fa-solid fa-wifi" style="margin-right: 6px;"></i> ${msg}`;
+            }
+            showToast(msg, 'error');
             return;
         }
     } else if (matchedUser) {
@@ -3330,7 +3358,7 @@ async function loginUser(username, password) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password, device_id: deviceId, device_name: deviceName })
-        }, 5000).then(res => res && res.ok && res.json()).then(apiUser => {
+        }, 10000).then(res => res && res.ok && res.json()).then(apiUser => {
             if (apiUser && (apiUser.access_token || apiUser.token)) {
                 state.currentUser = { ...matchedUser, ...apiUser };
                 saveUserSession(state.currentUser);
@@ -3339,18 +3367,27 @@ async function loginUser(username, password) {
         return;
     }
 
-    // 2. Check REST API
+    // 2. Check REST API for cloud authentication
+    let apiErrorMsg = '';
     try {
         const response = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password, device_id: deviceId, device_name: deviceName })
-        }, 8000);
+        }, 15000);
 
         if (response) {
             if (response.status === 403) {
                 const errData = await response.json().catch(() => ({}));
-                showToast(errData.detail || 'Device limit reached! You are already logged in on the maximum allowed devices. Please contact Dropzyy Admin or log out from another device.', 'error');
+                const msg = errData.detail || 'Device limit reached! You are already logged in on the maximum allowed devices. Please contact Dropzyy Admin or log out from another device.';
+                if (statusNotice) {
+                    statusNotice.style.display = 'block';
+                    statusNotice.style.background = '#FEF2F2';
+                    statusNotice.style.color = '#991B1B';
+                    statusNotice.style.border = '1px solid #FECACA';
+                    statusNotice.innerHTML = `<i class="fa-solid fa-mobile-screen-button" style="margin-right: 6px;"></i> ${msg}`;
+                }
+                showToast(msg, 'error');
                 return;
             }
             if (response.ok) {
@@ -3367,24 +3404,101 @@ async function loginUser(username, password) {
                 showToast(`Welcome back, <strong>${user.supplier_company_name || user.full_name}</strong> (${user.role})!`, 'success');
                 return;
             }
+            // Response not ok (401, 400, 422, etc.)
+            const errData = await response.json().catch(() => ({}));
+            apiErrorMsg = errData.detail || (response.status === 401 ? 'Invalid email/username or password! Please check credentials.' : `Login error (${response.status})`);
+        } else {
+            apiErrorMsg = 'Server response timed out. Please try again.';
         }
     } catch (e) {
-        console.log('FastAPI server offline or unreachable.');
+        console.warn('FastAPI server offline or unreachable:', e);
+        apiErrorMsg = 'Unable to connect to Dropzyy server. Please verify your internet connection.';
     }
 
-    showToast('Invalid email/username or password! Please check credentials.', 'info');
+    const finalMsg = apiErrorMsg || 'Invalid email/username or password! Please check credentials.';
+    if (statusNotice) {
+        statusNotice.style.display = 'block';
+        statusNotice.style.background = '#FEF2F2';
+        statusNotice.style.color = '#991B1B';
+        statusNotice.style.border = '1px solid #FECACA';
+        statusNotice.innerHTML = `<i class="fa-solid fa-circle-exclamation" style="margin-right: 6px;"></i> ${finalMsg}`;
+    }
+    showToast(finalMsg, 'error');
 }
 
-window.handleLoginSubmit = function(e) {
-    if (e) e.preventDefault();
+window.handleLoginSubmit = async function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    if (isLoggingIn) return;
+
     const usernameEl = document.getElementById('loginUsername');
     const passwordEl = document.getElementById('loginPassword');
     const username = usernameEl ? usernameEl.value.trim() : '';
     const password = passwordEl ? passwordEl.value.trim() : '';
-    if (username && password) {
-        loginUser(username, password);
-    } else {
+
+    if (!username || !password) {
         showToast('Please enter both email/username and password!', 'info');
+        return;
+    }
+
+    const loginBtn = document.getElementById('loginSubmitBtn');
+    const loginBtnText = document.getElementById('loginSubmitBtnText');
+    const loginBtnIcon = document.getElementById('loginSubmitBtnIcon');
+    const statusNotice = document.getElementById('loginStatusNotice');
+
+    isLoggingIn = true;
+
+    // Set immediate visual loading state on login button
+    if (loginBtn) {
+        loginBtn.disabled = true;
+        loginBtn.style.opacity = '0.85';
+        loginBtn.style.cursor = 'not-allowed';
+    }
+    if (loginBtnText) loginBtnText.textContent = 'Signing In...';
+    if (loginBtnIcon) loginBtnIcon.className = 'fa-solid fa-circle-notch fa-spin';
+
+    if (statusNotice) {
+        statusNotice.style.display = 'block';
+        statusNotice.style.background = '#ECFDF5';
+        statusNotice.style.color = '#065F46';
+        statusNotice.style.border = '1px solid #A7F3D0';
+        statusNotice.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="margin-right: 6px;"></i> Verifying credentials with Dropzyy server...';
+    }
+
+    // Dynamic feedback if cloud server takes more than 2.5 seconds (e.g. Render spin-up)
+    const slowServerTimer = setTimeout(() => {
+        if (isLoggingIn && statusNotice) {
+            statusNotice.style.background = '#FFFBEB';
+            statusNotice.style.color = '#92400E';
+            statusNotice.style.border = '1px solid #FDE68A';
+            statusNotice.innerHTML = '<i class="fa-solid fa-cloud-arrow-up fa-spin" style="margin-right: 6px;"></i> Connecting to cloud server, please hold on a moment...';
+        }
+    }, 2500);
+
+    try {
+        await loginUser(username, password);
+    } catch (err) {
+        console.error('Login submit error:', err);
+        showToast('An unexpected error occurred during login. Please try again.', 'error');
+        if (statusNotice) {
+            statusNotice.style.display = 'block';
+            statusNotice.style.background = '#FEF2F2';
+            statusNotice.style.color = '#991B1B';
+            statusNotice.style.border = '1px solid #FECACA';
+            statusNotice.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i> Login failed. Please check credentials or network.';
+        }
+    } finally {
+        clearTimeout(slowServerTimer);
+        isLoggingIn = false;
+        if (loginBtn) {
+            loginBtn.disabled = false;
+            loginBtn.style.opacity = '1';
+            loginBtn.style.cursor = 'pointer';
+        }
+        if (loginBtnText) loginBtnText.textContent = 'Log In';
+        if (loginBtnIcon) loginBtnIcon.className = 'fa-solid fa-right-to-bracket';
     }
 };
 
@@ -7556,6 +7670,11 @@ window.openAuthModal = function() {
     const authModal = document.getElementById('authModal');
     if (authOverlay) authOverlay.classList.add('active');
     if (authModal) authModal.classList.add('active');
+    const statusNotice = document.getElementById('loginStatusNotice');
+    if (statusNotice) {
+        statusNotice.style.display = 'none';
+        statusNotice.innerHTML = '';
+    }
 };
 
 window.togglePasswordVisibility = function(inputId, btn) {
@@ -7707,17 +7826,25 @@ function setupEventListeners() {
         const registerTab = document.getElementById('registerTab');
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
+        const authModal = document.getElementById('authModal');
+        const statusNotice = document.getElementById('loginStatusNotice');
+        if (statusNotice) {
+            statusNotice.style.display = 'none';
+            statusNotice.innerHTML = '';
+        }
 
         if (tab === 'login') {
             if (loginTab) loginTab.classList.add('active');
             if (registerTab) registerTab.classList.remove('active');
             if (loginForm) loginForm.classList.remove('hidden');
             if (registerForm) registerForm.classList.add('hidden');
+            if (authModal) authModal.classList.remove('register-active');
         } else {
             if (registerTab) registerTab.classList.add('active');
             if (loginTab) loginTab.classList.remove('active');
             if (registerForm) registerForm.classList.remove('hidden');
             if (loginForm) loginForm.classList.add('hidden');
+            if (authModal) authModal.classList.add('register-active');
         }
     };
 
@@ -7731,14 +7858,7 @@ function setupEventListeners() {
 
     if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const usernameInput = document.getElementById('loginUsername');
-            const passwordInput = document.getElementById('loginPassword');
-            const username = usernameInput ? usernameInput.value.trim() : '';
-            const password = passwordInput ? passwordInput.value.trim() : '';
-            if (username && password) {
-                loginUser(username, password);
-            }
+            window.handleLoginSubmit(e);
         });
     }
 
