@@ -986,7 +986,7 @@ button {
 }
 .cart-overlay.active, .modal-overlay.active { opacity: 1; visibility: visible; }
 
-.quick-view-modal, .checkout-modal, .order-success-modal, .admin-modal, .supplier-dashboard-modal {
+.quick-view-modal, .order-success-modal, .admin-modal, .supplier-dashboard-modal {
     position: fixed;
     top: 50%;
     left: 50%;
@@ -2052,18 +2052,301 @@ button {
 .qv-desc { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px; }
 .qv-nutrition { background: var(--bg-secondary); padding: 10px; border-radius: var(--radius-sm); font-size: 0.78rem; margin-bottom: 16px; }
 
-/* Checkout */
-.checkout-header { text-align: center; margin-bottom: 20px; }
-.checkout-header h2 { font-family: var(--font-heading); font-size: 1.4rem; }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.full-width { grid-column: span 2; }
-.form-group { display: flex; flex-direction: column; gap: 4px; }
-.form-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
-.form-group input, .form-group textarea { padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.88rem; }
-.payment-options { display: flex; flex-direction: column; gap: 8px; }
-.payment-card { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; }
-.payment-card.active { border-color: var(--primary-color); background: #F0FDF4; }
-.checkout-final-summary { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--border-color); }
+/* Checkout Modal Architecture */
+.checkout-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    z-index: 1000;
+    background: #FFFFFF;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    width: 95%;
+    max-width: 520px;
+    max-height: 88vh !important;
+    height: auto;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    opacity: 0;
+    visibility: hidden;
+    transition: var(--transition);
+}
+
+.checkout-modal.active {
+    transform: translate(-50%, -50%) scale(1) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.checkout-modal .checkout-header {
+    padding: 14px 18px 12px;
+    border-bottom: 1.5px solid var(--border-color, #E2E8F0);
+    background: #FFFFFF;
+    flex-shrink: 0;
+    position: relative;
+    margin-bottom: 0;
+    text-align: left;
+}
+
+.checkout-modal .checkout-header h2 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0F172A;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkout-modal .checkout-header p {
+    font-size: 0.78rem;
+    color: #64748B;
+    margin: 3px 0 0 0;
+}
+
+.checkout-modal #closeCheckoutBtn {
+    top: 12px;
+    right: 14px;
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748B;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.checkout-modal #closeCheckoutBtn:hover {
+    background: #E2E8F0;
+    color: #0F172A;
+}
+
+.checkout-form {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+}
+
+.checkout-modal-body {
+    padding: 16px 18px;
+    overflow-y: auto !important;
+    flex: 1 !important;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.checkout-modal-body .form-section {
+    margin-bottom: 0;
+}
+
+.checkout-modal-body .form-section h3 {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #1E293B;
+    margin-bottom: 8px;
+}
+
+/* Form inputs inside checkout */
+.checkout-modal-body .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+}
+
+.checkout-modal-body .form-grid .full-width {
+    grid-column: span 2;
+}
+
+.checkout-modal-body .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.checkout-modal-body .form-group label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.checkout-modal-body .form-group input {
+    padding: 9px 12px;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 8px;
+    font-size: 0.86rem;
+    color: #0F172A;
+    background: #FFFFFF;
+    transition: all 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.checkout-modal-body .form-group input:focus {
+    border-color: #10B981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    outline: none;
+}
+
+.checkout-modal-body .payment-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkout-modal-body .payment-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1.5px solid #A7F3D0;
+    background: #ECFDF5;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+/* Sticky / Pinned Bottom Summary & Place Order Bar */
+.checkout-final-summary {
+    padding: 12px 18px !important;
+    background: #FFFFFF !important;
+    border-top: 1.5px solid #E2E8F0 !important;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.08) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    flex-shrink: 0 !important;
+    z-index: 25 !important;
+    margin: 0 !important;
+}
+
+.checkout-summary-price {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.checkout-price-label {
+    font-size: 0.72rem;
+    color: #64748B;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.checkout-price-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #047857;
+    line-height: 1.1;
+}
+
+.checkout-final-summary #placeOrderBtn {
+    flex: 1;
+    max-width: 250px;
+    height: 48px;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+    color: #FFFFFF;
+    border: none;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0 18px;
+}
+
+.checkout-final-summary #placeOrderBtn:active {
+    transform: scale(0.98);
+}
+
+/* Mobile Responsive Optimization for Delivery & Payment Page */
+@media (max-width: 768px) {
+    .checkout-modal {
+        width: 95% !important;
+        max-width: 95% !important;
+        max-height: 86vh !important;
+        border-radius: 18px !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) scale(0.9) !important;
+    }
+    .checkout-modal.active {
+        transform: translate(-50%, -50%) scale(1) !important;
+    }
+    .checkout-modal .checkout-header {
+        padding: 12px 14px 10px !important;
+    }
+    .checkout-modal .checkout-header h2 {
+        font-size: 1.15rem !important;
+    }
+    .checkout-modal .checkout-header p {
+        font-size: 0.74rem !important;
+    }
+    .checkout-modal-body {
+        padding: 12px 14px !important;
+        gap: 12px !important;
+    }
+    .checkout-modal-body .form-section h3 {
+        font-size: 0.88rem !important;
+        margin-bottom: 8px !important;
+    }
+    /* Compact 2-column layout on mobile so form fits comfortably */
+    .checkout-modal-body .form-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px 10px !important;
+    }
+    .checkout-modal-body .form-grid .full-width {
+        grid-column: span 2 !important;
+    }
+    .checkout-modal-body .form-group label {
+        font-size: 0.72rem !important;
+    }
+    .checkout-modal-body .form-group input {
+        padding: 8px 10px !important;
+        font-size: 0.84rem !important;
+    }
+    #lblSavedAddress, #lblNewAddress {
+        padding: 8px 6px !important;
+        font-size: 0.78rem !important;
+    }
+    /* Sticky footer on mobile stays pinned at bottom */
+    .checkout-final-summary {
+        padding: 10px 14px !important;
+        gap: 10px !important;
+        background: #FFFFFF !important;
+    }
+    .checkout-price-label {
+        font-size: 0.68rem !important;
+    }
+    .checkout-price-value {
+        font-size: 1.25rem !important;
+    }
+    .checkout-final-summary #placeOrderBtn {
+        height: 46px !important;
+        font-size: 0.94rem !important;
+        max-width: none !important;
+        padding: 0 14px !important;
+    }
+}
 
 /* Success Modal */
 .order-success-modal { text-align: center; max-width: 460px; }
@@ -2437,7 +2720,7 @@ button {
     .qv-image { height: 170px; }
     .form-grid { grid-template-columns: 1fr; }
     .full-width { grid-column: span 1; }
-    .quick-view-modal, .checkout-modal, .order-success-modal, .auth-modal, .admin-modal, .supplier-dashboard-modal { padding: 18px 12px; max-width: 95vw; max-height: 90vh; overflow-y: auto; border-radius: 16px; }
+    .quick-view-modal, .order-success-modal, .auth-modal, .admin-modal, .supplier-dashboard-modal { padding: 18px 12px; max-width: 95vw; max-height: 90vh; overflow-y: auto; border-radius: 16px; }
     .cart-drawer { max-width: 100%; }
     .footer-grid { grid-template-columns: 1fr; gap: 18px; }
     .copyright-content { flex-direction: column; gap: 8px; text-align: center; }
@@ -2590,7 +2873,7 @@ button {
 
 /* Mobile Optimization for Admin Modals, Directory Lists & Control Panels */
 @media (max-width: 768px) {
-    .admin-modal, .auth-modal, .checkout-modal, .quick-view-modal, .order-success-modal, .supplier-dashboard-modal {
+    .admin-modal, .auth-modal, .quick-view-modal, .order-success-modal, .supplier-dashboard-modal {
         width: 95% !important;
         max-width: 95% !important;
         padding: 16px 12px !important;
