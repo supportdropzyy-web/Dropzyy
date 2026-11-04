@@ -117,7 +117,8 @@ class SupplierTimingsUpdate(BaseModel):
     city: Optional[str] = None
 
 class UserUpdateAddress(BaseModel):
-    user_id: int
+    user_id: Optional[int] = None
+    username: Optional[str] = None
     full_name: Optional[str] = None
     phone: Optional[str] = None
     street_address: Optional[str] = None

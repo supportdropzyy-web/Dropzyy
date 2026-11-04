@@ -2397,9 +2397,34 @@ def get_current_user_profile(
 
 @app.put("/api/auth/profile/address", response_model=schemas.UserResponse)
 def update_user_address(data: schemas.UserUpdateAddress, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == data.user_id).first()
+    user = None
+    if data.user_id:
+        user = db.query(models.User).filter(models.User.id == data.user_id).first()
+    if not user and data.username:
+        user = db.query(models.User).filter(models.User.username.ilike(data.username.strip())).first()
+
+    # If not found in SQLite, check MongoDB Atlas and mirror locally
+    if not user and data.username and mongo_db.is_mongo_active():
+        m_user = mongo_db.mongo_find_user(data.username.strip())
+        if m_user:
+            user = models.User(
+                username=m_user.get("username"),
+                email=m_user.get("email") or f"{data.username}@dropzyy.com",
+                password_hash=m_user.get("password_hash") or auth.hash_password("Dropzyy@2026"),
+                full_name=data.full_name or m_user.get("full_name") or data.username,
+                phone=data.phone or m_user.get("phone"),
+                role=m_user.get("role") or "customer",
+                city=data.city or m_user.get("city"),
+                street_address=data.street_address or m_user.get("street_address"),
+                pincode=data.pincode or m_user.get("pincode")
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
     if not user:
-        raise HTTPException(status_code=444, detail="User not found!")
+        raise HTTPException(status_code=404, detail="User not found!")
+
     if data.full_name is not None:
         user.full_name = data.full_name
     if data.phone is not None:
@@ -2417,6 +2442,28 @@ def update_user_address(data: schemas.UserUpdateAddress, db: Session = Depends(g
         user.pincode = data.pincode
     db.commit()
     db.refresh(user)
+
+    # Sync address to MongoDB Atlas
+    if mongo_db.is_mongo_active():
+        try:
+            mongo_db.mongo_update_user_address(user.username, {
+                "full_name": user.full_name,
+                "phone": user.phone,
+                "street_address": user.street_address,
+                "city": user.city,
+                "pincode": user.pincode,
+                "address": {
+                    "fullName": user.full_name,
+                    "phone": user.phone,
+                    "streetAddress": user.street_address,
+                    "city": user.city,
+                    "pincode": user.pincode
+                }
+            })
+            print(f"[MONGODB ADDRESS] Synced address for {user.username} to MongoDB Atlas")
+        except Exception as m_err:
+            print(f"[MONGODB ADDRESS ERR] {m_err}")
+
     return user
 
 @app.put("/api/supplier/timings")

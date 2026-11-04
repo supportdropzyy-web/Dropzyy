@@ -109,9 +109,14 @@ def mongo_get_all_users() -> List[Dict[str, Any]]:
 
 def mongo_update_user_address(username: str, address_data: dict) -> bool:
     db = get_mongo_db()
-    if db is None: return False
+    if db is None or not username: return False
+    clean = str(username).strip().lower()
     res = db.users.update_one(
-        {"username": username.strip().lower()},
+        {"$or": [
+            {"username": clean}, 
+            {"email": clean},
+            {"username": {"$regex": f"^{clean}$", "$options": "i"}}
+        ]},
         {"$set": {
             "full_name": address_data.get("full_name"),
             "phone": address_data.get("phone"),

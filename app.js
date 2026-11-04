@@ -487,6 +487,108 @@ function persistRegisteredUsers() {
     } catch (e) {}
 }
 
+window.getSavedUserAddress = function(username) {
+    if (!username && typeof state !== 'undefined' && state && state.currentUser) {
+        username = state.currentUser.username;
+    }
+    if (!username) return null;
+    const uKey = String(username).trim().toLowerCase();
+    try {
+        const raw = localStorage.getItem(`dropzyy_saved_address_${uKey}`);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && (parsed.streetAddress || parsed.street_address || parsed.city || parsed.fullName || parsed.phone)) {
+                return {
+                    fullName: parsed.fullName || parsed.full_name || '',
+                    phone: parsed.phone || '',
+                    streetAddress: parsed.streetAddress || parsed.street_address || '',
+                    city: parsed.city || '',
+                    pincode: parsed.pincode || ''
+                };
+            }
+        }
+    } catch (e) {}
+
+    // Fallback: check registeredUsers
+    if (typeof registeredUsers !== 'undefined' && Array.isArray(registeredUsers)) {
+        const reg = registeredUsers.find(u => (u.username || '').toLowerCase() === uKey);
+        if (reg) {
+            const addr = reg.address || {};
+            const st = addr.streetAddress || addr.street_address || reg.street_address || '';
+            const ct = addr.city || reg.city || '';
+            const ph = addr.phone || reg.phone || '';
+            if (st || ct || ph) {
+                return {
+                    fullName: addr.fullName || reg.full_name || '',
+                    phone: ph,
+                    streetAddress: st,
+                    city: ct,
+                    pincode: addr.pincode || reg.pincode || ''
+                };
+            }
+        }
+    }
+
+    // Fallback: check state.currentUser if matching
+    if (typeof state !== 'undefined' && state && state.currentUser && (state.currentUser.username || '').toLowerCase() === uKey) {
+        const addr = state.currentUser.address || {};
+        const st = addr.streetAddress || addr.street_address || state.currentUser.street_address || '';
+        const ct = addr.city || state.currentUser.city || '';
+        const ph = addr.phone || state.currentUser.phone || '';
+        if (st || ct || ph) {
+            return {
+                fullName: addr.fullName || state.currentUser.full_name || '',
+                phone: ph,
+                streetAddress: st,
+                city: ct,
+                pincode: addr.pincode || state.currentUser.pincode || ''
+            };
+        }
+    }
+    return null;
+};
+
+window.setSavedUserAddress = function(username, addressObj) {
+    if (!username && typeof state !== 'undefined' && state && state.currentUser) {
+        username = state.currentUser.username;
+    }
+    if (!username || !addressObj) return;
+    const uKey = String(username).trim().toLowerCase();
+    const cleanAddr = {
+        fullName: addressObj.fullName || addressObj.full_name || '',
+        phone: addressObj.phone || '',
+        streetAddress: addressObj.streetAddress || addressObj.street_address || '',
+        city: addressObj.city || '',
+        pincode: addressObj.pincode || ''
+    };
+    try {
+        localStorage.setItem(`dropzyy_saved_address_${uKey}`, JSON.stringify(cleanAddr));
+    } catch (e) {}
+
+    // Update in-memory state.currentUser
+    if (typeof state !== 'undefined' && state && state.currentUser && (state.currentUser.username || '').toLowerCase() === uKey) {
+        state.currentUser.address = cleanAddr;
+        if (cleanAddr.phone) state.currentUser.phone = cleanAddr.phone;
+        if (cleanAddr.streetAddress) state.currentUser.street_address = cleanAddr.streetAddress;
+        if (cleanAddr.city) state.currentUser.city = cleanAddr.city;
+        if (cleanAddr.pincode) state.currentUser.pincode = cleanAddr.pincode;
+        if (cleanAddr.fullName) state.currentUser.full_name = cleanAddr.fullName;
+    }
+
+    // Update registeredUsers
+    if (typeof registeredUsers !== 'undefined' && Array.isArray(registeredUsers)) {
+        const regIdx = registeredUsers.findIndex(u => (u.username || '').toLowerCase() === uKey);
+        if (regIdx > -1) {
+            registeredUsers[regIdx].address = cleanAddr;
+            if (cleanAddr.phone) registeredUsers[regIdx].phone = cleanAddr.phone;
+            if (cleanAddr.streetAddress) registeredUsers[regIdx].street_address = cleanAddr.streetAddress;
+            if (cleanAddr.city) registeredUsers[regIdx].city = cleanAddr.city;
+            if (cleanAddr.pincode) registeredUsers[regIdx].pincode = cleanAddr.pincode;
+            if (typeof persistRegisteredUsers === 'function') persistRegisteredUsers();
+        }
+    }
+};
+
 const DEFAULT_REGISTERED_USERS = [
     { id: 9, username: 'arnav', email: 'arnav@dropzyy.com', password: 'Arnav@Faizpur', full_name: 'Arnav Patil', role: 'supplier', supplier_company_name: 'Urban Tadka', restaurant_name: 'Urban Tadka', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Quick Bites • Great Vibes', store_open: true, open_time: '08:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80' },
     { id: 6, username: 'pranav', email: 'pranav@dropzyy.com', password: 'Pranav@Faizpur', full_name: 'Pranav Firake', role: 'supplier', supplier_company_name: 'Katta Biryani and Tandoor', restaurant_name: 'Katta Biryani and Tandoor', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Great Vibes', store_open: true, open_time: '11:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80' },
@@ -733,24 +835,45 @@ let state = {
             // Ensure localStorage strictly only contains { username: activeUsername }
             localStorage.setItem('dropzyy_user', JSON.stringify({ username: activeUsername }));
 
+            // Retrieve any persisted delivery address for this user
+            const savedAddr = (typeof getSavedUserAddress === 'function' ? getSavedUserAddress(activeUsername) : null) || (regUser ? regUser.address : null) || {};
+            const userPhone = (regUser ? regUser.phone : '') || savedAddr.phone || '';
+            const userStreet = (regUser ? regUser.street_address : '') || savedAddr.streetAddress || savedAddr.street_address || '';
+            const userCity = (regUser ? regUser.city : '') || savedAddr.city || '';
+            const userPincode = (regUser ? regUser.pincode : '') || savedAddr.pincode || '';
+            const userFullName = (regUser ? regUser.full_name : '') || savedAddr.fullName || activeUsername;
+
+            const initialAddress = {
+                fullName: userFullName,
+                phone: userPhone,
+                streetAddress: userStreet,
+                city: userCity,
+                pincode: userPincode
+            };
+
             const inMemoryUser = {
                 id: tokenId || (regUser ? regUser.id : ''),
                 username: activeUsername,
                 role: verifiedRole,
-                full_name: (regUser ? regUser.full_name : activeUsername),
+                full_name: userFullName,
                 email: (regUser ? regUser.email : `${activeUsername}@dropzyy.com`),
-                city: (regUser ? regUser.city : ''),
+                phone: userPhone,
+                street_address: userStreet,
+                city: userCity,
+                pincode: userPincode,
+                address: initialAddress,
                 supplier_company_name: (regUser ? regUser.supplier_company_name : ''),
                 store_open: regUser ? regUser.store_open !== false : true,
                 token: sessionToken || ''
             };
 
             // Asynchronously fetch fresh verified profile from backend /api/auth/me
-            if (sessionToken && typeof fetch === 'function') {
+            const effectiveToken = sessionToken || localStorage.getItem('dropzyy_auth_token');
+            if (effectiveToken && typeof fetch === 'function') {
                 setTimeout(async () => {
                     try {
                         const res = await fetch(`${API_BASE_URL}/auth/me`, {
-                            headers: { 'Authorization': `Bearer ${sessionToken}` }
+                            headers: { 'Authorization': `Bearer ${effectiveToken}` }
                         });
                         if (res.ok) {
                             const me = await res.json();
@@ -761,6 +884,22 @@ let state = {
                                 state.currentUser.role = me.role || state.currentUser.role;
                                 state.currentUser.supplier_company_name = me.supplier_company_name || state.currentUser.supplier_company_name;
                                 state.currentUser.telegram_chat_id = me.telegram_chat_id || state.currentUser.telegram_chat_id;
+                                if (me.phone) state.currentUser.phone = me.phone;
+                                if (me.street_address) state.currentUser.street_address = me.street_address;
+                                if (me.pincode) state.currentUser.pincode = me.pincode;
+
+                                const currentSaved = (typeof getSavedUserAddress === 'function' ? getSavedUserAddress(state.currentUser.username) : null) || {};
+                                const mergedAddr = {
+                                    fullName: me.full_name || currentSaved.fullName || state.currentUser.full_name,
+                                    phone: me.phone || currentSaved.phone || state.currentUser.phone || '',
+                                    streetAddress: me.street_address || currentSaved.streetAddress || state.currentUser.street_address || '',
+                                    city: me.city || currentSaved.city || state.currentUser.city || '',
+                                    pincode: me.pincode || currentSaved.pincode || state.currentUser.pincode || ''
+                                };
+                                state.currentUser.address = mergedAddr;
+                                if (typeof setSavedUserAddress === 'function') {
+                                    setSavedUserAddress(state.currentUser.username, mergedAddr);
+                                }
                                 if (typeof updateUserAuthUI === 'function') updateUserAuthUI();
                             }
                         }
@@ -3208,14 +3347,39 @@ window.saveUserSession = function(user) {
             localStorage.setItem('dropzyy_auth_token', tok);
         }
 
-        // 3. User object with role and profile is stored STRICTLY IN-MEMORY:
+        // Retrieve existing address from saved cache or user object
+        const existingAddr = (typeof getSavedUserAddress === 'function' ? getSavedUserAddress(username) : null) || user.address || {};
+        const resolvedPhone = user.phone || existingAddr.phone || (state.currentUser ? state.currentUser.phone : '') || '';
+        const resolvedStreet = user.street_address || existingAddr.streetAddress || existingAddr.street_address || (state.currentUser ? state.currentUser.street_address : '') || '';
+        const resolvedCity = user.city || existingAddr.city || (state.currentUser ? state.currentUser.city : '') || '';
+        const resolvedPincode = user.pincode || existingAddr.pincode || (state.currentUser ? state.currentUser.pincode : '') || '';
+        const resolvedFullName = user.full_name || existingAddr.fullName || username;
+
+        const combinedAddr = {
+            fullName: resolvedFullName,
+            phone: resolvedPhone,
+            streetAddress: resolvedStreet,
+            city: resolvedCity,
+            pincode: resolvedPincode
+        };
+
+        // If user object brought address details, persist them
+        if (typeof setSavedUserAddress === 'function' && (resolvedStreet || resolvedCity || resolvedPhone)) {
+            setSavedUserAddress(username, combinedAddr);
+        }
+
+        // User object with role and profile is stored in-memory
         state.currentUser = {
             id: user.id || user._id || '',
             username: username,
             role: user.role || 'customer',
-            full_name: user.full_name || username,
+            full_name: resolvedFullName,
             email: user.email || '',
-            city: user.city || '',
+            phone: resolvedPhone,
+            street_address: resolvedStreet,
+            city: resolvedCity,
+            pincode: resolvedPincode,
+            address: combinedAddr,
             supplier_company_name: user.supplier_company_name || '',
             store_open: user.store_open !== false,
             token: tok || ''
@@ -3731,12 +3895,18 @@ window.openProfileAddressModal = function() {
         pRole.className = `role-pill role-${state.currentUser.role}`;
     }
 
-    const addr = state.currentUser.address || {};
-    if (profileFullName) profileFullName.value = addr.fullName || state.currentUser.full_name || '';
-    if (profilePhone) profilePhone.value = addr.phone || '';
-    if (profileStreetAddress) profileStreetAddress.value = addr.streetAddress || '';
-    if (profileCity) profileCity.value = addr.city || '';
-    if (profilePincode) profilePincode.value = addr.pincode || '';
+    const saved = (typeof getSavedUserAddress === 'function' ? getSavedUserAddress(state.currentUser.username) : null) || state.currentUser.address || {};
+    const fullName = saved.fullName || state.currentUser.full_name || '';
+    const phone = saved.phone || state.currentUser.phone || '';
+    const streetAddress = saved.streetAddress || saved.street_address || state.currentUser.street_address || '';
+    const city = saved.city || state.currentUser.city || '';
+    const pincode = saved.pincode || state.currentUser.pincode || '';
+
+    if (profileFullName) profileFullName.value = fullName;
+    if (profilePhone) profilePhone.value = phone;
+    if (profileStreetAddress) profileStreetAddress.value = streetAddress;
+    if (profileCity) profileCity.value = city;
+    if (profilePincode) profilePincode.value = pincode;
 
     if (profileAddressOverlay) profileAddressOverlay.classList.add('active');
     if (profileAddressModal) profileAddressModal.classList.add('active');
@@ -3746,6 +3916,13 @@ async function saveProfileAddress(e) {
     if (e) e.preventDefault();
     if (!state.currentUser) return;
 
+    const saveBtn = document.getElementById('saveProfileAddressBtn');
+    const originalBtnHtml = saveBtn ? saveBtn.innerHTML : '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving Address...';
+    }
+
     const fullName = profileFullName ? profileFullName.value.trim() : '';
     const phone = profilePhone ? profilePhone.value.trim() : '';
     const streetAddress = profileStreetAddress ? profileStreetAddress.value.trim() : '';
@@ -3753,33 +3930,44 @@ async function saveProfileAddress(e) {
     const pincode = profilePincode ? profilePincode.value.trim() : '';
 
     const newAddress = { fullName, phone, streetAddress, city, pincode };
-    state.currentUser.address = newAddress;
-    saveUserSession(state.currentUser);
 
-    const uIdx = registeredUsers.findIndex(u => u.username.toLowerCase() === state.currentUser.username.toLowerCase());
-    if (uIdx > -1) {
-        registeredUsers[uIdx].address = newAddress;
-        // Registered accounts persisted in SQLite
+    // 1. Instantly persist to localStorage and in-memory state
+    if (typeof setSavedUserAddress === 'function') {
+        setSavedUserAddress(state.currentUser.username, newAddress);
+    } else {
+        state.currentUser.address = newAddress;
+        state.currentUser.phone = phone;
+        state.currentUser.street_address = streetAddress;
+        state.currentUser.city = city;
+        state.currentUser.pincode = pincode;
     }
 
-    closeModals();
-    showToast('Delivery address updated successfully!', 'success');
-
-    // Async sync with API
+    // 2. Sync to Backend REST API (with 10s timeout)
     try {
-        fetchWithTimeout(`${API_BASE_URL}/auth/profile/address`, {
+        await fetchWithTimeout(`${API_BASE_URL}/auth/profile/address`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                user_id: state.currentUser.id,
+                user_id: state.currentUser.id && !isNaN(state.currentUser.id) ? parseInt(state.currentUser.id, 10) : null,
+                username: state.currentUser.username,
                 full_name: fullName,
-                phone,
+                phone: phone,
                 street_address: streetAddress,
-                city,
-                pincode
+                city: city,
+                pincode: pincode
             })
-        }, 1200).catch(() => {});
-    } catch (err) {}
+        }, 10000);
+    } catch (err) {
+        console.warn('Backend address sync notice:', err);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalBtnHtml || '<i class="fa-solid fa-floppy-disk"></i> Save Address';
+        }
+    }
+
+    closeModals();
+    showToast('Delivery address saved & updated successfully!', 'success');
 }
 
 // Admin Coupon Management
@@ -4216,14 +4404,19 @@ function setupCityPincodeAutoFill(cityInputId, pincodeInputId) {
     cityEl.addEventListener('change', autoFill);
 }
 
-window.toggleCheckoutAddressMode = function(mode) {
+window.populateCheckoutAddress = function(forceMode = 'saved') {
     const lblSaved = document.getElementById('lblSavedAddress');
     const lblNew = document.getElementById('lblNewAddress');
     const noticeEl = document.getElementById('checkoutAddressNotice');
     const addrSavedRadio = document.getElementById('addrOptionSaved');
     const addrNewRadio = document.getElementById('addrOptionNew');
+    const fnInput = document.getElementById('fullName');
+    const phInput = document.getElementById('phone');
+    const stInput = document.getElementById('streetAddress');
+    const ctInput = document.getElementById('city');
+    const pcInput = document.getElementById('pincode');
 
-    if (mode === 'saved') {
+    if (forceMode === 'saved') {
         if (addrSavedRadio) addrSavedRadio.checked = true;
         if (lblSaved) {
             lblSaved.style.background = '#FFFFFF';
@@ -4239,14 +4432,30 @@ window.toggleCheckoutAddressMode = function(mode) {
         }
 
         if (state.currentUser) {
-            const addr = state.currentUser.address || {};
-            if (document.getElementById('fullName')) document.getElementById('fullName').value = addr.fullName || state.currentUser.full_name || '';
-            if (document.getElementById('phone')) document.getElementById('phone').value = addr.phone || state.currentUser.phone || '';
-            if (document.getElementById('streetAddress')) document.getElementById('streetAddress').value = addr.streetAddress || '';
-            if (document.getElementById('city')) document.getElementById('city').value = addr.city || '';
-            if (document.getElementById('pincode')) document.getElementById('pincode').value = addr.pincode || '';
+            const saved = (typeof getSavedUserAddress === 'function' ? getSavedUserAddress(state.currentUser.username) : null) || state.currentUser.address || {};
+            const fullName = saved.fullName || state.currentUser.full_name || '';
+            const phone = saved.phone || state.currentUser.phone || '';
+            const streetAddress = saved.streetAddress || saved.street_address || state.currentUser.street_address || '';
+            const city = saved.city || state.currentUser.city || '';
+            const pincode = saved.pincode || state.currentUser.pincode || '';
 
-            if (noticeEl) noticeEl.classList.remove('hidden');
+            if (fnInput) fnInput.value = fullName;
+            if (phInput) phInput.value = phone;
+            if (stInput) stInput.value = streetAddress;
+            if (ctInput) ctInput.value = city;
+            if (pcInput) pcInput.value = pincode;
+
+            if (streetAddress || city) {
+                if (noticeEl) {
+                    noticeEl.classList.remove('hidden');
+                    noticeEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved delivery address loaded!';
+                }
+            } else {
+                if (noticeEl) {
+                    noticeEl.classList.remove('hidden');
+                    noticeEl.innerHTML = '<i class="fa-solid fa-circle-info"></i> Please enter your delivery address below';
+                }
+            }
         }
     } else {
         if (addrNewRadio) addrNewRadio.checked = true;
@@ -4262,15 +4471,14 @@ window.toggleCheckoutAddressMode = function(mode) {
             lblSaved.style.color = '#475569';
             lblSaved.style.fontWeight = '600';
         }
-
+        if (stInput) stInput.value = '';
         if (noticeEl) noticeEl.classList.add('hidden');
-
-        // Clear fields for self typing new address
-        if (document.getElementById('streetAddress')) document.getElementById('streetAddress').value = '';
-        if (document.getElementById('city')) document.getElementById('city').value = '';
-        if (document.getElementById('pincode')) document.getElementById('pincode').value = '';
         showToast('Please type your delivery city & address', 'info');
     }
+};
+
+window.toggleCheckoutAddressMode = function(mode) {
+    window.populateCheckoutAddress(mode);
 };
 
 window.handleCreateLocationSubmit = async function(e) {
@@ -8124,23 +8332,9 @@ function setupEventListeners() {
 
             closeModals();
 
-            // Auto-fill delivery address if saved in user profile
-            const noticeEl = document.getElementById('checkoutAddressNotice');
-            if (state.currentUser) {
-                const addr = state.currentUser.address || {};
-                if (document.getElementById('fullName')) document.getElementById('fullName').value = addr.fullName || state.currentUser.full_name || '';
-                if (document.getElementById('phone')) document.getElementById('phone').value = addr.phone || '';
-                if (document.getElementById('streetAddress')) document.getElementById('streetAddress').value = addr.streetAddress || '';
-                if (document.getElementById('city')) document.getElementById('city').value = addr.city || '';
-                if (document.getElementById('pincode')) document.getElementById('pincode').value = addr.pincode || '';
-
-                if (addr.streetAddress || addr.city) {
-                    if (noticeEl) noticeEl.classList.remove('hidden');
-                } else {
-                    if (noticeEl) noticeEl.classList.add('hidden');
-                }
-            } else {
-                if (noticeEl) noticeEl.classList.add('hidden');
+            // Auto-fill and reflect saved delivery address for user
+            if (typeof window.populateCheckoutAddress === 'function') {
+                window.populateCheckoutAddress('saved');
             }
 
             checkoutOverlay.classList.add('active');
@@ -8265,19 +8459,34 @@ function setupEventListeners() {
 
             // Auto update user's saved profile address for future orders
             if (state.currentUser) {
-                state.currentUser.address = {
+                const orderAddr = {
                     fullName: fullName,
                     phone: phone,
                     streetAddress: streetAddress,
                     city: city,
                     pincode: pincode
                 };
-                saveUserSession(state.currentUser);
-                const uIdx = registeredUsers.findIndex(u => u.username.toLowerCase() === state.currentUser.username.toLowerCase());
-                if (uIdx > -1) {
-                    registeredUsers[uIdx].address = state.currentUser.address;
-                    // Registered accounts persisted in SQLite
+                if (typeof setSavedUserAddress === 'function') {
+                    setSavedUserAddress(state.currentUser.username, orderAddr);
+                } else {
+                    state.currentUser.address = orderAddr;
                 }
+                saveUserSession(state.currentUser);
+
+                // Background sync to backend REST API
+                fetch(`${API_BASE_URL}/auth/profile/address`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: state.currentUser.id && !isNaN(state.currentUser.id) ? parseInt(state.currentUser.id, 10) : null,
+                        username: state.currentUser.username,
+                        full_name: fullName,
+                        phone: phone,
+                        street_address: streetAddress,
+                        city: city,
+                        pincode: pincode
+                    })
+                }).catch(() => {});
             }
 
             state.cart = [];
