@@ -5059,6 +5059,84 @@ def update_delivery_settings(
     )
 
 # ==============================================================================
+# WEBSITE BROADCAST ANNOUNCEMENT NOTICE (ABOVE HERO POSTER)
+# ==============================================================================
+
+@app.get("/api/announcement", response_model=schemas.AnnouncementResponse)
+def get_website_announcement(db: Session = Depends(get_db)):
+    """Retrieve active platform announcement notice."""
+    if mongo_db.is_mongo_active():
+        try:
+            m_notice = mongo_db.mongo_get_announcement()
+            if m_notice:
+                return schemas.AnnouncementResponse(
+                    is_enabled=bool(m_notice.get("is_enabled", False)),
+                    message=str(m_notice.get("message", "")),
+                    badge_text=str(m_notice.get("badge_text", "ANNOUNCEMENT")),
+                    display_type=str(m_notice.get("display_type", "scrolling")),
+                    color_theme=str(m_notice.get("color_theme", "emerald")),
+                    updated_at=str(m_notice.get("updated_at", ""))
+                )
+        except Exception as e:
+            print(f"[GET ANNOUNCEMENT MONGO ERR] {e}")
+
+    notice = db.query(models.WebsiteAnnouncement).first()
+    if not notice:
+        return schemas.AnnouncementResponse(is_enabled=False, message="")
+    return schemas.AnnouncementResponse(
+        is_enabled=bool(notice.is_enabled),
+        message=notice.message or "",
+        badge_text=notice.badge_text or "ANNOUNCEMENT",
+        display_type=notice.display_type or "scrolling",
+        color_theme=notice.color_theme or "emerald",
+        updated_at=notice.updated_at.isoformat() if notice.updated_at else None
+    )
+
+@app.put("/api/admin/announcement", response_model=schemas.AnnouncementResponse)
+def update_website_announcement(
+    data: schemas.AnnouncementUpdate,
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(require_admin)
+):
+    """Update website announcement notice (Admin only)."""
+    notice = db.query(models.WebsiteAnnouncement).first()
+    if not notice:
+        notice = models.WebsiteAnnouncement()
+        db.add(notice)
+    notice.is_enabled = bool(data.is_enabled)
+    notice.message = (data.message or "").strip()
+    notice.badge_text = (data.badge_text or "ANNOUNCEMENT").strip()
+    notice.display_type = (data.display_type or "scrolling").strip()
+    notice.color_theme = (data.color_theme or "emerald").strip()
+    notice.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(notice)
+
+    # Sync to MongoDB Atlas
+    if mongo_db.is_mongo_active():
+        try:
+            mongo_db.mongo_update_announcement({
+                "is_enabled": notice.is_enabled,
+                "message": notice.message,
+                "badge_text": notice.badge_text,
+                "display_type": notice.display_type,
+                "color_theme": notice.color_theme
+            })
+            print(f"[MONGODB ANNOUNCEMENT] Synced announcement notice to MongoDB Atlas")
+        except Exception as e:
+            print(f"[MONGODB ANNOUNCEMENT ERR]: {e}")
+
+    return schemas.AnnouncementResponse(
+        is_enabled=notice.is_enabled,
+        message=notice.message,
+        badge_text=notice.badge_text,
+        display_type=notice.display_type,
+        color_theme=notice.color_theme,
+        updated_at=notice.updated_at.isoformat() if notice.updated_at else None
+    )
+
+
+# ==============================================================================
 # PROMOTIONAL BANNER POSTERS (MONGODB ATLAS SEPARATE SECTION)
 # ==============================================================================
 

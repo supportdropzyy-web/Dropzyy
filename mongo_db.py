@@ -1216,3 +1216,43 @@ def mongo_delete_banner_poster(poster_id: str) -> bool:
     except Exception as e:
         print(f"[MONGODB DELETE BANNER POSTER NOTICE] {e}")
         return False
+
+
+def mongo_get_announcement() -> Optional[Dict[str, Any]]:
+    """Retrieve active website announcement notice from MongoDB Atlas."""
+    db = get_mongo_db()
+    if db is None:
+        return None
+    try:
+        doc = db.site_announcements.find_one({"key": "website_notice"})
+        if doc and "_id" in doc:
+            doc["_id"] = str(doc["_id"])
+        return doc
+    except Exception as e:
+        print(f"[MONGODB GET ANNOUNCEMENT ERR]: {e}")
+        return None
+
+def mongo_update_announcement(data: dict) -> bool:
+    """Upsert website announcement notice in MongoDB Atlas."""
+    db = get_mongo_db()
+    if db is None:
+        return False
+    try:
+        payload = {
+            "key": "website_notice",
+            "is_enabled": bool(data.get("is_enabled", False)),
+            "message": str(data.get("message", "")).strip(),
+            "badge_text": str(data.get("badge_text", "ANNOUNCEMENT")).strip(),
+            "display_type": str(data.get("display_type", "scrolling")).strip(),
+            "color_theme": str(data.get("color_theme", "emerald")).strip(),
+            "updated_at": datetime.datetime.utcnow().isoformat()
+        }
+        db.site_announcements.update_one(
+            {"key": "website_notice"},
+            {"$set": payload},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"[MONGODB UPDATE ANNOUNCEMENT ERR]: {e}")
+        return False

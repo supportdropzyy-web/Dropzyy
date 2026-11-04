@@ -402,3 +402,23 @@ class PushSubscriptionCreate(BaseModel):
     keys: PushSubscriptionKeys
     role: Optional[str] = "customer"
     username: Optional[str] = None
+
+
+# Website Broadcast Announcement Notice Schemas
+class AnnouncementResponse(BaseModel):
+    is_enabled: bool = False
+    message: str = ""
+    badge_text: str = "ANNOUNCEMENT"
+    display_type: str = "scrolling" # 'scrolling' or 'static'
+    color_theme: str = "emerald"    # 'emerald', 'amber', 'rose', 'indigo'
+    updated_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class AnnouncementUpdate(BaseModel):
+    is_enabled: bool = False
+    message: str = ""
+    badge_text: Optional[str] = "ANNOUNCEMENT"
+    display_type: Optional[str] = "scrolling"
+    color_theme: Optional[str] = "emerald"

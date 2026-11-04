@@ -1102,7 +1102,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         fetchCategoriesFromAPI(),
         syncUsersWithAPI(),
         fetchAvailabilityFromAPI(),
-        fetchBlockedContactsFromAPI()
+        fetchBlockedContactsFromAPI(),
+        fetchWebsiteAnnouncement()
     ]);
     renderCategories();
     renderRestaurants();
@@ -2386,14 +2387,14 @@ window.renderRestaurantMenuModalContent = function(target) {
             <div class="restaurant-footer-summary">
                 Showing <strong>${filteredItems.length}</strong> of <strong>${items.length}</strong> item${items.length === 1 ? '' : 's'} from <strong>${name}</strong>
             </div>
-            <div class="restaurant-footer-actions">
+            <div class="restaurant-footer-actions" id="restaurantFooterActions">
                 ${state.cart.length > 0 ? `
-                    <button type="button" class="btn btn-primary btn-sm" onclick="closeRestaurantMenuModal(); if (window.openCart) window.openCart();" style="border-radius: 8px; font-weight: 700; padding: 6px 14px; display: flex; align-items: center; gap: 6px; font-size: 0.8rem;">
-                        <i class="fa-solid fa-bag-shopping"></i> View Cart (${state.cart.reduce((s, i) => s + i.qty, 0)})
+                    <button type="button" class="btn btn-primary btn-sm" onclick="closeRestaurantMenuModal(); if (window.openCart) window.openCart();" style="border-radius: 10px; font-weight: 800; padding: 10px 18px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem; background: linear-gradient(135deg, #059669 0%, #10B981 100%); border: none; box-shadow: 0 4px 14px rgba(16,185,129,0.35); color: #FFF; width: 100%;">
+                        <i class="fa-solid fa-basket-shopping"></i> View Cart (${state.cart.reduce((s, i) => s + i.qty, 0)} Items) • ₹${state.cart.reduce((s, i) => s + (i.price * i.qty), 0)} <i class="fa-solid fa-arrow-right" style="margin-left: 4px;"></i>
                     </button>
                 ` : ''}
-                <button type="button" class="btn btn-secondary btn-sm" onclick="closeRestaurantMenuModal()" style="border-radius: 8px; font-weight: 700; padding: 6px 16px; font-size: 0.8rem;">
-                    Close
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeRestaurantMenuModal()" style="border-radius: 8px; font-weight: 700; padding: 8px 16px; font-size: 0.82rem;">
+                    Close Menu
                 </button>
             </div>
         </div>
@@ -3098,6 +3099,43 @@ function updateCartUI() {
     cartItemCountPill.textContent = `${totalItems} item${totalItems === 1 ? '' : 's'}`;
     headerCartTotal.textContent = `₹${grandTotal}`;
 
+    // Update Dedicated Floating Mobile Cart Bar
+    const mFloatBar = document.getElementById('mobileFloatingCartBar');
+    const mCountEl = document.getElementById('mCartBarCount');
+    const mTotalEl = document.getElementById('mCartBarTotal');
+    const mSubEl = document.getElementById('mCartBarSub');
+    if (mFloatBar) {
+        if (totalItems > 0) {
+            mFloatBar.classList.remove('hidden');
+            if (mCountEl) mCountEl.textContent = `${totalItems} ${totalItems === 1 ? 'ITEM' : 'ITEMS'}`;
+            if (mTotalEl) mTotalEl.textContent = `₹${grandTotal}`;
+            if (mSubEl) {
+                if (chargeType === 'free' || subtotal >= threshold) {
+                    mSubEl.innerHTML = `<span style="color:#A7F3D0; font-weight:700;"><i class="fa-solid fa-bolt"></i> FREE Delivery Unlocked</span>`;
+                } else {
+                    mSubEl.textContent = `Add ₹${Math.round(threshold - subtotal)} for FREE delivery`;
+                }
+            }
+        } else {
+            mFloatBar.classList.add('hidden');
+        }
+    }
+
+    // Also update Restaurant Menu Modal footer View Cart button if currently open
+    const restFooterActions = document.getElementById('restaurantFooterActions');
+    if (restFooterActions) {
+        restFooterActions.innerHTML = `
+            ${totalItems > 0 ? `
+                <button type="button" class="btn btn-primary btn-sm" onclick="closeRestaurantMenuModal(); if (window.openCart) window.openCart();" style="border-radius: 10px; font-weight: 800; padding: 10px 18px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem; background: linear-gradient(135deg, #059669 0%, #10B981 100%); border: none; box-shadow: 0 4px 14px rgba(16,185,129,0.35); color: #FFF; width: 100%;">
+                    <i class="fa-solid fa-basket-shopping"></i> View Cart (${totalItems} Items) • ₹${grandTotal} <i class="fa-solid fa-arrow-right" style="margin-left: 4px;"></i>
+                </button>
+            ` : ''}
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeRestaurantMenuModal()" style="border-radius: 8px; font-weight: 700; padding: 8px 16px; font-size: 0.82rem;">
+                Close Menu
+            </button>
+        `;
+    }
+
     if (chargeType === 'free') {
         shippingProgressText.innerHTML = `<i class="fa-solid fa-circle-check text-success"></i> <strong>100% FREE Home Delivery</strong> on all orders! 🎉`;
         shippingProgressBar.style.width = '100%';
@@ -3197,6 +3235,8 @@ function updateUserAuthUI() {
             if (adminPortalBtn) adminPortalBtn.classList.remove('hidden');
             if (adminCategoryBtn) adminCategoryBtn.classList.remove('hidden');
             if (adminToolbarPosterBtn) adminToolbarPosterBtn.classList.remove('hidden');
+            const adminToolbarNoticeBtn = document.getElementById('adminToolbarNoticeBtn');
+            if (adminToolbarNoticeBtn) adminToolbarNoticeBtn.classList.remove('hidden');
             if (trackBookingsBtn) trackBookingsBtn.classList.remove('hidden');
             if (adminToolbarRow) adminToolbarRow.classList.remove('hidden');
             if (headerNotificationBtn) headerNotificationBtn.classList.remove('hidden');
@@ -3215,6 +3255,8 @@ function updateUserAuthUI() {
             if (adminPortalBtn) adminPortalBtn.classList.remove('hidden');
             if (adminCategoryBtn) adminCategoryBtn.classList.add('hidden');
             if (adminToolbarPosterBtn) adminToolbarPosterBtn.classList.add('hidden');
+            const adminToolbarNoticeBtnHide = document.getElementById('adminToolbarNoticeBtn');
+            if (adminToolbarNoticeBtnHide) adminToolbarNoticeBtnHide.classList.add('hidden');
             if (trackBookingsBtn) trackBookingsBtn.classList.remove('hidden');
             if (adminToolbarRow) adminToolbarRow.classList.remove('hidden');
             if (headerNotificationBtn) headerNotificationBtn.classList.remove('hidden');
@@ -13918,5 +13960,291 @@ window.quickUpdateStockQuantity = async function(productId, qty) {
         }, 10000);
     } catch (e) {
         console.warn('Could not persist stock quantity to MongoDB:', e);
+    }
+};
+
+// ==============================================================================
+// 19. WEBSITE BROADCAST ANNOUNCEMENT NOTICE MANAGEMENT (ADMIN & HOMEPAGE)
+// ==============================================================================
+window.fetchWebsiteAnnouncement = async function() {
+    try {
+        const cached = localStorage.getItem('dropzyy_announcement_notice');
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached);
+                if (parsed) {
+                    state.websiteAnnouncement = parsed;
+                    window.renderWebsiteAnnouncement(parsed);
+                }
+            } catch (e) {}
+        }
+
+        const res = await fetchWithTimeout(`${API_BASE_URL}/announcement?_t=${Date.now()}`, {
+            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        }, 6000);
+        if (res && res.ok) {
+            const data = await res.json();
+            if (data) {
+                state.websiteAnnouncement = data;
+                localStorage.setItem('dropzyy_announcement_notice', JSON.stringify(data));
+                window.renderWebsiteAnnouncement(data);
+            }
+        }
+    } catch (err) {
+        console.warn('Announcement fetch offline:', err);
+    }
+};
+
+window.renderWebsiteAnnouncement = function(notice) {
+    const banner = document.getElementById('websiteAnnouncementBanner');
+    const pillCard = document.getElementById('announcementPillCard');
+    const badgeText = document.getElementById('announcementBadgeText');
+    const msgText = document.getElementById('announcementText');
+    const msgClone = document.getElementById('announcementTextClone');
+    const marqueeContent = document.getElementById('announcementMarqueeContent');
+
+    if (!banner || !pillCard || !msgText) return;
+
+    if (!notice || !notice.is_enabled || !notice.message || !notice.message.trim()) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const cleanMsg = notice.message.trim();
+    const cleanBadge = (notice.badge_text || 'ANNOUNCEMENT').trim();
+    const theme = notice.color_theme || 'emerald';
+    const isScrolling = (notice.display_type !== 'static');
+
+    // Apply color theme
+    pillCard.className = `announcement-pill-card theme-${theme}`;
+    if (badgeText) badgeText.textContent = cleanBadge;
+    if (msgText) msgText.textContent = cleanMsg;
+
+    if (marqueeContent) {
+        if (isScrolling) {
+            marqueeContent.className = 'announcement-marquee-content is-scrolling';
+            if (msgClone) {
+                msgClone.textContent = cleanMsg;
+                msgClone.style.display = 'inline';
+            }
+        } else {
+            marqueeContent.className = 'announcement-marquee-content is-static';
+            if (msgClone) {
+                msgClone.style.display = 'none';
+            }
+        }
+    }
+
+    banner.classList.remove('hidden');
+};
+
+window.openAdminNoticeModal = function() {
+    if (!state.currentUser || (state.currentUser.role !== 'admin' && state.currentUser.role !== 'sub_admin')) {
+        showToast('Restricted to Dropzyy Administrators!', 'error');
+        return;
+    }
+    closeModals();
+
+    const notice = state.websiteAnnouncement || {
+        is_enabled: false,
+        message: '',
+        badge_text: 'ANNOUNCEMENT',
+        display_type: 'scrolling',
+        color_theme: 'emerald'
+    };
+
+    const toggleEl = document.getElementById('noticeEnabledToggle');
+    const badgeInput = document.getElementById('noticeBadgeInput');
+    const themeSelect = document.getElementById('noticeThemeSelect');
+    const msgInput = document.getElementById('noticeMessageInput');
+    const typeRadios = document.getElementsByName('noticeDisplayType');
+
+    if (toggleEl) toggleEl.checked = Boolean(notice.is_enabled);
+    if (badgeInput) badgeInput.value = notice.badge_text || 'ANNOUNCEMENT';
+    if (themeSelect) themeSelect.value = notice.color_theme || 'emerald';
+    if (msgInput) msgInput.value = notice.message || '';
+
+    if (typeRadios) {
+        typeRadios.forEach(r => {
+            r.checked = (r.value === (notice.display_type || 'scrolling'));
+        });
+        window.updateNoticeDisplayTypeUI(notice.display_type || 'scrolling');
+    }
+
+    window.updateNoticeLivePreview();
+
+    const overlay = document.getElementById('adminNoticeOverlay');
+    const modal = document.getElementById('adminNoticeModal');
+    if (overlay) overlay.classList.add('active');
+    if (modal) modal.classList.add('active');
+};
+
+window.closeAdminNoticeModal = function() {
+    const overlay = document.getElementById('adminNoticeOverlay');
+    const modal = document.getElementById('adminNoticeModal');
+    if (overlay) overlay.classList.remove('active');
+    if (modal) modal.classList.remove('active');
+};
+
+window.updateNoticeDisplayTypeUI = function(type) {
+    const lblScrolling = document.getElementById('lblNoticeScrolling');
+    const lblStatic = document.getElementById('lblNoticeStatic');
+    if (type === 'scrolling') {
+        if (lblScrolling) {
+            lblScrolling.style.borderColor = '#10B981';
+            lblScrolling.style.color = '#047857';
+            lblScrolling.style.fontWeight = '700';
+        }
+        if (lblStatic) {
+            lblStatic.style.borderColor = '#E2E8F0';
+            lblStatic.style.color = '#475569';
+            lblStatic.style.fontWeight = '600';
+        }
+    } else {
+        if (lblStatic) {
+            lblStatic.style.borderColor = '#10B981';
+            lblStatic.style.color = '#047857';
+            lblStatic.style.fontWeight = '700';
+        }
+        if (lblScrolling) {
+            lblScrolling.style.borderColor = '#E2E8F0';
+            lblScrolling.style.color = '#475569';
+            lblScrolling.style.fontWeight = '600';
+        }
+    }
+};
+
+window.updateNoticeLivePreview = function() {
+    const toggleEl = document.getElementById('noticeEnabledToggle');
+    const badgeInput = document.getElementById('noticeBadgeInput');
+    const themeSelect = document.getElementById('noticeThemeSelect');
+    const msgInput = document.getElementById('noticeMessageInput');
+    const typeRadio = document.querySelector('input[name="noticeDisplayType"]:checked');
+    const statusBadge = document.getElementById('noticeStatusLiveBadge');
+    const slider = document.getElementById('noticeToggleSlider');
+    const previewBox = document.getElementById('noticePreviewBox');
+
+    const isEnabled = toggleEl ? toggleEl.checked : false;
+    const badgeText = badgeInput ? (badgeInput.value.trim() || 'ANNOUNCEMENT') : 'ANNOUNCEMENT';
+    const theme = themeSelect ? themeSelect.value : 'emerald';
+    const message = msgInput ? (msgInput.value.trim() || 'Your broadcast announcement message will appear here...') : '';
+    const displayType = typeRadio ? typeRadio.value : 'scrolling';
+
+    if (slider) {
+        slider.style.backgroundColor = isEnabled ? '#10B981' : '#CBD5E1';
+    }
+    if (statusBadge) {
+        if (isEnabled) {
+            statusBadge.textContent = 'ONLINE / ACTIVE';
+            statusBadge.style.background = '#ECFDF5';
+            statusBadge.style.color = '#065F46';
+            statusBadge.style.borderColor = '#A7F3D0';
+        } else {
+            statusBadge.textContent = 'DISABLED / HIDDEN';
+            statusBadge.style.background = '#FEF2F2';
+            statusBadge.style.color = '#991B1B';
+            statusBadge.style.borderColor = '#FECACA';
+        }
+    }
+
+    if (previewBox) {
+        if (!isEnabled) {
+            previewBox.innerHTML = `
+                <div style="text-align: center; color: #94A3B8; padding: 12px; font-size: 0.84rem; font-weight: 600;">
+                    <i class="fa-solid fa-eye-slash" style="margin-right: 6px;"></i> Notice is currently <strong>DISABLED</strong>. Turn on the toggle switch above to activate it.
+                </div>
+            `;
+        } else {
+            previewBox.innerHTML = `
+                <div class="announcement-pill-card theme-${theme}">
+                    <div class="announcement-badge-pill">
+                        <span class="announcement-pulse-dot"></span>
+                        <i class="fa-solid fa-bullhorn"></i>
+                        <span>${badgeText}</span>
+                    </div>
+                    <div class="announcement-marquee-track">
+                        <div class="announcement-marquee-content ${displayType === 'scrolling' ? 'is-scrolling' : 'is-static'}">
+                            <span class="announcement-text">${message}</span>
+                            ${displayType === 'scrolling' ? `<span class="announcement-text clone" style="display:inline; margin-left: 40px;">${message}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+};
+
+window.handleSaveAnnouncementNotice = async function(e) {
+    if (e) e.preventDefault();
+    const toggleEl = document.getElementById('noticeEnabledToggle');
+    const badgeInput = document.getElementById('noticeBadgeInput');
+    const themeSelect = document.getElementById('noticeThemeSelect');
+    const msgInput = document.getElementById('noticeMessageInput');
+    const typeRadio = document.querySelector('input[name="noticeDisplayType"]:checked');
+    const saveBtn = document.getElementById('saveAdminNoticeBtn');
+
+    const isEnabled = toggleEl ? toggleEl.checked : false;
+    const badgeText = badgeInput ? (badgeInput.value.trim() || 'ANNOUNCEMENT') : 'ANNOUNCEMENT';
+    const theme = themeSelect ? themeSelect.value : 'emerald';
+    const message = msgInput ? msgInput.value.trim() : '';
+    const displayType = typeRadio ? typeRadio.value : 'scrolling';
+
+    if (isEnabled && !message) {
+        showToast('Please type an announcement message before enabling the notice!', 'info');
+        if (msgInput) msgInput.focus();
+        return;
+    }
+
+    const payload = {
+        is_enabled: isEnabled,
+        message: message,
+        badge_text: badgeText,
+        display_type: displayType,
+        color_theme: theme
+    };
+
+    const origBtnHtml = saveBtn ? saveBtn.innerHTML : '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving & Publishing...';
+    }
+
+    // 1. Immediately persist locally
+    state.websiteAnnouncement = payload;
+    localStorage.setItem('dropzyy_announcement_notice', JSON.stringify(payload));
+    window.renderWebsiteAnnouncement(payload);
+
+    // 2. Sync to Backend REST API
+    try {
+        const token = sessionStorage.getItem('dropzyy_auth_token') || localStorage.getItem('dropzyy_auth_token');
+        const res = await fetchWithTimeout(`${API_BASE_URL}/admin/announcement`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        }, 10000);
+
+        if (res && res.ok) {
+            const saved = await res.json();
+            state.websiteAnnouncement = saved;
+            localStorage.setItem('dropzyy_announcement_notice', JSON.stringify(saved));
+            window.renderWebsiteAnnouncement(saved);
+        }
+    } catch (err) {
+        console.warn('Backend announcement sync error:', err);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = origBtnHtml || '<i class="fa-solid fa-floppy-disk"></i> Save & Publish Notice';
+        }
+    }
+
+    window.closeAdminNoticeModal();
+    if (isEnabled) {
+        showToast(`🎉 Announcement Notice published live above the poster!`, 'success');
+    } else {
+        showToast(`Notice has been disabled and hidden from website.`, 'info');
     }
 };

@@ -1698,14 +1698,22 @@ button {
     #restaurantMenuModal {
         width: 100% !important;
         max-width: 100% !important;
-        height: 100vh !important;
-        max-height: 100vh !important;
+        height: 100% !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
         border-radius: 0 !important;
+        position: fixed !important;
         top: 0 !important;
+        bottom: 0 !important;
         left: 0 !important;
+        right: 0 !important;
         transform: none !important;
         border: none !important;
         box-shadow: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        z-index: 1200 !important;
     }
 
     .restaurant-menu-modal.active,
@@ -1841,10 +1849,24 @@ button {
     }
 
     .restaurant-modal-footer {
-        padding: 8px 12px 14px 12px !important;
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 100 !important;
+        flex-shrink: 0 !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12) !important;
+        padding: 10px 14px max(14px, env(safe-area-inset-bottom, 14px)) 14px !important;
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .restaurant-modal-body {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     .restaurant-footer-actions {
@@ -4104,4 +4126,260 @@ input:checked + .slider-veg:before {
 .bell-ringing-active i {
     animation: bellRingingShake 0.6s infinite ease-in-out;
     color: #F59E0B !important;
+}
+
+
+/* ==========================================================================
+   WEBSITE BROADCAST ANNOUNCEMENT NOTICE (ABOVE POSTER CAROUSEL)
+   ========================================================================== */
+.website-announcement-wrapper {
+    margin-top: 8px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+}
+
+.website-announcement-wrapper.hidden {
+    display: none !important;
+}
+
+.announcement-pill-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 14px;
+    border-radius: 12px;
+    border: 1.5px solid;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    position: relative;
+    user-select: none;
+}
+
+/* Color Themes */
+.announcement-pill-card.theme-emerald {
+    background: linear-gradient(135deg, #ECFDF5 0%, #F0FDF4 100%);
+    border-color: #6EE7B7;
+    color: #065F46;
+}
+.announcement-pill-card.theme-emerald .announcement-badge-pill {
+    background: #10B981;
+    color: #FFFFFF;
+}
+
+.announcement-pill-card.theme-amber {
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+    border-color: #FCD34D;
+    color: #78350F;
+}
+.announcement-pill-card.theme-amber .announcement-badge-pill {
+    background: #F59E0B;
+    color: #FFFFFF;
+}
+
+.announcement-pill-card.theme-rose {
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+    border-color: #FCA5A5;
+    color: #991B1B;
+}
+.announcement-pill-card.theme-rose .announcement-badge-pill {
+    background: #EF4444;
+    color: #FFFFFF;
+}
+
+.announcement-pill-card.theme-indigo {
+    background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+    border-color: #A5B4FC;
+    color: #3730A3;
+}
+.announcement-pill-card.theme-indigo .announcement-badge-pill {
+    background: #6366F1;
+    color: #FFFFFF;
+}
+
+/* Badge Pill */
+.announcement-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 0.74rem;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.announcement-pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+    animation: pulseNoticeDot 1.4s infinite ease-in-out;
+}
+
+@keyframes pulseNoticeDot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+/* Marquee Track */
+.announcement-marquee-track {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    white-space: nowrap;
+    mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+}
+
+.announcement-marquee-content {
+    display: inline-flex;
+    align-items: center;
+    will-change: transform;
+}
+
+.announcement-marquee-content.is-scrolling {
+    animation: marqueeContinuousScroll 22s linear infinite;
+    gap: 50px;
+}
+
+.announcement-marquee-track:hover .announcement-marquee-content.is-scrolling {
+    animation-play-state: paused;
+}
+
+@keyframes marqueeContinuousScroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+.announcement-marquee-content.is-static {
+    animation: none;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.announcement-text {
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+@media (max-width: 640px) {
+    .announcement-pill-card {
+        padding: 6px 10px;
+        gap: 8px;
+        border-radius: 10px;
+    }
+    .announcement-badge-pill {
+        font-size: 0.68rem;
+        padding: 2px 7px;
+        gap: 4px;
+    }
+    .announcement-text {
+        font-size: 0.78rem;
+    }
+}
+
+
+/* ==========================================================================
+   DEDICATED FLOATING MOBILE VIEW CART BAR
+   ========================================================================== */
+.mobile-floating-cart-bar {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-floating-cart-bar {
+        position: fixed;
+        bottom: 68px; /* High visibility: docked right above the 60px mobile-bottom-nav */
+        left: 12px;
+        right: 12px;
+        z-index: 999;
+        background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+        color: #FFFFFF;
+        padding: 10px 16px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.42), 0 2px 6px rgba(0, 0, 0, 0.12);
+        cursor: pointer;
+        user-select: none;
+        touch-action: manipulation;
+        animation: floatCartSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .mobile-floating-cart-bar.hidden {
+        display: none !important;
+    }
+
+    .m-cart-bar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .m-cart-bar-badge {
+        background: rgba(255, 255, 255, 0.25);
+        padding: 4px 10px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 800;
+        font-size: 0.8rem;
+        letter-spacing: 0.3px;
+    }
+
+    .m-cart-bar-details {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .m-cart-bar-total {
+        font-weight: 800;
+        font-size: 0.98rem;
+        line-height: 1.1;
+    }
+
+    .m-cart-bar-sub {
+        font-size: 0.68rem;
+        opacity: 0.9;
+        font-weight: 600;
+    }
+
+    .m-cart-bar-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #FFFFFF;
+        color: #047857;
+        padding: 7px 14px;
+        border-radius: 10px;
+        font-weight: 800;
+        font-size: 0.84rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        transition: transform 0.15s ease;
+    }
+
+    .mobile-floating-cart-bar:active .m-cart-bar-right {
+        transform: scale(0.96);
+    }
+}
+
+@keyframes floatCartSlideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }

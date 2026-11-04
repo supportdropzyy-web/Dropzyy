@@ -265,6 +265,11 @@
                     <i class="fa-solid fa-image text-primary"></i>
                     <span>Manage Posters</span>
                 </button>
+
+                <button class="action-btn admin-notice-btn hidden" id="adminToolbarNoticeBtn" onclick="openAdminNoticeModal()" title="Website Announcement Notice" style="border-color: #6EE7B7; background: #ECFDF5; color: #065F46; font-weight: 700;">
+                    <i class="fa-solid fa-bullhorn text-success"></i>
+                    <span>Notice 📢</span>
+                </button>
             </div>
         </div>
     </div>
@@ -274,6 +279,23 @@
         <div class="container">
             <div class="mobile-categories-strip" id="mobileCategoriesStrip">
                 <!-- Populated dynamically by renderCategories() -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Website Broadcast Announcement Notice Ticker (Placed directly above poster) -->
+    <div class="website-announcement-wrapper container hidden" id="websiteAnnouncementBanner">
+        <div class="announcement-pill-card theme-emerald" id="announcementPillCard">
+            <div class="announcement-badge-pill" id="announcementBadgePill">
+                <span class="announcement-pulse-dot"></span>
+                <i class="fa-solid fa-bullhorn" id="announcementBadgeIcon"></i>
+                <span class="announcement-badge-text" id="announcementBadgeText">ANNOUNCEMENT</span>
+            </div>
+            <div class="announcement-marquee-track">
+                <div class="announcement-marquee-content is-scrolling" id="announcementMarqueeContent">
+                    <span class="announcement-text" id="announcementText"></span>
+                    <span class="announcement-text clone" id="announcementTextClone"></span>
+                </div>
             </div>
         </div>
     </div>
@@ -944,6 +966,9 @@
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" id="adminManagePosterBtn" onclick="openAdminPosterModal()" style="border-color: #F59E0B; background: #FEF3C7; color: #92400E; font-weight: 700;">
                     <i class="fa-solid fa-image text-warning"></i> Banner Poster 🎨
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="adminManageNoticeBtn" onclick="openAdminNoticeModal()" style="border-color: #6EE7B7; background: #ECFDF5; color: #065F46; font-weight: 700;">
+                    <i class="fa-solid fa-bullhorn text-success"></i> Notice Broadcast 📢
                 </button>
                 <button type="button" class="btn btn-primary btn-sm" id="adminCreateAccountBtn">
                     <i class="fa-solid fa-user-plus"></i> Create Account
@@ -2786,6 +2811,24 @@
         </div>
     </div>
 
+    <!-- Dedicated Floating Mobile Cart Bar (Always visible above bottom nav on mobile when items in cart) -->
+    <div id="mobileFloatingCartBar" class="mobile-floating-cart-bar hidden" onclick="if(window.openCart) window.openCart();">
+        <div class="m-cart-bar-left">
+            <div class="m-cart-bar-badge">
+                <i class="fa-solid fa-basket-shopping"></i>
+                <span id="mCartBarCount">0 ITEMS</span>
+            </div>
+            <div class="m-cart-bar-details">
+                <div class="m-cart-bar-total" id="mCartBarTotal">₹0</div>
+                <div class="m-cart-bar-sub" id="mCartBarSub">Tap to view items & checkout</div>
+            </div>
+        </div>
+        <div class="m-cart-bar-right">
+            <span>View Cart</span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </div>
+    </div>
+
     <!-- Mobile Bottom Navigation Bar -->
     <nav class="mobile-bottom-nav mobile-only">
         <a href="#productsSection" class="mobile-nav-item active" id="mobileHomeBtn">
@@ -3005,7 +3048,97 @@
     <script src="menu_card_data.js"></script>
     <!-- JavaScript -->
     <script src="app.js?v=4.2"></script>
-        <!-- Admin Banner Poster Management Modal (Upload & Control Homepage Poster Slides) -->
+        <!-- Admin Broadcast Announcement Notice Management Modal -->
+    <div class="modal-overlay" id="adminNoticeOverlay" onclick="closeAdminNoticeModal()"></div>
+    <div class="admin-modal" id="adminNoticeModal" style="max-width: 680px; width: 92%; max-height: 90vh; overflow-y: auto;">
+        <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Panel
+            </button>
+            <button type="button" class="close-modal-btn" onclick="closeAdminNoticeModal()" title="Close" style="position: static;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-bullhorn text-success"></i> Website Broadcast Announcement Notice</h2>
+            <p>Publish an eye-catching announcement banner or scrolling marquee notice displayed right above the homepage posters.</p>
+        </div>
+
+        <form class="admin-form" id="adminNoticeForm" onsubmit="handleSaveAnnouncementNotice(event)" style="background: var(--bg-secondary); padding: 18px; border-radius: var(--radius-md);">
+            <!-- Enable/Disable Switch & Status -->
+            <div style="background: #FFFFFF; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #E2E8F0; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div>
+                    <div style="font-weight: 800; font-size: 0.95rem; color: #0F172A; display: flex; align-items: center; gap: 8px;">
+                        <span>Broadcast Notice Display:</span>
+                        <span id="noticeStatusLiveBadge" style="background: #FEF2F2; color: #991B1B; font-weight: 800; font-size: 0.76rem; padding: 3px 10px; border-radius: 20px; border: 1px solid #FECACA;">DISABLED</span>
+                    </div>
+                    <small style="color: #64748B; font-size: 0.78rem;">Turn ON to display this notice immediately above the homepage poster banner</small>
+                </div>
+                <label style="position: relative; display: inline-block; width: 52px; height: 28px; margin: 0; cursor: pointer;">
+                    <input type="checkbox" id="noticeEnabledToggle" onchange="updateNoticeLivePreview()" style="opacity: 0; width: 0; height: 0;">
+                    <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #CBD5E1; transition: .3s; border-radius: 34px;" id="noticeToggleSlider"></span>
+                </label>
+            </div>
+
+            <!-- Notice Badge & Theme Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="noticeBadgeInput">Badge Tag Text</label>
+                    <input type="text" id="noticeBadgeInput" required placeholder="e.g. 📢 NOTICE or ⚡ OFFER" value="📢 ANNOUNCEMENT" oninput="updateNoticeLivePreview()">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="noticeThemeSelect">Color Theme Style</label>
+                    <select id="noticeThemeSelect" onchange="updateNoticeLivePreview()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #CBD5E1; background: #FFF;">
+                        <option value="emerald">🌿 Emerald Green (Special Offers & Savings)</option>
+                        <option value="amber">⚡ Vibrant Amber/Orange (Festive & Store Updates)</option>
+                        <option value="rose">🚨 Crimson Red (Urgent Alerts & Weather Delay)</option>
+                        <option value="indigo">💎 Indigo Blue (Platform Information)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Display Format (Scrolling Ticker vs Static Pill) -->
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label style="display: block; font-weight: 700; font-size: 0.85rem; margin-bottom: 6px; color: #334155;">Display Animation / Format</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <label id="lblNoticeScrolling" style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #FFFFFF; border: 2px solid #10B981; border-radius: 10px; cursor: pointer; font-size: 0.84rem; font-weight: 700; color: #047857;">
+                        <input type="radio" name="noticeDisplayType" value="scrolling" checked onchange="updateNoticeDisplayTypeUI(this.value); updateNoticeLivePreview();" style="accent-color: #10B981;">
+                        <span>📜 Scrolling Marquee Ticker (Auto-moving text)</span>
+                    </label>
+                    <label id="lblNoticeStatic" style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #FFFFFF; border: 2px solid #E2E8F0; border-radius: 10px; cursor: pointer; font-size: 0.84rem; font-weight: 600; color: #475569;">
+                        <input type="radio" name="noticeDisplayType" value="static" onchange="updateNoticeDisplayTypeUI(this.value); updateNoticeLivePreview();" style="accent-color: #10B981;">
+                        <span>📌 Static Centered Alert Bar</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Message Textarea -->
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="noticeMessageInput">Notice Message / Announcement Content</label>
+                <textarea id="noticeMessageInput" rows="3" required placeholder="Type the message you want visitors to see above the poster (e.g. ⚡ Fastest 15-Minute Instant Delivery is LIVE in Savda & Faizpur! Order Hot Katta Biryani, Banjos Pizza & Fresh Kirana Now!)..." style="width: 100%; border-radius: 8px; padding: 10px; border: 1.5px solid #CBD5E1; font-family: inherit; font-size: 0.9rem;" oninput="updateNoticeLivePreview()"></textarea>
+                <small style="color: #64748B; font-size: 0.78rem;">You can include emojis (⚡ 📢 🍕 🌧️ 🎉 🎁) and promo codes directly in the text.</small>
+            </div>
+
+            <!-- Live Banner Preview Box -->
+            <div style="margin-bottom: 18px;">
+                <label style="font-weight: 800; font-size: 0.82rem; color: #334155; display: block; margin-bottom: 6px;">
+                    <i class="fa-solid fa-eye text-primary"></i> Live Front-Page Preview (Positioned above poster):
+                </label>
+                <div id="noticePreviewBox" style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 12px; padding: 12px; overflow: hidden;">
+                    <!-- Rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeAdminNoticeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-lg" id="saveAdminNoticeBtn" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Save & Publish Notice
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Admin Banner Poster Management Modal (Upload & Control Homepage Poster Slides) -->
     <div class="modal-overlay" id="adminPosterOverlay" onclick="closeAdminPosterModal()"></div>
     <div class="admin-modal" id="adminPosterModal" style="max-width: 720px; width: 92%; max-height: 90vh; overflow-y: auto;">
         <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">

@@ -211,3 +211,15 @@ class PushSubscription(Base):
     auth = Column(Text, nullable=False)
     user_agent = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class WebsiteAnnouncement(Base):
+    __tablename__ = "website_announcements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    is_enabled = Column(Boolean, default=False)
+    message = Column(String, default="")
+    badge_text = Column(String, default="ANNOUNCEMENT")
+    display_type = Column(String, default="scrolling") # 'scrolling' or 'static'
+    color_theme = Column(String, default="emerald")    # 'emerald', 'amber', 'rose', 'indigo'
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
