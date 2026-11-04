@@ -8457,6 +8457,7 @@ function setupEventListeners() {
             const orderObj = {
                 id: orderId,
                 date: new Date().toISOString(),
+                _placedTimestamp: Date.now(),
                 items: [...state.cart],
                 subtotal: subtotal,
                 discount: discountAmount,
@@ -8479,6 +8480,7 @@ function setupEventListeners() {
                     shipping: shipping
                 }
             };
+            window._lastPlacedOrder = orderObj;
             state.ordersHistory.unshift(orderObj);
             // Orders persisted in SQLite
 
@@ -9910,12 +9912,27 @@ function renderTrackingStepper(status = 'Placed') {
 const CANCELLATION_WINDOW_SECONDS = 3 * 60; // 3 minutes = 180 seconds
 
 function getOrderCancellationTimeLeft(order) {
-    if (!order || !order.date) return 0;
+    if (!order) return 0;
     if (order.status === 'Cancelled' || order.status === 'Delivered') return 0;
-    const orderTime = new Date(order.date).getTime();
+    
+    // Check local placed timestamp if available (accurate to millisecond)
+    if (order._placedTimestamp) {
+        const elapsedSec = Math.floor((Date.now() - order._placedTimestamp) / 1000);
+        return Math.max(0, CANCELLATION_WINDOW_SECONDS - Math.max(0, elapsedSec));
+    }
+    
+    const rawDate = order.date || order.created_at;
+    if (!rawDate) return 180;
+    
+    let orderTime = new Date(rawDate).getTime();
+    if (isNaN(orderTime)) {
+        orderTime = new Date(String(rawDate).replace(' ', 'T')).getTime();
+    }
     if (isNaN(orderTime)) return 0;
+    
     const elapsedSeconds = Math.floor((Date.now() - orderTime) / 1000);
-    const remainingSeconds = CANCELLATION_WINDOW_SECONDS - elapsedSeconds;
+    const safeElapsed = Math.max(0, elapsedSeconds);
+    const remainingSeconds = CANCELLATION_WINDOW_SECONDS - safeElapsed;
     return Math.max(0, remainingSeconds);
 }
 
@@ -9933,7 +9950,10 @@ function startCancellationCountdownTicker() {
         const timerEls = document.querySelectorAll('.cancel-timer-digits[data-order-id]');
         timerEls.forEach(el => {
             const oId = el.getAttribute('data-order-id');
-            const o = state.ordersHistory ? state.ordersHistory.find(item => item.id === oId) : null;
+            let o = state.ordersHistory ? state.ordersHistory.find(item => item.id === oId) : null;
+            if (!o && window._lastPlacedOrder && window._lastPlacedOrder.id === oId) {
+                o = window._lastPlacedOrder;
+            }
             if (o) {
                 // NEVER touch or override orders that are already Cancelled or Delivered!
                 if (o.status === 'Cancelled' || o.status === 'Delivered') {
@@ -9985,9 +10005,13 @@ function startCancellationCountdownTicker() {
         // 2. Update Order Success Modal timer if open
         const sTimer = document.getElementById('successOrderCancelTimer');
         const sBox = document.getElementById('successCancelWindowBox');
-        if (sTimer && sBox && typeof successOrderId !== 'undefined' && successOrderId) {
-            const currentSuccessId = successOrderId.textContent.trim();
-            const sOrder = state.ordersHistory ? state.ordersHistory.find(item => item.id === currentSuccessId) : null;
+        const sOrderIdEl = document.getElementById('successOrderId');
+        if (sTimer && sBox && sOrderIdEl) {
+            const currentSuccessId = sOrderIdEl.textContent.trim();
+            let sOrder = state.ordersHistory ? state.ordersHistory.find(item => item.id === currentSuccessId) : null;
+            if (!sOrder && window._lastPlacedOrder && window._lastPlacedOrder.id === currentSuccessId) {
+                sOrder = window._lastPlacedOrder;
+            }
             if (sOrder) {
                 const rem = getOrderCancellationTimeLeft(sOrder);
                 if (rem > 0 && sOrder.status !== 'Cancelled') {
@@ -9999,7 +10023,6 @@ function startCancellationCountdownTicker() {
         }
     }, 1000);
 }
-
 
 // ==============================================================================
 // ORDER TIMING & ARRIVAL ESTIMATION HELPERS
@@ -10108,13 +10131,16 @@ function updateSuccessOrderCancelUI(order) {
     if (!sBox) return;
 
     if (!order) {
-        sBox.style.display = 'none';
-        return;
+        if (window._lastPlacedOrder) {
+            order = window._lastPlacedOrder;
+        } else {
+            return;
+        }
     }
 
     if (order.status === 'Cancelled') {
         sBox.innerHTML = `
-            <div style="font-size: 0.9rem; color: #DC2626; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 0.9rem; color: #DC2626; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <i class="fa-solid fa-circle-xmark"></i> This Order Was Cancelled
             </div>
             <p style="margin: 0; font-size: 0.78rem; color: #7F1D1D;">Your cancellation was processed successfully.</p>
@@ -10130,7 +10156,7 @@ function updateSuccessOrderCancelUI(order) {
         sBox.style.background = '#FFFBEB';
         sBox.style.border = '1.5px solid #FDE68A';
         sBox.innerHTML = `
-            <div style="font-size: 0.88rem; color: #92400E; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <div style="font-size: 0.88rem; color: #92400E; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px;">
                 <i class="fa-solid fa-stopwatch fa-spin" style="animation-duration: 3s; color: #D97706;"></i>
                 Cancellation Window: <span id="successOrderCancelTimer" style="font-weight: 800; font-size: 1.05rem; color: #B45309; background: #FEF3C7; padding: 2px 10px; border-radius: 6px; font-family: monospace; border: 1px solid #FCD34D;">${formatCountdown(rem)}</span> remaining
             </div>
@@ -10144,7 +10170,7 @@ function updateSuccessOrderCancelUI(order) {
         sBox.style.background = '#F8FAFC';
         sBox.style.border = '1.5px solid #E2E8F0';
         sBox.innerHTML = `
-            <div style="font-size: 0.85rem; color: #475569; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+            <div style="font-size: 0.85rem; color: #475569; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
                 <i class="fa-solid fa-lock text-muted"></i> Cancellation window closed (Order confirmed & locked for delivery)
             </div>
         `;
@@ -10329,9 +10355,58 @@ function renderMyOrders() {
     startCancellationCountdownTicker();
 }
 
+window.cancelUserOrderFromSuccess = function() {
+    let orderId = null;
+    const sOrderId = document.getElementById('successOrderId');
+    if (sOrderId && sOrderId.textContent) {
+        orderId = sOrderId.textContent.trim();
+    }
+    if (!orderId && window._lastPlacedOrder) {
+        orderId = window._lastPlacedOrder.id;
+    }
+    if (orderId) {
+        window.openCancelOrderActionModal(orderId);
+    } else {
+        showToast('Please wait a moment while order details load.', 'info');
+    }
+};
+
+window.cancelUserOrder = function(orderId) {
+    if (!orderId) {
+        window.cancelUserOrderFromSuccess();
+        return;
+    }
+    window.openCancelOrderActionModal(orderId);
+};
+
 window.openCancelOrderActionModal = function(orderId) {
-    const order = state.ordersHistory.find(o => o.id === orderId);
-    if (!order) return;
+    if (!orderId) {
+        if (window._lastPlacedOrder) {
+            orderId = window._lastPlacedOrder.id;
+        } else {
+            return;
+        }
+    }
+
+    let order = state.ordersHistory ? state.ordersHistory.find(o => o.id === orderId) : null;
+    if (!order && window._lastPlacedOrder && window._lastPlacedOrder.id === orderId) {
+        order = window._lastPlacedOrder;
+    }
+    if (!order && state.ordersHistory) {
+        order = state.ordersHistory.find(o => String(o.id).toUpperCase() === String(orderId).toUpperCase());
+    }
+    if (!order && window._lastPlacedOrder && String(window._lastPlacedOrder.id).toUpperCase() === String(orderId).toUpperCase()) {
+        order = window._lastPlacedOrder;
+    }
+    if (!order) {
+        order = {
+            id: orderId,
+            date: new Date().toISOString(),
+            _placedTimestamp: Date.now(),
+            total: 0,
+            items: []
+        };
+    }
 
     const isSystemAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin');
     const timeLeft = getOrderCancellationTimeLeft(order);
@@ -10450,16 +10525,17 @@ window.confirmExecuteCancelOrder = function(orderId) {
         reason = `${reason} (${customText})`;
     }
 
-    executeCancelOrder(orderId, reason);
-};
-
-window.cancelUserOrder = function(orderId) {
-    openCancelOrderActionModal(orderId);
+    window.executeCancelOrder(orderId, reason);
 };
 
 window.executeCancelOrder = async function(orderId, reason) {
-    const order = state.ordersHistory.find(o => o.id === orderId);
-    if (!order) return;
+    let order = state.ordersHistory ? state.ordersHistory.find(o => o.id === orderId) : null;
+    if (!order && window._lastPlacedOrder && window._lastPlacedOrder.id === orderId) {
+        order = window._lastPlacedOrder;
+    }
+    if (!order) {
+        order = { id: orderId };
+    }
 
     const isSystemAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin');
     const isSupplier = state.currentUser && state.currentUser.role === 'supplier';
@@ -10473,10 +10549,19 @@ window.executeCancelOrder = async function(orderId, reason) {
     order.cancel_reason = finalReason;
     order.cancelled_at = nowStr;
 
+    if (window._lastPlacedOrder && window._lastPlacedOrder.id === orderId) {
+        window._lastPlacedOrder.status = 'Cancelled';
+        window._lastPlacedOrder.cancelled_by = roleName;
+        window._lastPlacedOrder.cancel_reason = finalReason;
+        window._lastPlacedOrder.cancelled_at = nowStr;
+    }
+
     closeCancelOrderActionModal();
 
     try {
-        const token = localStorage.getItem('dropzyy_auth_token');
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token');
         const reqHeaders = { 'Content-Type': 'application/json' };
         if (token) reqHeaders['Authorization'] = `Bearer ${token}`;
 
@@ -10507,11 +10592,10 @@ window.executeCancelOrder = async function(orderId, reason) {
         showToast(`Order <strong>${orderId}</strong> cancelled locally`, 'info');
     }
 
-    /* cleaned */
-
     renderMyOrders();
     if (typeof renderBookingTracking === 'function') renderBookingTracking();
     updateSuccessOrderCancelUI(order);
+    if (typeof fetchOrdersFromAPI === 'function') fetchOrdersFromAPI();
 };
 
 window.openCancellationDetailsModal = function(orderId) {

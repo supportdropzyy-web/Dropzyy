@@ -3599,8 +3599,22 @@ def cancel_order(
     db: Session = Depends(get_db),
     token_user: Optional[dict] = Depends(get_current_user_token)
 ):
-    order = db.query(models.Order).filter(models.Order.id == str(order_id)).first()
-    if not order:
+    str_order_id = str(order_id).strip()
+    
+    # 1. Lookup in SQLite first
+    order = db.query(models.Order).filter(models.Order.id == str_order_id).first()
+    
+    # 2. Lookup in MongoDB Atlas Cloud if not found in SQLite or MongoDB is active
+    m_order = None
+    if mongo_db.is_mongo_active():
+        m_db = mongo_db.get_mongo_db()
+        if m_db is not None:
+            m_order = m_db.orders.find_one({"id": str_order_id}) or m_db.orders.find_one({"id": str_order_id.upper()})
+            if not m_order:
+                import re as regex_mod
+                m_order = m_db.orders.find_one({"id": {"$regex": f"^{regex_mod.escape(str_order_id)}$", "$options": "i"}})
+
+    if not order and not m_order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     # Enforce 3-minute (180s) cancellation window for customers
@@ -3610,14 +3624,29 @@ def cancel_order(
 
     if not is_admin:
         order_time = None
-        if order.date:
-            try:
-                cleaned_date = str(order.date).replace("Z", "+00:00")
-                order_time = datetime.datetime.fromisoformat(cleaned_date)
-            except Exception:
-                pass
-        if not order_time and order.created_at:
-            order_time = order.created_at
+        # Check SQLite order date/created_at
+        if order:
+            if order.date:
+                try:
+                    cleaned_date = str(order.date).replace("Z", "+00:00")
+                    order_time = datetime.datetime.fromisoformat(cleaned_date)
+                except Exception:
+                    pass
+            if not order_time and order.created_at:
+                order_time = order.created_at
+        
+        # Check MongoDB order date/created_at if order_time not resolved
+        if not order_time and m_order:
+            m_date = m_order.get("date") or m_order.get("created_at")
+            if m_date:
+                if isinstance(m_date, datetime.datetime):
+                    order_time = m_date
+                else:
+                    try:
+                        cleaned_date = str(m_date).replace("Z", "+00:00")
+                        order_time = datetime.datetime.fromisoformat(cleaned_date)
+                    except Exception:
+                        pass
 
         if order_time:
             if order_time.tzinfo is not None:
@@ -3646,19 +3675,22 @@ def cancel_order(
     now_str = datetime.datetime.now().strftime("%d %b %Y, %I:%M %p")
     reason = req_reason or f"Cancelled by {cancelled_by} within 3-minute booking window"
 
+    # Always update MongoDB Atlas Cloud if active
     if mongo_db.is_mongo_active():
-        mongo_db.mongo_update_order_status(str(order_id), "Cancelled", cancelled_by=cancelled_by, cancel_reason=reason, cancelled_at=now_str)
+        mongo_db.mongo_update_order_status(str_order_id, "Cancelled", cancelled_by=cancelled_by, cancel_reason=reason, cancelled_at=now_str)
 
-    order.status = "Cancelled"
-    order.cancelled_by = cancelled_by
-    order.cancel_reason = reason
-    order.cancelled_at = now_str
-    db.commit()
-    db.refresh(order)
+    # Update SQLite if record exists
+    if order:
+        order.status = "Cancelled"
+        order.cancelled_by = cancelled_by
+        order.cancel_reason = reason
+        order.cancelled_at = now_str
+        db.commit()
+        db.refresh(order)
 
     return {
         "message": "Order cancelled successfully", 
-        "id": order_id, 
+        "id": str_order_id, 
         "status": "Cancelled",
         "cancelled_by": cancelled_by,
         "cancel_reason": reason,
