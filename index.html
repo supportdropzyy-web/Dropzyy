@@ -970,6 +970,9 @@
                 <button type="button" class="btn btn-secondary btn-sm" id="adminManageNoticeBtn" onclick="openAdminNoticeModal()" style="border-color: #6EE7B7; background: #ECFDF5; color: #065F46; font-weight: 700;">
                     <i class="fa-solid fa-bullhorn text-success"></i> Notice Broadcast 📢
                 </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="adminChangePasswordBtn" onclick="openChangePasswordModal()" style="border-color: #CBD5E1; background: #FFFFFF; color: #1E293B; font-weight: 700;">
+                    <i class="fa-solid fa-key text-warning"></i> Change Password 🔑
+                </button>
                 <button type="button" class="btn btn-primary btn-sm" id="adminCreateAccountBtn">
                     <i class="fa-solid fa-user-plus"></i> Create Account
                 </button>
@@ -2027,9 +2030,14 @@
                     </div>
                 </div>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm text-danger" onclick="logoutUser()" title="Logout from Account">
-                <i class="fa-solid fa-right-from-bracket"></i> Logout
-            </button>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openChangePasswordModal()" title="Change Account Password" style="font-weight: 700; color: #047857; border-color: #A7F3D0; background: #FFFFFF;">
+                    <i class="fa-solid fa-key text-warning"></i> Change Password
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm text-danger" onclick="logoutUser()" title="Logout from Account">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
         </div>
 
         <form class="admin-form" id="profileAddressForm">
@@ -3048,7 +3056,64 @@
     <script src="menu_card_data.js"></script>
     <!-- JavaScript -->
     <script src="app.js?v=4.2"></script>
-        <!-- Admin Broadcast Announcement Notice Management Modal -->
+        <!-- Dedicated Change Password Modal -->
+    <div class="modal-overlay" id="changePasswordOverlay" onclick="closeChangePasswordModal()"></div>
+    <div class="admin-modal" id="changePasswordModal" style="max-width: 460px; width: 92%;">
+        <button type="button" class="close-modal-btn" onclick="closeChangePasswordModal()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-key text-warning"></i> Change Password</h2>
+            <p>Update your account login password</p>
+        </div>
+
+        <div id="changePasswordAccountBadge" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.84rem; color: #475569;">
+            Logged in as: <strong id="changePasswordUserLabel" style="color: #0F172A;">@admin</strong>
+        </div>
+
+        <form class="admin-form" id="changePasswordForm" onsubmit="handlePasswordChangeSubmit(event)">
+            <div class="form-group">
+                <label for="currentPasswordInput">Current Password</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
+                    <input type="password" id="currentPasswordInput" required placeholder="Enter current password" style="padding-left: 42px !important; padding-right: 42px !important;">
+                    <button type="button" onclick="window.togglePasswordVisibility('currentPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
+                        <i class="fa-regular fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="newPasswordInput">New Password (Min. 6 characters)</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-shield-halved" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
+                    <input type="password" id="newPasswordInput" required minlength="6" placeholder="Enter new password" style="padding-left: 42px !important; padding-right: 42px !important;">
+                    <button type="button" onclick="window.togglePasswordVisibility('newPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
+                        <i class="fa-regular fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmNewPasswordInput">Confirm New Password</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
+                    <input type="password" id="confirmNewPasswordInput" required minlength="6" placeholder="Re-enter new password" style="padding-left: 42px !important; padding-right: 42px !important;">
+                    <button type="button" onclick="window.togglePasswordVisibility('confirmNewPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
+                        <i class="fa-regular fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+                <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="changePasswordSubmitBtn" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Update Password
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Admin Broadcast Announcement Notice Management Modal -->
     <div class="modal-overlay" id="adminNoticeOverlay" onclick="closeAdminNoticeModal()"></div>
     <div class="admin-modal" id="adminNoticeModal" style="max-width: 680px; width: 92%; max-height: 90vh; overflow-y: auto;">
         <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">

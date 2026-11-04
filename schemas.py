@@ -422,3 +422,8 @@ class AnnouncementUpdate(BaseModel):
     badge_text: Optional[str] = "ANNOUNCEMENT"
     display_type: Optional[str] = "scrolling"
     color_theme: Optional[str] = "emerald"
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str

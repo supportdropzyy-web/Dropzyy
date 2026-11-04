@@ -14248,3 +14248,115 @@ window.handleSaveAnnouncementNotice = async function(e) {
         showToast(`Notice has been disabled and hidden from website.`, 'info');
     }
 };
+
+
+// ==============================================================================
+// 20. DIRECT CHANGE PASSWORD HANDLERS (ADMIN & ALL LOGGED-IN USERS)
+// ==============================================================================
+window.openChangePasswordModal = function() {
+    if (!state.currentUser) {
+        showToast('Please log in first to change password!', 'info');
+        openAuthModal();
+        return;
+    }
+    const badgeLabel = document.getElementById('changePasswordUserLabel');
+    if (badgeLabel) {
+        const u = state.currentUser;
+        badgeLabel.textContent = `@${u.username} (${(u.role || 'user').toUpperCase()})`;
+    }
+    const currentInput = document.getElementById('currentPasswordInput');
+    const newInput = document.getElementById('newPasswordInput');
+    const confirmInput = document.getElementById('confirmNewPasswordInput');
+    if (currentInput) currentInput.value = '';
+    if (newInput) newInput.value = '';
+    if (confirmInput) confirmInput.value = '';
+
+    const overlay = document.getElementById('changePasswordOverlay');
+    const modal = document.getElementById('changePasswordModal');
+    if (overlay) overlay.classList.add('active');
+    if (modal) modal.classList.add('active');
+};
+
+window.closeChangePasswordModal = function() {
+    const overlay = document.getElementById('changePasswordOverlay');
+    const modal = document.getElementById('changePasswordModal');
+    if (overlay) overlay.classList.remove('active');
+    if (modal) modal.classList.remove('active');
+};
+
+window.handlePasswordChangeSubmit = async function(e) {
+    if (e) e.preventDefault();
+    if (!state.currentUser) {
+        showToast('Please log in first!', 'error');
+        return;
+    }
+
+    const currentInput = document.getElementById('currentPasswordInput');
+    const newInput = document.getElementById('newPasswordInput');
+    const confirmInput = document.getElementById('confirmNewPasswordInput');
+    const submitBtn = document.getElementById('changePasswordSubmitBtn');
+
+    const currentPassword = currentInput ? currentInput.value.trim() : '';
+    const newPassword = newInput ? newInput.value.trim() : '';
+    const confirmPassword = confirmInput ? confirmInput.value.trim() : '';
+
+    if (!currentPassword) {
+        showToast('Please enter your current password!', 'info');
+        if (currentInput) currentInput.focus();
+        return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+        showToast('New password must be at least 6 characters long!', 'info');
+        if (newInput) newInput.focus();
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        showToast('New passwords do not match! Please check and re-enter.', 'error');
+        if (confirmInput) confirmInput.focus();
+        return;
+    }
+
+    const origBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Updating Password...';
+    }
+
+    try {
+        const token = sessionStorage.getItem('dropzyy_auth_token') || localStorage.getItem('dropzyy_auth_token');
+        const res = await fetchWithTimeout(`${API_BASE_URL}/auth/change-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                current_password: currentPassword,
+                new_password: newPassword
+            })
+        }, 12000);
+
+        if (res && res.ok) {
+            // Also update in registeredUsers local cache if present
+            const uIdx = registeredUsers.findIndex(u => (u.username || '').toLowerCase() === (state.currentUser.username || '').toLowerCase());
+            if (uIdx > -1) {
+                registeredUsers[uIdx].password = newPassword;
+                if (typeof persistRegisteredUsers === 'function') persistRegisteredUsers();
+            }
+
+            closeChangePasswordModal();
+            showToast('🎉 Password changed successfully! Please remember your new password.', 'success');
+        } else {
+            const errData = await (res ? res.json().catch(() => ({})) : {});
+            showToast(errData.detail || 'Failed to change password. Please verify current password.', 'error');
+        }
+    } catch (err) {
+        console.warn('Change password error:', err);
+        showToast('Unable to connect to server. Please check your connection and try again.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnHtml || '<i class="fa-solid fa-floppy-disk"></i> Update Password';
+        }
+    }
+};
