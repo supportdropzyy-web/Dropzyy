@@ -515,8 +515,26 @@ registeredUsers = registeredUsers.filter(u => {
     if (uName === 'bhupesh11' || cName === 'bhupeshkirana') return false;
     if (uName === 'dhanji' || cName === 'dhanji') return false;
     if (uName === 'ritesh@123') return false;
+    if (uName.startsWith('fresh_sup') || cName.includes('fresh farm')) return false;
+    if (uName.startsWith('sup_dev') || cName.includes('test devices')) return false;
+    if (uName.startsWith('mongo_sup') || cName.includes('mongo store')) return false;
     return true;
 });
+try {
+    let savedU = JSON.parse(localStorage.getItem('dropzyy_registered_users') || '[]');
+    if (Array.isArray(savedU)) {
+        savedU = savedU.filter(u => {
+            if (!u) return false;
+            const un = (u.username || '').toLowerCase();
+            const cn = (u.supplier_company_name || '').toLowerCase();
+            if (un.startsWith('fresh_sup') || cn.includes('fresh farm')) return false;
+            if (un.startsWith('sup_dev') || cn.includes('test devices')) return false;
+            if (un.startsWith('mongo_sup') || cn.includes('mongo store')) return false;
+            return true;
+        });
+        localStorage.setItem('dropzyy_registered_users', JSON.stringify(savedU));
+    }
+} catch (e) {}
 
 // Always ensure banjos has the valid menu_card_image attached
 const bUser = registeredUsers.find(u => u && (u.username === 'banjos' || String(u.supplier_company_name || '').toLowerCase().includes('banjo')));
@@ -1608,7 +1626,8 @@ window.renderRestaurants = function() {
         const clean = String(name).trim().toLowerCase();
         const systemKeywords = [
             'dropzyy direct mandi', 'dropzyy direct', 'dropzyy mandi', 
-            'freshkart mandi', 'direct mandi', 'itc agro'
+            'freshkart mandi', 'direct mandi', 'itc agro',
+            'fresh farm', 'test devices', 'mongo store', 'fresh_sup', 'sup_dev', 'mongo_sup'
         ];
         return systemKeywords.some(sys => clean.includes(sys));
     }
@@ -2674,7 +2693,7 @@ function renderProducts() {
                             <span class="original-price">₹${product.originalPrice}</span>
                         </div>
                         ${isSupplierUser ? `
-                            <div style="display: flex; gap: 4px;">
+                            <div class="supplier-card-actions-wrap">
                                 <button class="btn btn-sm ${!isOnline ? 'btn-success' : 'btn-secondary'}" onclick="toggleProductOnlineStatus('${product.id}')" style="font-size: 0.72rem; padding: 4px 6px;" title="Click to toggle product Online/Offline">
                                     <i class="fa-solid ${!isOnline ? 'fa-globe' : 'fa-eye-slash'}"></i> ${!isOnline ? 'Online' : 'Offline'}
                                 </button>
@@ -5213,6 +5232,57 @@ function renderSupplierDashboard() {
                 emergencyBtn.style.boxShadow = '0 2px 6px rgba(16, 185, 129, 0.25)';
                 emergencyBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i> 🟢 Bring Store Back Online`;
             }
+
+            // Sync Segmented Radio Buttons & Dropdown Select
+            const radioOnline = document.getElementById('radioStoreOnline');
+            const radioOffline = document.getElementById('radioStoreOffline');
+            const statusDropdown = document.getElementById('supplierEmergencyDropdown');
+            const lblOnline = document.getElementById('lblRadioOnline');
+            const lblOffline = document.getElementById('lblRadioOffline');
+
+            if (radioOnline && radioOffline) {
+                radioOnline.checked = isStoreOpen;
+                radioOffline.checked = !isStoreOpen;
+                if (lblOnline && lblOffline) {
+                    if (isStoreOpen) {
+                        lblOnline.style.background = '#ECFDF5';
+                        lblOnline.style.color = '#047857';
+                        lblOnline.style.borderColor = '#A7F3D0';
+                        lblOnline.style.fontWeight = '800';
+                        lblOffline.style.background = '#FFFFFF';
+                        lblOffline.style.color = '#64748B';
+                        lblOffline.style.borderColor = 'transparent';
+                        lblOffline.style.fontWeight = '600';
+                    } else {
+                        lblOffline.style.background = '#FEF2F2';
+                        lblOffline.style.color = '#DC2626';
+                        lblOffline.style.borderColor = '#FECACA';
+                        lblOffline.style.fontWeight = '800';
+                        lblOnline.style.background = '#FFFFFF';
+                        lblOnline.style.color = '#64748B';
+                        lblOnline.style.borderColor = 'transparent';
+                        lblOnline.style.fontWeight = '600';
+                    }
+                }
+            }
+            if (statusDropdown) {
+                statusDropdown.value = isStoreOpen ? 'online' : 'offline';
+                statusDropdown.style.borderColor = isStoreOpen ? '#10B981' : '#DC2626';
+                statusDropdown.style.color = isStoreOpen ? '#047857' : '#DC2626';
+                statusDropdown.style.background = isStoreOpen ? '#ECFDF5' : '#FEF2F2';
+            }
+
+            // Sync Top Navbar Emergency Button
+            const topBtn = document.getElementById('supplierEmergencyTopBtn');
+            const topBtnText = document.getElementById('supplierEmergencyTopBtnText');
+            if (topBtn && topBtnText) {
+                topBtn.style.display = 'inline-flex';
+                topBtn.classList.remove('hidden');
+                topBtnText.innerHTML = isStoreOpen ? 'Store: ONLINE 🟢' : 'Store: OFFLINE 🔴';
+                topBtn.style.background = isStoreOpen ? '#ECFDF5' : '#FEF2F2';
+                topBtn.style.color = isStoreOpen ? '#047857' : '#DC2626';
+                topBtn.style.border = `1.5px solid ${isStoreOpen ? '#A7F3D0' : '#FECACA'}`;
+            }
         }
     }
 
@@ -6035,6 +6105,50 @@ window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsern
     } catch (err) {
         console.error('[EMERGENCY TOGGLE ERROR]', err);
         showToast('Error communicating with server', 'error');
+    }
+};
+
+window.handleStoreStatusChange = function(targetOnlineState) {
+    if (!state.currentUser) {
+        showToast('Please login as a store owner or admin', 'warning');
+        return;
+    }
+    const liveSup = registeredUsers.find(u => (u.username || '').toLowerCase() === (state.currentUser.username || '').toLowerCase()) || state.currentUser;
+    const currentOpen = (liveSup.store_open !== false);
+    const targetStatus = Boolean(targetOnlineState);
+
+    if (targetStatus === currentOpen) {
+        return;
+    }
+
+    if (!targetStatus) {
+        // Going OFFLINE - Show Confirmation modal
+        showCustomConfirmModal({
+            title: '🚨 Set Store Emergency Offline?',
+            subtitle: 'Instant Customer Order Restriction',
+            icon: 'fa-solid fa-triangle-exclamation',
+            iconBg: '#FEE2E2',
+            iconColor: '#DC2626',
+            contentHtml: `<div style="text-align: left; font-size: 0.95rem; color: #475569; line-height: 1.5;">
+                <p>Are you sure you want to set your store to <strong>EMERGENCY OFFLINE</strong>?</p>
+                <div style="background: #FEF2F2; border-left: 4px solid #DC2626; padding: 10px 14px; border-radius: 6px; margin-top: 8px; font-size: 0.88rem; color: #991B1B;">
+                    ⚠️ All customer cart additions and incoming orders will be <strong>strictly blocked</strong> until you switch back to Online.
+                </div>
+            </div>`,
+            confirmText: 'Yes, Set Store Offline',
+            confirmIcon: 'fa-solid fa-power-off',
+            confirmBg: '#DC2626',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+                window.toggleStoreEmergencyOfflineStatus(false, state.currentUser.username);
+            },
+            onCancel: () => {
+                if (typeof renderSupplierDashboard === 'function') renderSupplierDashboard();
+            }
+        });
+    } else {
+        // Going ONLINE - Immediately activate
+        window.toggleStoreEmergencyOfflineStatus(true, state.currentUser.username);
     }
 };
 

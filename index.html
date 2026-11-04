@@ -540,28 +540,54 @@
             <p id="supplierCompanyTitle">View and manage all Kirana items added by your supplier account</p>
         </div>
 
-        <!-- Emergency Store Status Banner & Immediate Offline Control -->
-        <div id="supplierEmergencyStoreBox" style="margin: 14px 0 16px; padding: 14px 18px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: #F8FAFC; border: 1.5px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <span id="supplierEmergencyStatusBadge" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 0.82rem; padding: 4px 12px; border-radius: 20px; background: #10B981; color: white; text-transform: uppercase; letter-spacing: 0.5px;">
-                    <i class="fa-solid fa-circle-check"></i> ONLINE (Open)
-                </span>
-                <span id="supplierEmergencyStatusText" style="font-size: 0.88rem; font-weight: 600; color: #1E293B;">
-                    Store is open & accepting customer orders.
-                </span>
+        <!-- Emergency Store Status Banner & Radio/Dropdown Control -->
+        <div id="supplierEmergencyStoreBox" style="margin: 14px 0 16px; padding: 14px 18px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; background: #F8FAFC; border: 1.5px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span id="supplierEmergencyStatusBadge" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 0.82rem; padding: 4px 12px; border-radius: 20px; background: #10B981; color: white; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-circle-check"></i> ONLINE (Open)
+                    </span>
+                    <span id="supplierEmergencyStatusText" style="font-size: 0.88rem; font-weight: 600; color: #1E293B;">
+                        Store is open & accepting customer orders.
+                    </span>
+                </div>
+                
+                <!-- Radio Button & Dropdown Switch for Store Status -->
+                <div id="supplierEmergencyControlWrap" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <!-- Segmented Radio Button Group -->
+                    <div class="store-status-segmented-group" style="display: inline-flex; background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 3px; gap: 3px;">
+                        <label id="lblRadioOnline" class="status-segmented-option active" style="display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s; background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0;">
+                            <input type="radio" name="storeStatusRadio" id="radioStoreOnline" value="online" checked onchange="window.handleStoreStatusChange(true)" style="accent-color: #10B981; cursor: pointer; margin: 0;">
+                            <span>🟢 Online</span>
+                        </label>
+                        <label id="lblRadioOffline" class="status-segmented-option" style="display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: #FFFFFF; color: #64748B; border: 1px solid transparent;">
+                            <input type="radio" name="storeStatusRadio" id="radioStoreOffline" value="offline" onchange="window.handleStoreStatusChange(false)" style="accent-color: #DC2626; cursor: pointer; margin: 0;">
+                            <span>🔴 Emergency Off</span>
+                        </label>
+                    </div>
+
+                    <!-- Dropdown Select Option -->
+                    <select id="supplierEmergencyDropdown" class="status-dropdown-select" onchange="window.handleStoreStatusChange(this.value === 'online')" style="padding: 6px 10px; border-radius: 8px; border: 1.5px solid #CBD5E1; font-size: 0.8rem; font-weight: 700; background: white; cursor: pointer; color: #1E293B;">
+                        <option value="online">🟢 Status: ONLINE (Open)</option>
+                        <option value="offline">🔴 Status: EMERGENCY OFFLINE</option>
+                    </select>
+
+                    <button id="supplierEmergencyToggleBtn" onclick="window.toggleCurrentSupplierEmergencyOffline()" style="display: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; border: none; background: #DC2626; color: white;">
+                        <i class="fa-solid fa-power-off"></i> Toggle
+                    </button>
+                </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testDualAlertSystem()" title="Test Restaurant Audio Bell & Phone Vibration" style="padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 1px solid #CBD5E1; background: #FFFFFF; color: #0F172A; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <i class="fa-solid fa-bell text-warning"></i> 🔊 Test Bell & Vibration
+
+            <!-- Testing Quick Action Buttons -->
+            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding-top: 6px; border-top: 1px dashed #E2E8F0;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testDualAlertSystem()" title="Test Restaurant Audio Bell & Phone Vibration" style="padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; border: 1px solid #CBD5E1; background: #FFFFFF; color: #0F172A; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <i class="fa-solid fa-bell text-warning"></i> 🔊 Test Bell
                 </button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testScreenOffWebPush()" title="Test Screen-Off Lock Screen Push (Lock phone after tapping)" style="padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 1.5px solid #3B82F6; background: #EFF6FF; color: #1D4ED8; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(59,130,246,0.15);">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testScreenOffWebPush()" title="Test Screen-Off Lock Screen Push (Lock phone after tapping)" style="padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; border: 1.5px solid #3B82F6; background: #EFF6FF; color: #1D4ED8; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(59,130,246,0.15);">
                     <i class="fa-solid fa-mobile-screen-button"></i> 📲 Test Screen-Off Push
                 </button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testTelegramAlert()" title="Send Test Alert to Telegram (Lock phone to test custom ringtone)" style="padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: 1.5px solid #0284C7; background: #F0F9FF; color: #0369A1; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(2,132,199,0.15);">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.testTelegramAlert()" title="Send Test Alert to Telegram (Lock phone to test custom ringtone)" style="padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; border: 1.5px solid #0284C7; background: #F0F9FF; color: #0369A1; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(2,132,199,0.15);">
                     <i class="fa-brands fa-telegram text-primary"></i> ✈️ Test Telegram Ring
-                </button>
-                <button id="supplierEmergencyToggleBtn" onclick="window.toggleCurrentSupplierEmergencyOffline()" style="padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border: none; background: #DC2626; color: white; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25); transition: all 0.2s;">
-                    <i class="fa-solid fa-power-off"></i> 🚨 Immediate Emergency Offline
                 </button>
             </div>
         </div>

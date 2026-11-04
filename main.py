@@ -792,6 +792,25 @@ def on_startup():
     auto_migrate_db()
     db = next(get_db())
     seed_initial_data(db)
+    # Purge legacy dummy test accounts from SQLite
+    try:
+        db.query(models.User).filter(
+            (models.User.username.like('%sup_dev%')) |
+            (models.User.username.like('%fresh_sup%')) |
+            (models.User.username.like('%mongo_sup%')) |
+            (models.User.supplier_company_name.like('%Test Devices%')) |
+            (models.User.supplier_company_name.like('%Fresh Farm%')) |
+            (models.User.supplier_company_name.like('%Mongo Store%'))
+        ).delete(synchronize_session=False)
+        db.query(models.Supplier).filter(
+            (models.Supplier.name.like('%Test Devices%')) |
+            (models.Supplier.name.like('%Fresh Farm%')) |
+            (models.Supplier.name.like('%Mongo Store%'))
+        ).delete(synchronize_session=False)
+        db.commit()
+    except Exception:
+        db.rollback()
+
     if mongo_db.is_mongo_active():
         print("[FASTAPI STARTUP] MongoDB Cloud Database Active & Connected!")
         sync_mongo_users_to_sqlite(db)
@@ -2619,6 +2638,8 @@ def get_restaurants(response: Response, db: Session = Depends(get_db)):
         res = []
         for u in users:
             comp = u.supplier_company_name or u.full_name or u.username
+            if any(d in comp.lower() or d in u.username.lower() for d in ['sup_dev', 'fresh_sup', 'mongo_sup', 'test devices', 'fresh farm', 'mongo store']):
+                continue
             res.append({
                 "id": u.id,
                 "username": u.username,
