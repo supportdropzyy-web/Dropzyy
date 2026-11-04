@@ -14,7 +14,7 @@
     <!-- Chart.js Library for Data Analytics Graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Main Stylesheet -->
-    <link rel="stylesheet" href="style.css?v=4.0">
+    <link rel="stylesheet" href="style.css?v=4.3">
     <!-- EmailJS SDK & Configuration -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
@@ -985,74 +985,76 @@
     </div>
 
     <!-- Admin Dedicated Create Account Modal (For Creating Suppliers & Admins) -->
-    <div class="modal-overlay" id="adminCreateUserOverlay"></div>
-    <div class="admin-modal" id="adminCreateUserModal">
-        <div style="margin-bottom: 12px;">
+    <div class="modal-overlay" id="adminCreateUserOverlay" onclick="closeModals()"></div>
+    <div class="admin-modal" id="adminCreateUserModal" style="max-width: 580px; width: 94%;">
+        <button type="button" class="close-modal-btn" id="closeAdminCreateUserBtn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+
+        <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
             <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">
                 <i class="fa-solid fa-arrow-left"></i> Back to Admin Panel
             </button>
+            <span class="badge" style="background: #ECFDF5; color: #065F46; font-size: 0.76rem; font-weight: 700;">Admin Privileges</span>
         </div>
         
-        <div class="modal-header">
-            <h2><i class="fa-solid fa-user-plus text-primary"></i> Create Admin or Supplier Account</h2>
-            <p>Grant new Supplier or Administrator privileges to Dropzyy</p>
+        <div class="modal-header" style="margin-bottom: 12px;">
+            <h2 style="font-size: 1.25rem;"><i class="fa-solid fa-user-plus text-primary"></i> Create Admin or Supplier Account</h2>
+            <p style="font-size: 0.82rem;">Grant new Supplier or Administrator privileges to Dropzyy</p>
         </div>
 
         <form class="admin-form" id="adminCreateUserForm">
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label for="adminRegRole">Account Privileges / Role</label>
-                <select id="adminRegRole" class="sort-dropdown" style="width: 100%; padding: 10px;" required>
-                    <option value="supplier">🚜 Supplier Account (Supply & Upload Kirana Items)</option>
-                    <option value="sub_admin">🛡️ Sub-Admin Account (Add & Manage Kirana Products)</option>
-                    <option value="admin">👑 Administrator Account (Full System Control)</option>
-                </select>
+            <div class="admin-create-user-grid">
+                <div class="form-group">
+                    <label for="adminRegRole">Account Privileges / Role</label>
+                    <select id="adminRegRole" class="sort-dropdown" style="width: 100%; padding: 8px;" required>
+                        <option value="supplier">🚜 Supplier Account (Supply & Upload Kirana Items)</option>
+                        <option value="sub_admin">🛡️ Sub-Admin Account (Add & Manage Kirana Products)</option>
+                        <option value="admin">👑 Administrator Account (Full System Control)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="adminSupplierDeviceLimitGroup">
+                    <label for="adminRegMaxDevices"><i class="fa-solid fa-mobile-screen text-primary"></i> Device Limit</label>
+                    <select id="adminRegMaxDevices" class="sort-dropdown" style="width: 100%; padding: 8px;">
+                        <option value="1" selected>1 Device (Standard / Single)</option>
+                        <option value="2">2 Devices (Phone + PC)</option>
+                        <option value="3">3 Devices</option>
+                        <option value="5">5 Devices</option>
+                        <option value="999">Unlimited Devices</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="adminRegFullName">Full Name / Contact Person</label>
+                    <input type="text" id="adminRegFullName" required placeholder="e.g. Ramesh Patil">
+                </div>
+
+                <div class="form-group">
+                    <label for="adminRegUsername">Username</label>
+                    <input type="text" id="adminRegUsername" required placeholder="e.g. ramesh_wholesaler">
+                </div>
+
+                <div class="form-group" id="adminSupplierCompanyGroup">
+                    <label for="adminRegSupplierCompany"><i class="fa-solid fa-store text-primary"></i> Store / Business Name</label>
+                    <input type="text" id="adminRegSupplierCompany" placeholder="e.g. Ramesh Kirana Wholesale Co.">
+                </div>
+
+                <div class="form-group" id="adminSupplierCityGroup">
+                    <label for="adminRegCity"><i class="fa-solid fa-location-dot text-primary"></i> City / Location <span style="color: #DC2626;">*</span></label>
+                    <input type="text" id="adminRegCity" list="serviceableCitiesList" placeholder="e.g. Savda, Bhusawal, Jalgaon, Pune..." style="width: 100%; padding: 8px; border: 1.5px solid #CBD5E1; border-radius: 8px;">
+                </div>
+
+                <div class="form-group span-2">
+                    <label for="adminRegPassword">Password (Min. 6 chars)</label>
+                    <input type="password" id="adminRegPassword" required minlength="6" placeholder="Min. 6 chars (letters, numbers, symbols allowed)">
+                    <small style="color: #64748B; font-size: 0.74rem; display: block; margin-top: 2px;">
+                        <i class="fa-solid fa-shield-halved text-primary"></i> Letters, numbers & symbols allowed
+                    </small>
+                </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label for="adminRegFullName">Full Name / Contact Person</label>
-                <input type="text" id="adminRegFullName" required placeholder="e.g. Ramesh Patil">
-            </div>
-
-            <div class="form-group" id="adminSupplierCompanyGroup" style="margin-bottom: 12px;">
-                <label for="adminRegSupplierCompany"><i class="fa-solid fa-store text-primary"></i> Supplier Store / Business Name</label>
-                <input type="text" id="adminRegSupplierCompany" placeholder="e.g. Ramesh Kirana Wholesale Co.">
-            </div>
-
-            <div class="form-group" id="adminSupplierCityGroup" style="margin-bottom: 12px;">
-                <label for="adminRegCity"><i class="fa-solid fa-location-dot text-primary"></i> Supplier Store City / Location <span style="color: #DC2626;">*</span></label>
-                <input type="text" id="adminRegCity" list="serviceableCitiesList" placeholder="e.g. Savda, Bhusawal, Jalgaon, Mumbai..." style="width: 100%; padding: 10px; border: 1.5px solid #CBD5E1; border-radius: 8px;">
-            </div>
-
-            <div class="form-group" id="adminSupplierDeviceLimitGroup" style="margin-bottom: 12px;">
-                <label for="adminRegMaxDevices"><i class="fa-solid fa-mobile-screen text-primary"></i> Allowed Device Limit</label>
-                <select id="adminRegMaxDevices" class="sort-dropdown" style="width: 100%; padding: 10px;">
-                    <option value="1" selected>1 Device (Standard / Single Device Access)</option>
-                    <option value="2">2 Devices (Phone + PC / Tablet)</option>
-                    <option value="3">3 Devices</option>
-                    <option value="5">5 Devices</option>
-                    <option value="999">Unlimited Devices</option>
-                </select>
-                <small style="color: #64748B; font-size: 0.78rem; display: block; margin-top: 4px;">
-                    Admin directly limits concurrent logins for this supplier.
-                </small>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label for="adminRegUsername">Username</label>
-                <input type="text" id="adminRegUsername" required placeholder="e.g. ramesh_wholesaler">
-            </div>
-
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label for="adminRegPassword">Password</label>
-                <input type="password" id="adminRegPassword" required minlength="6" placeholder="Min. 6 chars (letters, numbers, symbols allowed)">
-                <small style="color: #64748B; font-size: 0.78rem; display: block; margin-top: 4px;">
-                    <i class="fa-solid fa-shield-halved text-primary"></i> Minimum 6 characters (Letters, numbers & symbols allowed)
-                </small>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 12px;">
-                <button type="button" class="btn btn-secondary" id="cancelAdminCreateUserBtn">Cancel</button>
-                <button type="submit" class="btn btn-primary btn-lg">
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="cancelAdminCreateUserBtn" onclick="closeModals()">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">
                     <i class="fa-solid fa-user-check"></i> Create Account & Grant Access
                 </button>
             </div>
@@ -1575,95 +1577,93 @@
         </form>
 
         <!-- Register Form -->
-        <form class="auth-form hidden" id="registerForm" onsubmit="handleRegisterSubmit(event)">
-            <div class="auth-header">
+        <form class="auth-form hidden register-compact-form" id="registerForm" onsubmit="handleRegisterSubmit(event)">
+            <div class="auth-header auth-header-compact">
                 <img src="dropzyy-logo.png" alt="Dropzyy" class="auth-brand-logo">
                 <h2>Create Your Account</h2>
                 <p>Verify your Email Address to complete registration</p>
             </div>
 
-            <div class="form-group">
-                <label for="regFullName">Full Name</label>
-                <div style="position: relative;">
-                    <i class="fa-regular fa-user" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.95rem;"></i>
-                    <input type="text" id="regFullName" required placeholder="e.g. Rahul Sharma" style="padding-left: 46px !important; padding-right: 44px !important;">
+            <!-- Row 1: Full Name & Mobile Number (Side-by-Side in 2 columns) -->
+            <div class="form-row-2col">
+                <div class="form-group">
+                    <label for="regFullName">Full Name</label>
+                    <div style="position: relative;">
+                        <i class="fa-regular fa-user input-icon-left"></i>
+                        <input type="text" id="regFullName" required placeholder="e.g. Rahul Sharma">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="regPhone">Mobile Number (10 Digits)</label>
+                    <div style="position: relative;">
+                        <i class="fa-solid fa-phone input-icon-left"></i>
+                        <input type="tel" id="regPhone" required maxlength="10" pattern="[0-9]{10}" placeholder="9876543210">
+                    </div>
                 </div>
             </div>
 
             <!-- Email Address with Send Code button -->
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 8px;">
                 <label for="regEmail">Email Address</label>
                 <div style="display: flex; gap: 8px;">
                     <div style="position: relative; flex: 1;">
-                        <i class="fa-regular fa-envelope" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.95rem;"></i>
-                        <input type="email" id="regEmail" required placeholder="e.g. rahul@gmail.com" style="width: 100%; padding-left: 46px !important; padding-right: 44px !important;">
+                        <i class="fa-regular fa-envelope input-icon-left"></i>
+                        <input type="email" id="regEmail" required placeholder="e.g. rahul@gmail.com" style="width: 100%;">
                     </div>
-                    <button type="button" class="btn btn-secondary" id="sendOtpBtn" onclick="sendRegistrationOTP()" style="white-space: nowrap; font-weight: 700; height: 46px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-paper-plane text-primary"></i> Send Code
+                    <button type="button" class="btn btn-secondary auth-inline-btn" id="sendOtpBtn" onclick="sendRegistrationOTP()">
+                        <i class="fa-solid fa-paper-plane text-primary"></i> <span>Send Code</span>
                     </button>
                 </div>
             </div>
 
             <!-- Verification Code with Verify button -->
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 8px;">
                 <label for="regOtp">Verification Code (From Email)</label>
                 <div style="display: flex; gap: 8px;">
                     <div style="position: relative; flex: 1;">
-                        <i class="fa-solid fa-shield-halved" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.95rem;"></i>
-                        <input type="text" id="regOtp" maxlength="6" placeholder="6-digit code" style="width: 100%; padding-left: 38px; letter-spacing: 2px; font-weight: 700;">
+                        <i class="fa-solid fa-shield-halved input-icon-left"></i>
+                        <input type="text" id="regOtp" maxlength="6" placeholder="6-digit code" style="width: 100%; letter-spacing: 2px; font-weight: 700;">
                     </div>
-                    <button type="button" class="btn btn-primary" id="verifyOtpBtn" onclick="verifyOTPCode()" style="white-space: nowrap; background: #059669; border-color: #059669; font-weight: 700; height: 46px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-circle-check"></i> Verify
+                    <button type="button" class="btn btn-primary auth-inline-btn" id="verifyOtpBtn" onclick="verifyOTPCode()" style="background: #059669; border-color: #059669;">
+                        <i class="fa-solid fa-circle-check"></i> <span>Verify</span>
                     </button>
                 </div>
-                <small id="otpStatusNotice" style="display: block; margin-top: 4px; color: #059669; font-weight: 600;"></small>
+                <small id="otpStatusNotice" style="display: block; margin-top: 3px; color: #059669; font-weight: 600; font-size: 0.76rem;"></small>
             </div>
 
-            <div class="form-group">
-                <label for="regPhone">Mobile Number (10 Digits)</label>
-                <div style="position: relative;">
-                    <i class="fa-solid fa-phone" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.95rem;"></i>
-                    <input type="tel" id="regPhone" required maxlength="10" pattern="[0-9]{10}" placeholder="e.g. 9876543210" style="padding-left: 46px !important; padding-right: 44px !important;">
+            <!-- Row 3: Password & Confirm Password (Side-by-Side in 2 columns) -->
+            <div class="form-row-2col">
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <div style="position: relative;">
+                        <i class="fa-solid fa-lock input-icon-left"></i>
+                        <input type="password" id="regPassword" required minlength="6" placeholder="Min. 6 chars" oninput="updatePasswordCriteriaUI(this.value, 'reg')">
+                        <button type="button" onclick="window.togglePasswordVisibility('regPassword', this)" class="input-eye-btn" title="Show/Hide Password">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="regConfirmPassword">Confirm Password</label>
+                    <div style="position: relative;">
+                        <i class="fa-solid fa-shield-check input-icon-left"></i>
+                        <input type="password" id="regConfirmPassword" required minlength="6" placeholder="Re-enter password">
+                        <button type="button" onclick="window.togglePasswordVisibility('regConfirmPassword', this)" class="input-eye-btn" title="Show/Hide Password">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="regPassword">Password</label>
-                <div style="position: relative;">
-                    <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.95rem;"></i>
-                    <input type="password" id="regPassword" required minlength="6" placeholder="Min. 6 characters" oninput="updatePasswordCriteriaUI(this.value, 'reg')" style="padding-left: 46px !important; padding-right: 44px !important;">
-                    <button type="button" onclick="window.togglePasswordVisibility('regPassword', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px; font-size: 1rem;" title="Show/Hide Password">
-                        <i class="fa-regular fa-eye"></i>
-                    </button>
-                </div>
-                <div id="regPassCriteria" style="margin-top: 6px; font-size: 0.76rem; display: flex; flex-wrap: wrap; gap: 6px;">
-                    <span id="regCritMin" style="padding: 2px 8px; border-radius: 12px; background: #F1F5F9; color: #64748B; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
-                        <i class="fa-solid fa-circle-dot"></i> Min 6 characters
-                    </span>
-                    <span id="regCritChars" style="padding: 2px 8px; border-radius: 12px; background: #F1F5F9; color: #64748B; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
-                        <i class="fa-solid fa-font"></i> Letters
-                    </span>
-                    <span id="regCritNumbers" style="padding: 2px 8px; border-radius: 12px; background: #F1F5F9; color: #64748B; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
-                        <i class="fa-solid fa-hashtag"></i> Numbers
-                    </span>
-                    <span id="regCritSymbols" style="padding: 2px 8px; border-radius: 12px; background: #F1F5F9; color: #64748B; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
-                        <i class="fa-solid fa-asterisk"></i> Symbols
-                    </span>
-                </div>
+            <!-- Password Criteria Chips (Compact 1-line) -->
+            <div id="regPassCriteria" class="password-criteria-chips">
+                <span id="regCritMin"><i class="fa-solid fa-circle-dot"></i> Min 6 chars</span>
+                <span id="regCritChars"><i class="fa-solid fa-font"></i> Letters</span>
+                <span id="regCritNumbers"><i class="fa-solid fa-hashtag"></i> Numbers</span>
+                <span id="regCritSymbols"><i class="fa-solid fa-asterisk"></i> Symbols</span>
             </div>
 
-            <div class="form-group">
-                <label for="regConfirmPassword">Confirm Password</label>
-                <div style="position: relative;">
-                    <i class="fa-solid fa-shield-check" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.95rem;"></i>
-                    <input type="password" id="regConfirmPassword" required minlength="6" placeholder="Re-enter at least 6 characters" style="padding-left: 46px !important; padding-right: 44px !important;">
-                    <button type="button" onclick="window.togglePasswordVisibility('regConfirmPassword', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px; font-size: 1rem;" title="Show/Hide Password">
-                        <i class="fa-regular fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-block btn-lg" id="registerSubmitBtn" style="margin-top: 14px;">
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="registerSubmitBtn" style="margin-top: 10px;">
                 Create Account <i class="fa-solid fa-user-plus"></i>
             </button>
         </form>
@@ -3055,64 +3055,121 @@
     <!-- Menu Card Data (Embedded Base64 for 100% Reliable Offline & File Protocol Display) -->
     <script src="menu_card_data.js"></script>
     <!-- JavaScript -->
-    <script src="app.js?v=4.2"></script>
-        <!-- Dedicated Change Password Modal -->
-    <div class="modal-overlay" id="changePasswordOverlay" onclick="closeChangePasswordModal()"></div>
-    <div class="admin-modal" id="changePasswordModal" style="max-width: 460px; width: 92%;">
-        <button type="button" class="close-modal-btn" onclick="closeChangePasswordModal()" title="Close"><i class="fa-solid fa-xmark"></i></button>
-
-        <div class="modal-header">
-            <h2><i class="fa-solid fa-key text-warning"></i> Change Password</h2>
-            <p>Update your account login password</p>
-        </div>
-
-        <div id="changePasswordAccountBadge" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.84rem; color: #475569;">
-            Logged in as: <strong id="changePasswordUserLabel" style="color: #0F172A;">@admin</strong>
-        </div>
-
-        <form class="admin-form" id="changePasswordForm" onsubmit="handlePasswordChangeSubmit(event)">
-            <div class="form-group">
-                <label for="currentPasswordInput">Current Password</label>
-                <div style="position: relative;">
-                    <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
-                    <input type="password" id="currentPasswordInput" required placeholder="Enter current password" style="padding-left: 42px !important; padding-right: 42px !important;">
-                    <button type="button" onclick="window.togglePasswordVisibility('currentPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
-                        <i class="fa-regular fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="newPasswordInput">New Password (Min. 6 characters)</label>
-                <div style="position: relative;">
-                    <i class="fa-solid fa-shield-halved" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
-                    <input type="password" id="newPasswordInput" required minlength="6" placeholder="Enter new password" style="padding-left: 42px !important; padding-right: 42px !important;">
-                    <button type="button" onclick="window.togglePasswordVisibility('newPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
-                        <i class="fa-regular fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="confirmNewPasswordInput">Confirm New Password</label>
-                <div style="position: relative;">
-                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
-                    <input type="password" id="confirmNewPasswordInput" required minlength="6" placeholder="Re-enter new password" style="padding-left: 42px !important; padding-right: 42px !important;">
-                    <button type="button" onclick="window.togglePasswordVisibility('confirmNewPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
-                        <i class="fa-regular fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
-                <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="changePasswordSubmitBtn" style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-floppy-disk"></i> Update Password
-                </button>
-            </div>
-        </form>
-    </div>
-
+    <script src="app.js?v=4.3"></script>
+        <!-- Dedicated Change Password Modal -->
+
+    <div class="modal-overlay" id="changePasswordOverlay" onclick="closeChangePasswordModal()"></div>
+
+    <div class="admin-modal" id="changePasswordModal" style="max-width: 460px; width: 92%;">
+
+        <button type="button" class="close-modal-btn" onclick="closeChangePasswordModal()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+
+
+
+        <div class="modal-header">
+
+            <h2><i class="fa-solid fa-key text-warning"></i> Change Password</h2>
+
+            <p>Update your account login password</p>
+
+        </div>
+
+
+
+        <div id="changePasswordAccountBadge" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.84rem; color: #475569;">
+
+            Logged in as: <strong id="changePasswordUserLabel" style="color: #0F172A;">@admin</strong>
+
+        </div>
+
+
+
+        <form class="admin-form" id="changePasswordForm" onsubmit="handlePasswordChangeSubmit(event)">
+
+            <div class="form-group">
+
+                <label for="currentPasswordInput">Current Password</label>
+
+                <div style="position: relative;">
+
+                    <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
+
+                    <input type="password" id="currentPasswordInput" required placeholder="Enter current password" style="padding-left: 42px !important; padding-right: 42px !important;">
+
+                    <button type="button" onclick="window.togglePasswordVisibility('currentPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
+
+                        <i class="fa-regular fa-eye"></i>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="form-group">
+
+                <label for="newPasswordInput">New Password (Min. 6 characters)</label>
+
+                <div style="position: relative;">
+
+                    <i class="fa-solid fa-shield-halved" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
+
+                    <input type="password" id="newPasswordInput" required minlength="6" placeholder="Enter new password" style="padding-left: 42px !important; padding-right: 42px !important;">
+
+                    <button type="button" onclick="window.togglePasswordVisibility('newPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
+
+                        <i class="fa-regular fa-eye"></i>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="form-group">
+
+                <label for="confirmNewPasswordInput">Confirm New Password</label>
+
+                <div style="position: relative;">
+
+                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8;"></i>
+
+                    <input type="password" id="confirmNewPasswordInput" required minlength="6" placeholder="Re-enter new password" style="padding-left: 42px !important; padding-right: 42px !important;">
+
+                    <button type="button" onclick="window.togglePasswordVisibility('confirmNewPasswordInput', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94A3B8; cursor: pointer; padding: 6px;" title="Show/Hide">
+
+                        <i class="fa-regular fa-eye"></i>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+
+                <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancel</button>
+
+                <button type="submit" class="btn btn-primary" id="changePasswordSubmitBtn" style="display: flex; align-items: center; gap: 8px;">
+
+                    <i class="fa-solid fa-floppy-disk"></i> Update Password
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+
+
     <!-- Admin Broadcast Announcement Notice Management Modal -->
     <div class="modal-overlay" id="adminNoticeOverlay" onclick="closeAdminNoticeModal()"></div>
     <div class="admin-modal" id="adminNoticeModal" style="max-width: 680px; width: 92%; max-height: 90vh; overflow-y: auto;">

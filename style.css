@@ -4383,3 +4383,236 @@ input:checked + .slider-veg:before {
         opacity: 1;
     }
 }
+
+/* ==============================================================================
+   📱 MOBILE & DESKTOP COMPACT "CREATE ACCOUNT" FORMS (CUSTOMER & ADMIN)
+   ============================================================================== */
+
+/* Responsive 2-Column Row for Registration & Account Forms */
+.form-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.form-row-2col .form-group {
+    margin-bottom: 0 !important;
+}
+
+.auth-inline-btn {
+    white-space: nowrap !important;
+    font-weight: 700 !important;
+    height: 42px !important;
+    border-radius: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 0 12px !important;
+    font-size: 0.84rem !important;
+    flex-shrink: 0 !important;
+    cursor: pointer !important;
+}
+
+.input-icon-left {
+    position: absolute !important;
+    left: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: #94A3B8 !important;
+    font-size: 0.9rem !important;
+    pointer-events: none !important;
+    z-index: 3 !important;
+}
+
+.input-eye-btn {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: none !important;
+    border: none !important;
+    color: #94A3B8 !important;
+    cursor: pointer !important;
+    padding: 4px 6px !important;
+    font-size: 0.9rem !important;
+    z-index: 4 !important;
+}
+
+.password-criteria-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+.password-criteria-chips span {
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: #F1F5F9;
+    color: #64748B;
+    font-size: 0.7rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s ease;
+}
+
+/* Admin Dedicated Create User Grid */
+.admin-create-user-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.admin-create-user-grid .span-2 {
+    grid-column: span 2;
+}
+.admin-create-user-grid .form-group {
+    margin-bottom: 4px !important;
+}
+.admin-create-user-grid input,
+.admin-create-user-grid select {
+    width: 100%;
+    height: 40px;
+    padding: 8px 12px;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    box-sizing: border-box;
+}
+
+/* Mobile View Adjustments for Create Account Forms */
+@media (max-width: 768px) {
+    .auth-modal.register-active {
+        width: 95% !important;
+        max-width: 440px !important;
+        padding: 14px 14px 12px 14px !important;
+        border-radius: 18px !important;
+        max-height: 94vh !important;
+        overflow-y: auto !important;
+    }
+    .auth-modal.register-active .auth-brand-logo {
+        display: none !important; /* Hide logo on mobile registration to save valuable screen height */
+    }
+    .auth-modal.register-active .auth-header {
+        margin-bottom: 6px !important;
+        text-align: center !important;
+    }
+    .auth-modal.register-active .auth-header h2 {
+        font-size: 1.15rem !important;
+        margin: 0 0 2px 0 !important;
+    }
+    .auth-modal.register-active .auth-header p {
+        font-size: 0.74rem !important;
+        margin: 0 !important;
+    }
+    .auth-modal.register-active .auth-tabs {
+        margin-top: 4px !important;
+        margin-bottom: 8px !important;
+        padding: 2px !important;
+    }
+    .auth-modal.register-active .auth-tab {
+        padding: 5px 8px !important;
+        font-size: 0.8rem !important;
+    }
+    .auth-modal.register-active .form-group {
+        margin-bottom: 6px !important;
+    }
+    .auth-modal.register-active label {
+        font-size: 0.72rem !important;
+        margin-bottom: 2px !important;
+        font-weight: 700 !important;
+        color: #334155 !important;
+    }
+    .auth-modal.register-active input[type="text"],
+    .auth-modal.register-active input[type="email"],
+    .auth-modal.register-active input[type="tel"],
+    .auth-modal.register-active input[type="password"] {
+        height: 38px !important;
+        padding-left: 32px !important;
+        padding-right: 30px !important;
+        font-size: 0.84rem !important;
+        border-radius: 9px !important;
+        background: #F8FAFC !important;
+    }
+    .auth-modal.register-active .input-icon-left {
+        left: 10px !important;
+        font-size: 0.8rem !important;
+    }
+    .auth-modal.register-active .auth-inline-btn {
+        height: 38px !important;
+        padding: 0 8px !important;
+        font-size: 0.76rem !important;
+        border-radius: 9px !important;
+    }
+    .auth-modal.register-active button[type="submit"] {
+        height: 40px !important;
+        margin-top: 8px !important;
+        font-size: 0.9rem !important;
+        border-radius: 10px !important;
+    }
+    .auth-modal.register-active .password-criteria-chips {
+        gap: 3px !important;
+        margin-top: 2px !important;
+        margin-bottom: 2px !important;
+    }
+    .auth-modal.register-active .password-criteria-chips span {
+        font-size: 0.64rem !important;
+        padding: 1px 5px !important;
+    }
+    .admin-modal#adminCreateUserModal {
+        padding: 14px 12px !important;
+        max-width: 95vw !important;
+        max-height: 92vh !important;
+        border-radius: 16px !important;
+    }
+    .admin-create-user-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+    .admin-create-user-grid label {
+        font-size: 0.72rem !important;
+        margin-bottom: 2px !important;
+    }
+    .admin-create-user-grid input,
+    .admin-create-user-grid select {
+        height: 36px !important;
+        padding: 5px 8px !important;
+        font-size: 0.82rem !important;
+        border-radius: 8px !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .auth-modal.register-active input[type="text"],
+    .auth-modal.register-active input[type="email"],
+    .auth-modal.register-active input[type="tel"],
+    .auth-modal.register-active input[type="password"] {
+        padding-left: 28px !important;
+        padding-right: 28px !important;
+        font-size: 0.82rem !important;
+    }
+    .auth-modal.register-active .input-icon-left {
+        left: 8px !important;
+        font-size: 0.75rem !important;
+    }
+    .form-row-2col {
+        gap: 6px;
+    }
+}
+
+@media (max-width: 360px) {
+    .form-row-2col {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+    .admin-create-user-grid {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+    .admin-create-user-grid .span-2 {
+        grid-column: span 1;
+    }
+}
