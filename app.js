@@ -8483,10 +8483,24 @@ function setupEventListeners() {
             // Orders persisted in SQLite
 
             // Sync order with backend database for cross-device visibility (Render, Laptop, Mobile)
-            fetch(`${API_BASE_URL}/orders`, {
+            const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+                || sessionStorage.getItem('dropzyy_auth_token')
+                || localStorage.getItem('dropzyy_auth_token');
+
+            const orderHeaders = { 'Content-Type': 'application/json' };
+            if (token) orderHeaders['Authorization'] = `Bearer ${token}`;
+
+            fetchWithTimeout(`${API_BASE_URL}/orders`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: orderHeaders,
                 body: JSON.stringify(orderObj)
+            }, 10000).then(res => {
+                if (res && res.ok) {
+                    console.log('[ORDER CREATED] Order successfully synced to backend & cloud MongoDB Atlas!');
+                }
+                if (typeof fetchOrdersFromAPI === 'function') {
+                    fetchOrdersFromAPI();
+                }
             }).catch(err => console.warn('Backend orders sync offline:', err));
 
             // Record one-time coupon usage in backend & MongoDB Atlas
@@ -8548,7 +8562,11 @@ function setupEventListeners() {
             }
 
             closeModals();
-            updateSuccessOrderCancelUI(orderObj);
+            if (typeof window.renderSuccessOrderModal === 'function') {
+                window.renderSuccessOrderModal(orderObj);
+            } else {
+                updateSuccessOrderCancelUI(orderObj);
+            }
             orderSuccessOverlay.classList.add('active');
             orderSuccessModal.classList.add('active');
             startCancellationCountdownTicker();
@@ -9982,6 +10000,109 @@ function startCancellationCountdownTicker() {
     }, 1000);
 }
 
+
+// ==============================================================================
+// ORDER TIMING & ARRIVAL ESTIMATION HELPERS
+// ==============================================================================
+window.formatOrderDateTime = function(dateStr) {
+    if (!dateStr) return 'Recently Placed';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return String(dateStr);
+        const day = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const today = new Date();
+        const isToday = (d.toDateString() === today.toDateString());
+        return isToday ? `Today at ${time} (${day})` : `${day} at ${time}`;
+    } catch (e) {
+        return String(dateStr);
+    }
+};
+
+window.calculateExpectedDeliveryTime = function(dateStr) {
+    if (!dateStr) return '15–25 Mins (Arriving soon)';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '15–25 Mins (Arriving soon)';
+        const arrival = new Date(d.getTime() + 25 * 60 * 1000); // 25 mins
+        const timeStr = arrival.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+        return `15–25 Mins (By ${timeStr})`;
+    } catch (e) {
+        return '15–25 Mins (Arriving soon)';
+    }
+};
+
+window.renderSuccessOrderModal = function(orderObj) {
+    if (!orderObj) return;
+
+    // 1. Order ID
+    const sOrderId = document.getElementById('successOrderId');
+    if (sOrderId) sOrderId.textContent = orderObj.id;
+
+    // 2. Timing
+    const sPlacedTime = document.getElementById('successPlacedTime');
+    const sExpectedTime = document.getElementById('successExpectedTime');
+    if (sPlacedTime) sPlacedTime.textContent = window.formatOrderDateTime(orderObj.date);
+    if (sExpectedTime) sExpectedTime.textContent = window.calculateExpectedDeliveryTime(orderObj.date);
+
+    // 3. Items list
+    const sItemsCount = document.getElementById('successOrderItemsCount');
+    const sOrderTotal = document.getElementById('successOrderTotal');
+    const sItemsList = document.getElementById('successOrderItemsList');
+
+    const rawItems = Array.isArray(orderObj.items) 
+        ? orderObj.items 
+        : (typeof orderObj.items === 'string' ? JSON.parse(orderObj.items || '[]') : []);
+
+    const totalQty = rawItems.reduce((sum, it) => sum + (parseInt(it.qty || it.quantity || 1)), 0);
+    if (sItemsCount) sItemsCount.textContent = totalQty;
+    if (sOrderTotal) sOrderTotal.textContent = `₹${parseFloat(orderObj.total || 0).toFixed(2)}`;
+
+    if (sItemsList) {
+        if (rawItems.length === 0) {
+            sItemsList.innerHTML = '<p style="color:#64748B; font-size:0.8rem; margin:0;">Item details unavailable</p>';
+        } else {
+            sItemsList.innerHTML = rawItems.map(it => {
+                const img = it.image || 'dropzyy-logo.png';
+                const title = it.title || it.baseTitle || 'Product';
+                const sup = it.supplierName || it.supplier_company_name || it.supplier_name || 'Dropzyy Partner';
+                const q = it.qty || it.quantity || 1;
+                const p = parseFloat(it.price || 0);
+                const lineTotal = (p * q).toFixed(2);
+                return `
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; background: #FFF; border: 1px solid #E2E8F0; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <img src="${img}" alt="${title}" onerror="this.src='dropzyy-logo.png'" style="width: 38px; height: 38px; object-fit: cover; border-radius: 6px; border: 1px solid #E2E8F0; flex-shrink: 0;">
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.84rem; color: #0F172A;">${title}</div>
+                                <div style="font-size: 0.72rem; color: #64748B;">Supplier: <strong>${sup}</strong> • ₹${p} × ${q}</div>
+                            </div>
+                        </div>
+                        <strong style="color: #0F172A; font-size: 0.88rem; white-space: nowrap;">₹${lineTotal}</strong>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // 4. Delivery address & Contact
+    const del = orderObj.delivery || {};
+    const sCustName = document.getElementById('successCustomerName');
+    const sCustPhone = document.getElementById('successCustomerPhone');
+    const sCustAddr = document.getElementById('successCustomerAddress');
+    const sPayMode = document.getElementById('successPaymentMode');
+
+    if (sCustName) sCustName.textContent = del.name || (state.currentUser ? (state.currentUser.full_name || state.currentUser.username) : 'Customer');
+    if (sCustPhone) sCustPhone.textContent = del.phone || '';
+    if (sCustAddr) sCustAddr.textContent = del.address || 'Standard Delivery Address';
+    if (sPayMode) sPayMode.textContent = (del.payment || 'cod').toUpperCase() === 'COD' ? 'Cash On Delivery (Pay at Doorstep)' : (del.payment || 'UPI').toUpperCase();
+
+    // 5. Update cancellation countdown box
+    if (typeof updateSuccessOrderCancelUI === 'function') {
+        updateSuccessOrderCancelUI(orderObj);
+    }
+};
+
 function updateSuccessOrderCancelUI(order) {
     const sBox = document.getElementById('successCancelWindowBox');
     if (!sBox) return;
@@ -10044,11 +10165,13 @@ function renderMyOrders() {
 
     let userOrders = state.ordersHistory;
     if (state.currentUser && state.currentUser.role !== 'admin' && state.currentUser.role !== 'supplier') {
+        const currentPhone = state.currentUser ? (state.currentUser.phone ? String(state.currentUser.phone).replace(/\D/g, '') : '') : '';
         userOrders = state.ordersHistory.filter(o => {
             if (!o.userId) return true;
             const uid = String(o.userId).toLowerCase();
             const orderEmail = (o.delivery && o.delivery.email) ? String(o.delivery.email).toLowerCase() : '';
-            return uid === currentUserId || uid === currentUsername || uid === currentEmail || (currentEmail && orderEmail === currentEmail);
+            const orderPhone = (o.delivery && o.delivery.phone) ? String(o.delivery.phone).replace(/\D/g, '') : '';
+            return uid === currentUserId || uid === currentUsername || uid === currentEmail || (currentEmail && orderEmail === currentEmail) || (currentPhone && orderPhone === currentPhone);
         });
     }
 
@@ -10101,8 +10224,16 @@ function renderMyOrders() {
             <div class="order-card" style="${order.status === 'Cancelled' ? 'border: 1.5px solid #FCA5A5; background: #FFFBFB;' : ''}">
                 <div class="order-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                     <div>
-                        <h4 style="margin-bottom: 0;">Order ID: ${order.id}</h4>
-                        <span class="order-date">${new Date(order.date).toLocaleDateString()}</span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h4 style="margin-bottom: 0; font-size: 1rem; color: #0F172A;">Order #${order.id}</h4>
+                            <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 0.72rem; font-weight: 700;">${order.delivery ? (order.delivery.payment || 'COD').toUpperCase() : 'COD'}</span>
+                        </div>
+                        <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">
+                            <i class="fa-regular fa-clock text-primary"></i> ${typeof window.formatOrderDateTime === 'function' ? window.formatOrderDateTime(order.date) : new Date(order.date).toLocaleString()}
+                        </div>
+                        <div style="font-size: 0.75rem; color: #059669; font-weight: 700; margin-top: 1px;">
+                            <i class="fa-solid fa-truck-fast"></i> Expected: ${typeof window.calculateExpectedDeliveryTime === 'function' ? window.calculateExpectedDeliveryTime(order.date) : '15-25 mins'}
+                        </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <div class="cancelHeaderBadge_${order.id}">
@@ -10153,17 +10284,35 @@ function renderMyOrders() {
                 </div>
                 ` : ''}
 
-                <div class="order-items-list">
-                    ${order.items.map(item => `
-                        <div class="order-item-row">
-                            <img src="${item.image}" alt="${item.title}" class="order-item-img">
-                            <div class="order-item-info">
-                                <h5>${item.title}</h5>
-                                <span class="order-item-supplier">Supplier: ${item.supplierName}</span>
-                                <span class="order-item-price">₹${item.price} x ${item.qty}</span>
-                            </div>
-                        </div>
-                    `).join('')}
+                <div class="order-items-list" style="display: flex; flex-direction: column; gap: 6px; margin: 8px 0;">
+                    ${(() => {
+                        const rawItems = Array.isArray(order.items) 
+                            ? order.items 
+                            : (typeof order.items === 'string' ? JSON.parse(order.items || '[]') : []);
+                        if (!rawItems || rawItems.length === 0) {
+                            return '<p style="color: #64748B; font-size: 0.8rem; margin: 4px 0;">Item details unavailable</p>';
+                        }
+                        return rawItems.map(item => {
+                            const img = item.image || 'dropzyy-logo.png';
+                            const title = item.title || item.baseTitle || 'Product';
+                            const sup = item.supplierName || item.supplier_company_name || item.supplier_name || 'Dropzyy Partner';
+                            const q = item.qty || item.quantity || 1;
+                            const p = parseFloat(item.price || 0);
+                            const lineTotal = (p * q).toFixed(2);
+                            return `
+                                <div class="order-item-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: #FFF; border: 1px solid #E2E8F0; border-radius: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <img src="${img}" alt="${title}" onerror="this.src='dropzyy-logo.png'" class="order-item-img" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #E2E8F0; flex-shrink: 0;">
+                                        <div class="order-item-info">
+                                            <h5 style="margin: 0; font-size: 0.86rem; font-weight: 700; color: #0F172A;">${title}</h5>
+                                            <span class="order-item-supplier" style="font-size: 0.72rem; color: #64748B;">Supplier: <strong>${sup}</strong> • ₹${p} × ${q}</span>
+                                        </div>
+                                    </div>
+                                    <strong style="font-size: 0.88rem; color: #0F172A; white-space: nowrap;">₹${lineTotal}</strong>
+                                </div>
+                            `;
+                        }).join('');
+                    })()}
                 </div>
                 <div class="order-footer">
                     <span class="order-total">Total: ₹${parseFloat(order.total).toFixed(2)}</span>
@@ -10571,11 +10720,13 @@ function renderBookingTracking(searchQuery = '') {
         const currentUsername = String(state.currentUser.username || '').toLowerCase();
         const currentEmail = String(state.currentUser.email || '').toLowerCase();
         
+        const currentPhone = state.currentUser ? (state.currentUser.phone ? String(state.currentUser.phone).replace(/\D/g, '') : '') : '';
         bookingsToDisplay = bookingsToDisplay.filter(o => {
             if (!o.userId) return true;
             const uid = String(o.userId).toLowerCase();
             const orderEmail = (o.delivery && o.delivery.email) ? String(o.delivery.email).toLowerCase() : '';
-            return uid === currentUserId || uid === currentUsername || uid === currentEmail || (currentEmail && orderEmail === currentEmail);
+            const orderPhone = (o.delivery && o.delivery.phone) ? String(o.delivery.phone).replace(/\D/g, '') : '';
+            return uid === currentUserId || uid === currentUsername || uid === currentEmail || (currentEmail && orderEmail === currentEmail) || (currentPhone && orderPhone === currentPhone);
         });
     }
     
@@ -10636,8 +10787,16 @@ function renderBookingTracking(searchQuery = '') {
         <div class="order-card" style="${order.status === 'Cancelled' ? 'border: 2px solid #FCA5A5; background: #FFF5F5;' : ''}">
             <div class="order-header" style="background-color: ${order.status === 'Cancelled' ? '#FEE2E2' : 'var(--bg-light)'}; padding: 1rem; margin: -1.5rem -1.5rem 1rem -1.5rem; border-bottom: 1px solid var(--border-light); border-radius: var(--radius-md) var(--radius-md) 0 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                 <div>
-                    <h4 style="margin-bottom: 0;">Order ID: ${order.id}</h4>
-                    <span class="order-date">${new Date(order.date).toLocaleString()}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h4 style="margin-bottom: 0; font-size: 1.05rem; color: #0F172A;">Order #${order.id}</h4>
+                        <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 0.72rem; font-weight: 700;">${payMode}</span>
+                    </div>
+                    <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">
+                        <i class="fa-regular fa-clock text-primary"></i> ${typeof window.formatOrderDateTime === 'function' ? window.formatOrderDateTime(order.date) : new Date(order.date).toLocaleString()}
+                    </div>
+                    <div style="font-size: 0.76rem; color: #059669; font-weight: 700; margin-top: 1px;">
+                        <i class="fa-solid fa-truck-fast"></i> Expected: ${typeof window.calculateExpectedDeliveryTime === 'function' ? window.calculateExpectedDeliveryTime(order.date) : '15-25 mins'}
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <div class="cancelHeaderBadge_${order.id}">
@@ -10700,19 +10859,35 @@ function renderBookingTracking(searchQuery = '') {
                 <strong>Payment Mode:</strong> ${payMode}
             </div>
 
-            <div class="order-items-list">
-                ${displayItems.map(item => `
-                    <div class="order-item-row" style="background-color: #fff; border: 1px solid var(--border-light); padding: 0.5rem; border-radius: var(--radius-sm);">
-                        <img src="${item.image}" alt="${item.title}" class="order-item-img" style="width: 40px; height: 40px;">
-                        <div class="order-item-info">
-                            <h5 style="font-size: 0.85rem;">${item.title} (x${item.qty || item.quantity || 1})</h5>
-                            <span class="order-item-supplier">Supplier: ${item.supplierName || 'Dropzyy Direct'} • ₹${item.price} each</span>
-                        </div>
-                        <div style="font-weight: 700; color: #0F172A; font-size: 0.9rem;">
-                            ₹${(parseFloat(item.price) * parseInt(item.qty || item.quantity || 1)).toFixed(2)}
-                        </div>
-                    </div>
-                `).join('')}
+            <div class="order-items-list" style="display: flex; flex-direction: column; gap: 6px; margin: 8px 0;">
+                ${(() => {
+                    const rawItems = Array.isArray(displayItems) ? displayItems : [];
+                    if (rawItems.length === 0) {
+                        return '<p style="color: #64748B; font-size: 0.8rem; margin: 4px 0;">No items from your store in this order.</p>';
+                    }
+                    return rawItems.map(item => {
+                        const img = item.image || 'dropzyy-logo.png';
+                        const title = item.title || item.baseTitle || 'Product';
+                        const sup = item.supplierName || item.supplier_company_name || item.supplier_name || 'Dropzyy Partner';
+                        const q = item.qty || item.quantity || 1;
+                        const p = parseFloat(item.price || 0);
+                        const lineTotal = (p * q).toFixed(2);
+                        return `
+                            <div class="order-item-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background-color: #fff; border: 1px solid var(--border-light); padding: 6px 10px; border-radius: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <img src="${img}" alt="${title}" class="order-item-img" onerror="this.src='dropzyy-logo.png'" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #E2E8F0; flex-shrink: 0;">
+                                    <div class="order-item-info">
+                                        <h5 style="margin: 0; font-size: 0.86rem; font-weight: 700; color: #0F172A;">${title} (x${q})</h5>
+                                        <span class="order-item-supplier" style="font-size: 0.72rem; color: #64748B;">Supplier: <strong>${sup}</strong> • ₹${p} each</span>
+                                    </div>
+                                </div>
+                                <div style="font-weight: 800; color: #0F172A; font-size: 0.9rem; white-space: nowrap;">
+                                    ₹${lineTotal}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                })()}
             </div>
 
             <!-- Itemized Bill Breakdown -->

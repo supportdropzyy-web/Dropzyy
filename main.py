@@ -3523,7 +3523,7 @@ def get_orders(user_id: Optional[str] = Query(None), db: Session = Depends(get_d
             )
 
     if mongo_db.is_mongo_active():
-        if user_id and user_id not in ["admin", "yashpatil", "supplier"]:
+        if user_id and user_id not in ["admin", "yashpatil", "supplier"] and not is_privileged:
             m_orders = mongo_db.mongo_get_user_orders(user_id)
         else:
             m_orders = mongo_db.mongo_get_all_orders()

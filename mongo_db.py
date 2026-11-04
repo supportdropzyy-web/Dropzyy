@@ -467,11 +467,16 @@ def mongo_get_user_orders(user_id: str) -> List[Dict[str, Any]]:
     db = get_mongo_db()
     if db is None: return []
     clean_uid = str(user_id).strip().lower()
+    raw_uid = str(user_id).strip()
     orders = list(db.orders.find({
         "$or": [
             {"user_id": clean_uid},
             {"userId": clean_uid},
-            {"delivery.email": clean_uid}
+            {"user_id": raw_uid},
+            {"userId": raw_uid},
+            {"delivery.email": clean_uid},
+            {"delivery.phone": clean_uid},
+            {"delivery.phone": raw_uid}
         ]
     }).sort("created_at", -1))
     for o in orders:

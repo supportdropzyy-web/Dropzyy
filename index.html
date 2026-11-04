@@ -2154,17 +2154,31 @@
         </form>
     </div>
 
-    <!-- Order Success Modal -->
+    <!-- Order Success Modal with Ordered Items & Precise Delivery Timing -->
     <div class="modal-overlay" id="orderSuccessOverlay"></div>
-    <div class="order-success-modal" id="orderSuccessModal">
+    <div class="order-success-modal" id="orderSuccessModal" style="max-width: 540px; width: 94%; max-height: 92vh; overflow-y: auto;">
         <div class="success-icon-wrapper">
             <i class="fa-solid fa-circle-check"></i>
         </div>
         <h2>Aapka Order Confirm Ho Gaya!</h2>
-        <p class="order-id">Order ID: <span id="successOrderId">FK-894721</span></p>
-        <p class="success-desc">Dropzyy delivery partner has started packing your order. Delivery arriving soon to your doorstep.</p>
+        <p class="order-id">Order ID: <span id="successOrderId" style="font-weight: 800; color: #0F172A;">FK-894721</span></p>
+        <p class="success-desc" style="margin-bottom: 10px;">Dropzyy delivery partner has confirmed your order. Delivery arriving soon to your doorstep.</p>
 
-        <div class="delivery-tracker">
+        <!-- Live Order Timing & Expected Delivery Arrival Card -->
+        <div id="successOrderTimingCard" style="margin: 8px 0 12px; background: #ECFDF5; border: 1.5px solid #A7F3D0; border-radius: 12px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; text-align: left;">
+            <div>
+                <span style="font-size: 0.74rem; color: #047857; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: block;">
+                    <i class="fa-solid fa-bolt text-warning"></i> Expected Delivery
+                </span>
+                <strong id="successExpectedTime" style="font-size: 0.98rem; color: #065F46;">15–25 Mins (Arriving soon)</strong>
+            </div>
+            <div style="text-align: right;">
+                <span style="font-size: 0.72rem; color: #64748B; display: block;">Order Placed At</span>
+                <span id="successPlacedTime" style="font-size: 0.82rem; font-weight: 700; color: #1E293B;">Today</span>
+            </div>
+        </div>
+
+        <div class="delivery-tracker" style="margin-bottom: 12px;">
             <div class="tracker-step completed">
                 <i class="fa-solid fa-clipboard-check"></i>
                 <span>Confirmed</span>
@@ -2183,23 +2197,45 @@
             </div>
         </div>
 
-        <!-- 3-Minute Live Order Cancellation Box -->
-        <div id="successCancelWindowBox" style="margin: 16px 0; padding: 12px 16px; border-radius: 12px; background: #FFFBEB; border: 1.5px solid #FDE68A; display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center;">
-            <div style="font-size: 0.88rem; color: #92400E; font-weight: 700; display: flex; align-items: center; gap: 6px;">
-                <i class="fa-solid fa-stopwatch fa-spin" style="animation-duration: 3s; color: #D97706;"></i>
-                Cancellation Window: <span id="successOrderCancelTimer" style="font-weight: 800; font-size: 1.05rem; color: #B45309; background: #FEF3C7; padding: 2px 10px; border-radius: 6px; font-family: monospace; border: 1px solid #FCD34D;">03:00</span> remaining
+        <!-- Ordered Items Summary Preview -->
+        <div id="successOrderItemsBox" style="margin: 10px 0; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 12px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">
+                <strong style="font-size: 0.86rem; color: #1E293B;"><i class="fa-solid fa-basket-shopping text-primary"></i> Ordered Items (<span id="successOrderItemsCount">0</span>)</strong>
+                <span id="successOrderTotal" style="font-weight: 800; color: #059669; font-size: 1rem;">₹0.00</span>
             </div>
-            <p style="margin: 0; font-size: 0.78rem; color: #78350F;">Want to cancel or change your order? You can cancel within 3 minutes of booking.</p>
-            <button id="successCancelOrderBtn" class="btn btn-sm btn-danger" style="margin-top: 4px; background: #DC2626; color: #FFF; font-weight: 700; border: none; border-radius: 8px; padding: 7px 18px; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px;">
+            <div id="successOrderItemsList" style="display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto;">
+                <!-- Populated dynamically with item photos, title, quantity, price -->
+            </div>
+        </div>
+
+        <!-- Delivery Address & Contact Card -->
+        <div id="successOrderAddressBox" style="margin: 8px 0; background: #FFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 12px; font-size: 0.82rem; text-align: left; color: #475569;">
+            <div style="font-weight: 700; color: #1E293B; margin-bottom: 2px;">
+                <i class="fa-solid fa-location-dot text-danger"></i> Deliver to: <span id="successCustomerName">Customer</span> (<span id="successCustomerPhone"></span>)
+            </div>
+            <div id="successCustomerAddress" style="color: #64748B; font-size: 0.78rem; line-height: 1.3;">Address</div>
+            <div style="margin-top: 4px; font-weight: 700; color: #047857; font-size: 0.76rem;">
+                Payment Mode: <span id="successPaymentMode" style="text-transform: uppercase;">Cash On Delivery</span>
+            </div>
+        </div>
+
+        <!-- 3-Minute Live Order Cancellation Box -->
+        <div id="successCancelWindowBox" style="margin: 12px 0 14px; padding: 10px 14px; border-radius: 12px; background: #FFFBEB; border: 1.5px solid #FDE68A; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center;">
+            <div style="font-size: 0.84rem; color: #92400E; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-stopwatch fa-spin" style="animation-duration: 3s; color: #D97706;"></i>
+                Cancellation Window: <span id="successOrderCancelTimer" style="font-weight: 800; font-size: 1rem; color: #B45309; background: #FEF3C7; padding: 2px 8px; border-radius: 6px; font-family: monospace; border: 1px solid #FCD34D;">03:00</span> remaining
+            </div>
+            <p style="margin: 0; font-size: 0.76rem; color: #78350F;">Want to cancel or change your order? You can cancel within 3 minutes of booking.</p>
+            <button id="successCancelOrderBtn" class="btn btn-sm btn-danger" style="margin-top: 2px; background: #DC2626; color: #FFF; font-weight: 700; border: none; border-radius: 8px; padding: 6px 16px; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px;">
                 <i class="fa-solid fa-ban"></i> Cancel This Order
             </button>
         </div>
 
-        <div style="display: flex; gap: 10px; margin-top: 14px;">
-            <button class="btn btn-secondary btn-block" id="viewBookedOrdersBtn" onclick="closeModals(); openBookingTrackingModal();">
-                <i class="fa-solid fa-map-location-dot text-primary"></i> Track My Booked Order
+        <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary btn-block" id="viewBookedOrdersBtn" onclick="closeModals(); openBookingTrackingModal();" style="flex: 1; min-width: 180px;">
+                <i class="fa-solid fa-map-location-dot text-primary"></i> Track Order Status
             </button>
-            <button class="btn btn-primary btn-block" id="continueShoppingBtn">Continue Shopping</button>
+            <button class="btn btn-primary btn-block" id="continueShoppingBtn" style="flex: 1; min-width: 160px;">Continue Shopping</button>
         </div>
     </div>
 
@@ -3057,7 +3093,7 @@
     <!-- Menu Card Data (Embedded Base64 for 100% Reliable Offline & File Protocol Display) -->
     <script src="menu_card_data.js"></script>
     <!-- JavaScript -->
-    <script src="app.js?v=4.3"></script>
+    <script src="app.js?v=4.4"></script>
         <!-- Dedicated Change Password Modal -->
 
     <div class="modal-overlay" id="changePasswordOverlay" onclick="closeChangePasswordModal()"></div>
