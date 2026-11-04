@@ -295,7 +295,7 @@ const DEFAULT_PRODUCTS = [
         badge: '100% Whole Wheat', discount: '12% OFF',
         description: 'Made from 100% pure whole wheat grains ground in traditional chakkis for soft, fluffy rotis.',
         nutrition: 'High Dietary Fiber, Natural Proteins, Zero Maida.',
-        supplierName: 'ITC Agro Foods Division'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k2', title: 'Fortune Sunlite Sunflower Oil', category: 'oil', price: 145, originalPrice: 165,
@@ -304,7 +304,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Light & Healthy', discount: '12% OFF',
         description: 'Light, healthy refined sunflower oil enriched with Vitamins A & D for daily Indian cooking.',
         nutrition: 'Enriched with Omega-6, Vitamin A & Vitamin D.',
-        supplierName: 'Ramesh Kirana Wholesale Co.'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k3', title: 'Fortune Premium Toor / Arhar Dal', category: 'staples', price: 160, originalPrice: 185,
@@ -313,7 +313,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Unpolished', discount: '13% OFF',
         description: 'Unpolished premium yellow split pigeon peas (Toor Dal) with natural flavor and rich protein.',
         nutrition: 'High Protein, Iron, Potassium & Folic Acid.',
-        supplierName: 'Maharashtra Farmers Co-op'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k4', title: 'Daawat Rozana Super Basmati Rice', category: 'staples', price: 380, originalPrice: 450,
@@ -322,7 +322,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Long Grain', discount: '15% OFF',
         description: 'Aged long-grain Basmati rice perfect for daily dal-rice, pulao, and biryani.',
         nutrition: 'Gluten-Free, Low Fat, Rich Aroma & Fluffy Texture.',
-        supplierName: 'Ramesh Kirana Wholesale Co.'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k5', title: 'Amul Pasteurised Butter', category: 'dairy', price: 275, originalPrice: 290,
@@ -331,7 +331,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Taste of India', discount: '5% OFF',
         description: 'Iconic salted Amul butter made from pure cow and buffalo milk cream. Perfect for parathas & toast.',
         nutrition: 'Rich Milk Fat, Vitamin A & Natural Flavor.',
-        supplierName: 'Amul Anand Dairy Federation'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k6', title: 'Tata Salt Vacuum Evaporated', category: 'staples', price: 28, originalPrice: 30,
@@ -349,7 +349,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'All Time Favorite', discount: '7% OFF',
         description: 'The classic 2-minute instant noodles with signature roasted spices tastemaker.',
         nutrition: 'Fortified with Iron & Wheat Goodness.',
-        supplierName: 'Ramesh Kirana Wholesale Co.'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k8', title: 'Fresh Ratnagiri Alphonso Mangoes', category: 'vegetables', price: 650, originalPrice: 800,
@@ -358,7 +358,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Devgad Special', discount: '18% OFF',
         description: 'Authentic GI-tagged Ratnagiri Hapus mangoes naturally ripened in grass.',
         nutrition: 'Rich in Vitamin C, Carotenoids & Fiber.',
-        supplierName: 'Maharashtra Farmers Co-op'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k9', title: 'Fresh Nashik Red Onions (Kanda)', category: 'vegetables', price: 35, originalPrice: 45,
@@ -367,7 +367,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Mandi Fresh', discount: '22% OFF',
         description: 'Hand-sorted crisp Nashik red onions essential for tadka, gravies, and salads.',
         nutrition: 'Quercetin Antioxidants, Vitamin C & Sulfur Compounds.',
-        supplierName: 'Maharashtra Farmers Co-op'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k10', title: 'Fresh Farm Potatoes (Aloo)', category: 'vegetables', price: 28, originalPrice: 35,
@@ -376,7 +376,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Daily Need', discount: '20% OFF',
         description: 'Clean, firm potatoes perfect for aloo parathas, fries, and sabzi.',
         nutrition: 'Carbohydrates, Potassium & Vitamin B6.',
-        supplierName: 'Maharashtra Farmers Co-op'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k11', title: 'Brooke Bond Red Label Tea', category: 'tea', price: 260, originalPrice: 290,
@@ -385,7 +385,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Swad Apne Pan Ka', discount: '10% OFF',
         description: 'Rich, strong CTC black tea leaves blend crafted for perfect Indian Masala Chai.',
         nutrition: 'Natural Flavonoids, Immunity Booster.',
-        supplierName: 'Ramesh Kirana Wholesale Co.'
+        supplierName: 'Dropzyy Direct Mandi'
     },
     {
         id: 'k12', title: 'Amul Taaza Toned Fresh Milk', category: 'dairy', price: 54, originalPrice: 56,
@@ -394,7 +394,7 @@ const DEFAULT_PRODUCTS = [
         badge: 'Daily Fresh', discount: '4% OFF',
         description: 'Homogenised toned milk packed under strict hygienic conditions. Ideal for chai and coffee.',
         nutrition: '3.0% Fat, 8.5% SNF, High Calcium & Protein.',
-        supplierName: 'Amul Anand Dairy Federation'
+        supplierName: 'Dropzyy Direct Mandi'
     }
 ];
 
@@ -492,7 +492,6 @@ const DEFAULT_REGISTERED_USERS = [
     { id: 6, username: 'pranav', email: 'pranav@dropzyy.com', password: 'Pranav@Faizpur', full_name: 'Pranav Firake', role: 'supplier', supplier_company_name: 'Katta Biryani and Tandoor', restaurant_name: 'Katta Biryani and Tandoor', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Great Vibes', store_open: true, open_time: '11:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80' },
     { id: 1, username: 'yashpatil', email: 'yashpatil@dropzyy.com', password: '12528289Yash@', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
     { id: 2, username: 'admin', email: 'admin@dropzyy.com', password: 'Dropzyy@Admin#2026!', full_name: 'System Administrator', role: 'admin', city: 'Savda' },
-    { id: 3, username: 'supplier', email: 'supplier@dropzyy.com', password: 'Supplier@Dropzyy#2026!', full_name: 'Desi Kirana Wholesaler', role: 'supplier', supplier_company_name: 'Ramesh Kirana Wholesale Co.', city: 'Savda' },
     { id: 22, username: 'banjos', email: 'banjos@dropzyy.com', password: 'Banjos@123', full_name: 'Banjos Cafe', role: 'supplier', supplier_company_name: 'Banjos Cafe', city: 'Savda-Faizpur', store_open: true, open_time: '08:00 AM', close_time: '10:00 PM', menu_card_image: 'uploads/banjos_menu_card_page_1.jpg' }
 ];
 
@@ -518,6 +517,8 @@ registeredUsers = registeredUsers.filter(u => {
     if (uName.startsWith('fresh_sup') || cName.includes('fresh farm')) return false;
     if (uName.startsWith('sup_dev') || cName.includes('test devices')) return false;
     if (uName.startsWith('mongo_sup') || cName.includes('mongo store')) return false;
+    if (uName === 'supplier' || cName.includes('ramesh kirana')) return false;
+    if (cName.includes('amul') || cName.includes('maharashtra farmers')) return false;
     return true;
 });
 try {
@@ -530,6 +531,8 @@ try {
             if (un.startsWith('fresh_sup') || cn.includes('fresh farm')) return false;
             if (un.startsWith('sup_dev') || cn.includes('test devices')) return false;
             if (un.startsWith('mongo_sup') || cn.includes('mongo store')) return false;
+            if (un === 'supplier' || cn.includes('ramesh kirana')) return false;
+            if (cn.includes('amul') || cn.includes('maharashtra farmers')) return false;
             return true;
         });
         localStorage.setItem('dropzyy_registered_users', JSON.stringify(savedU));
@@ -1627,7 +1630,8 @@ window.renderRestaurants = function() {
         const systemKeywords = [
             'dropzyy direct mandi', 'dropzyy direct', 'dropzyy mandi', 
             'freshkart mandi', 'direct mandi', 'itc agro',
-            'fresh farm', 'test devices', 'mongo store', 'fresh_sup', 'sup_dev', 'mongo_sup'
+            'fresh farm', 'test devices', 'mongo store', 'fresh_sup', 'sup_dev', 'mongo_sup',
+            'ramesh kirana', 'amul anand dairy', 'amul dairy', 'maharashtra farmers', 'desi kirana', 'supplier'
         ];
         return systemKeywords.some(sys => clean.includes(sys));
     }

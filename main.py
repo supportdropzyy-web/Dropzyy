@@ -530,30 +530,7 @@ def seed_initial_data(db: Session):
             yash_admin.password_hash = auth.hash_password(yash_pw)
         db.commit()
 
-    # Seed Supplier User
-    supplier = db.query(models.User).filter(models.User.username == "supplier").first()
-    if not supplier:
-        supplier_user = models.User(
-            username="supplier",
-            email="supplier@dropzyy.com",
-            password_hash=auth.hash_password(supplier_pw),
-            full_name="Desi Kirana Wholesaler",
-            supplier_company_name="Ramesh Kirana Wholesale Co.",
-            role="supplier",
-            is_verified=True
-        )
-        db.add(supplier_user)
-        db.commit()
-        db.refresh(supplier_user)
-        supplier = supplier_user
-    else:
-        if not supplier.email:
-            supplier.email = "supplier@dropzyy.com"
-        if not auth.verify_password(supplier_pw, supplier.password_hash) and not auth.verify_password("supplier123", supplier.password_hash):
-            supplier.password_hash = auth.hash_password(supplier_pw)
-        db.commit()
-
-    # ── Sync all seeded accounts to MongoDB Atlas ──────────────────────────
+    # ── Sync all seeded admin accounts to MongoDB Atlas ──────────────────────────
     # Uses upsert so restarting the server never creates duplicates.
     if mongo_db.is_mongo_active():
         try:
@@ -585,21 +562,7 @@ def seed_initial_data(db: Session):
                         "open_time": "08:00 AM",
                         "close_time": "10:00 PM",
                         "seeded": True
-                    },
-                    {
-                        "id": supplier.id,
-                        "username": "supplier",
-                        "email": "supplier@dropzyy.com",
-                        "password_hash": supplier.password_hash,
-                        "full_name": "Desi Kirana Wholesaler",
-                        "role": "supplier",
-                        "supplier_company_name": "Ramesh Kirana Wholesale Co.",
-                        "is_verified": True,
-                        "store_open": True,
-                        "open_time": "08:00 AM",
-                        "close_time": "10:00 PM",
-                        "seeded": True
-                    },
+                    }
                 ]
                 for acc in seeded_accounts:
                     mongo_db_conn.users.update_one(
@@ -607,19 +570,10 @@ def seed_initial_data(db: Session):
                         {"$set": acc},                   # upsert full document
                         upsert=True
                     )
-                print("[MONGODB SEED SYNC] admin, yashpatil, supplier accounts synced to MongoDB Atlas [SUCCESS]")
+                print("[MONGODB SEED SYNC] admin and yashpatil accounts synced to MongoDB Atlas [SUCCESS]")
         except Exception as mongo_seed_err:
             print(f"[MONGODB SEED SYNC WARNING] Could not sync seeded accounts: {mongo_seed_err}")
     # ── End MongoDB seed sync ──────────────────────────────────────────────
-
-    # Seed Suppliers
-    if db.query(models.Supplier).count() == 0:
-        s1 = models.Supplier(name="Maharashtra Farmers Co-op", contact_person="Ramesh Patil", phone="+91 98200 11223", city="Nashik")
-        s2 = models.Supplier(name="Amul Anand Dairy Federation", contact_person="Suresh Patel", phone="+91 98250 44556", city="Anand")
-        s3 = models.Supplier(name="ITC Agro Foods Division", contact_person="Vijay Sharma", phone="+91 98100 77889", city="Mumbai")
-        s4 = models.Supplier(name="Ramesh Kirana Wholesale Co.", contact_person="Desi Kirana Wholesaler", phone="+91 98765 11111", city="Mumbai")
-        db.add_all([s1, s2, s3, s4])
-        db.commit()
 
     # Seed Products
     if db.query(models.Product).count() == 0:
@@ -631,7 +585,7 @@ def seed_initial_data(db: Session):
                 badge="100% Whole Wheat", discount="12% OFF",
                 description="Made from 100% pure whole wheat grains ground in traditional chakkis for soft, fluffy rotis.",
                 nutrition="High Dietary Fiber, Natural Proteins, Zero Maida.",
-                supplier_name="ITC Agro Foods Division"
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k2", title="Fortune Sunlite Sunflower Oil", category="oil", price=145.0, original_price=165.0,
@@ -640,7 +594,7 @@ def seed_initial_data(db: Session):
                 badge="Light & Healthy", discount="12% OFF",
                 description="Light, healthy refined sunflower oil enriched with Vitamins A & D for daily Indian cooking.",
                 nutrition="Enriched with Omega-6, Vitamin A & Vitamin D.",
-                supplier_name="Ramesh Kirana Wholesale Co."
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k3", title="Fortune Premium Toor / Arhar Dal", category="staples", price=160.0, original_price=185.0,
@@ -649,7 +603,7 @@ def seed_initial_data(db: Session):
                 badge="Unpolished", discount="13% OFF",
                 description="Unpolished premium yellow split pigeon peas (Toor Dal) with natural flavor and rich protein.",
                 nutrition="High Protein, Iron, Potassium & Folic Acid.",
-                supplier_name="Maharashtra Farmers Co-op"
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k4", title="Daawat Rozana Super Basmati Rice", category="staples", price=380.0, original_price=450.0,
@@ -658,7 +612,7 @@ def seed_initial_data(db: Session):
                 badge="Long Grain", discount="15% OFF",
                 description="Aged long-grain Basmati rice perfect for daily dal-rice, pulao, and biryani.",
                 nutrition="Gluten-Free, Low Fat, Rich Aroma & Fluffy Texture.",
-                supplier_name="Ramesh Kirana Wholesale Co."
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k5", title="Amul Pasteurised Butter", category="dairy", price=275.0, original_price=290.0,
@@ -667,7 +621,7 @@ def seed_initial_data(db: Session):
                 badge="Taste of India", discount="5% OFF",
                 description="Iconic salted Amul butter made from pure cow and buffalo milk cream. Perfect for parathas & toast.",
                 nutrition="Rich Milk Fat, Vitamin A & Natural Flavor.",
-                supplier_name="Amul Anand Dairy Federation"
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k6", title="Tata Salt Vacuum Evaporated", category="staples", price=28.0, original_price=30.0,
@@ -683,7 +637,7 @@ def seed_initial_data(db: Session):
                 image="https://images.unsplash.com/photo-1612927601601-6638404737ce?auto=format&fit=crop&w=500&q=80",
                 badge="All Time Favorite", discount="7% OFF",
                 description="The classic 2-minute instant noodles with signature roasted spices tastemaker.",
-                supplier_name="Ramesh Kirana Wholesale Co."
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k8", title="Fresh Ratnagiri Alphonso Mangoes", category="vegetables", price=650.0, original_price=800.0,
@@ -691,7 +645,7 @@ def seed_initial_data(db: Session):
                 image="https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=500&q=80",
                 badge="Devgad Special", discount="18% OFF",
                 description="Authentic GI-tagged Ratnagiri Hapus mangoes naturally ripened in grass.",
-                supplier_name="Maharashtra Farmers Co-op"
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k9", title="Fresh Nashik Red Onions (Kanda)", category="vegetables", price=35.0, original_price=45.0,
@@ -699,7 +653,7 @@ def seed_initial_data(db: Session):
                 image="https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=500&q=80",
                 badge="Mandi Fresh", discount="22% OFF",
                 description="Hand-sorted crisp Nashik red onions essential for tadka, gravies, and salads.",
-                supplier_name="Maharashtra Farmers Co-op"
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k10", title="Fresh Farm Potatoes (Aloo)", category="vegetables", price=28.0, original_price=35.0,
@@ -707,7 +661,7 @@ def seed_initial_data(db: Session):
                 image="https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=500&q=80",
                 badge="Daily Need", discount="20% OFF",
                 description="Clean, firm potatoes perfect for aloo parathas, fries, and sabzi.",
-                supplier_name="Maharashtra Farmers Co-op"
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k11", title="Brooke Bond Red Label Tea", category="tea", price=260.0, original_price=290.0,
@@ -715,7 +669,7 @@ def seed_initial_data(db: Session):
                 image="https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=500&q=80",
                 badge="Swad Apne Pan Ka", discount="10% OFF",
                 description="Rich, strong CTC black tea leaves blend crafted for perfect Indian Masala Chai.",
-                supplier_name="Ramesh Kirana Wholesale Co."
+                supplier_name="Dropzyy Direct Mandi"
             ),
             models.Product(
                 id="k12", title="Amul Taaza Toned Fresh Milk", category="dairy", price=54.0, original_price=56.0,
@@ -723,7 +677,7 @@ def seed_initial_data(db: Session):
                 image="https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=500&q=80",
                 badge="Daily Fresh", discount="4% OFF",
                 description="Homogenised toned milk packed under strict hygienic conditions. Ideal for chai and coffee.",
-                supplier_name="Amul Anand Dairy Federation"
+                supplier_name="Dropzyy Direct Mandi"
             )
         ]
         db.add_all(initial_products)
@@ -792,20 +746,26 @@ def on_startup():
     auto_migrate_db()
     db = next(get_db())
     seed_initial_data(db)
-    # Purge legacy dummy test accounts from SQLite
+    # Purge legacy dummy test and demo accounts from SQLite
     try:
         db.query(models.User).filter(
             (models.User.username.like('%sup_dev%')) |
             (models.User.username.like('%fresh_sup%')) |
             (models.User.username.like('%mongo_sup%')) |
+            (models.User.username == 'supplier') |
             (models.User.supplier_company_name.like('%Test Devices%')) |
             (models.User.supplier_company_name.like('%Fresh Farm%')) |
-            (models.User.supplier_company_name.like('%Mongo Store%'))
+            (models.User.supplier_company_name.like('%Mongo Store%')) |
+            (models.User.supplier_company_name.like('%Ramesh Kirana%'))
         ).delete(synchronize_session=False)
         db.query(models.Supplier).filter(
             (models.Supplier.name.like('%Test Devices%')) |
             (models.Supplier.name.like('%Fresh Farm%')) |
-            (models.Supplier.name.like('%Mongo Store%'))
+            (models.Supplier.name.like('%Mongo Store%')) |
+            (models.Supplier.name.like('%Ramesh Kirana%')) |
+            (models.Supplier.name.like('%Amul Anand%')) |
+            (models.Supplier.name.like('%Maharashtra Farmers%')) |
+            (models.Supplier.name.like('%ITC Agro%'))
         ).delete(synchronize_session=False)
         db.commit()
     except Exception:
@@ -2638,7 +2598,7 @@ def get_restaurants(response: Response, db: Session = Depends(get_db)):
         res = []
         for u in users:
             comp = u.supplier_company_name or u.full_name or u.username
-            if any(d in comp.lower() or d in u.username.lower() for d in ['sup_dev', 'fresh_sup', 'mongo_sup', 'test devices', 'fresh farm', 'mongo store']):
+            if any(d in comp.lower() or d in u.username.lower() for d in ['sup_dev', 'fresh_sup', 'mongo_sup', 'test devices', 'fresh farm', 'mongo store', 'ramesh', 'supplier', 'amul', 'maharashtra farmers']):
                 continue
             res.append({
                 "id": u.id,

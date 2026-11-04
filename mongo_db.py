@@ -357,7 +357,7 @@ def mongo_get_all_restaurants() -> List[Dict[str, Any]]:
             key = (comp or uname).lower()
             if not key or key in seen:
                 continue
-            if any(d in key or d in uname.lower() for d in ['sup_dev', 'fresh_sup', 'mongo_sup', 'test devices', 'fresh farm', 'mongo store']):
+            if any(d in key or d in uname.lower() for d in ['sup_dev', 'fresh_sup', 'mongo_sup', 'test devices', 'fresh farm', 'mongo store', 'ramesh', 'supplier', 'amul', 'maharashtra farmers']):
                 continue
             seen.add(key)
 
