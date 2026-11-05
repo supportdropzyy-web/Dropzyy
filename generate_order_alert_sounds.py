@@ -12,7 +12,7 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 
 ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
 
-def generate_bell_chime(output_path, duration=0.8):
+def generate_bell_chime(output_path):
     """Synthesizes a pleasant dual-tone kitchen order bell chime (Ding-Dong)"""
     sample_rate = 44100
     samples = []
@@ -52,75 +52,61 @@ def generate_all_sounds():
     generate_bell_chime(bell_path)
     
     # Raw speech tracks
-    raw_en_full = os.path.join(AUDIO_DIR, "raw_en_full.mp3")
-    raw_mr_full = os.path.join(AUDIO_DIR, "raw_mr_full.mp3")
-    raw_en_short = os.path.join(AUDIO_DIR, "raw_en_short.mp3")
-    raw_mr_short = os.path.join(AUDIO_DIR, "raw_mr_short.mp3")
+    raw_en_p1 = os.path.join(AUDIO_DIR, "temp_en_p1.mp3")
+    raw_en_p2 = os.path.join(AUDIO_DIR, "temp_en_p2.mp3")
+    raw_en_quick = os.path.join(AUDIO_DIR, "temp_en_quick.mp3")
     
-    gTTS('Attention! New order received on Dropzyy. Please check kitchen ticket.', lang='en', tld='co.in', slow=False).save(raw_en_full)
-    gTTS('लक्ष द्या! ड्रॉपझीवर नवीन ऑर्डर प्राप्त झाली आहे! कृपया किचन तिकीट तपासा.', lang='mr', slow=False).save(raw_mr_full)
-    gTTS('New order on Dropzyy!', lang='en', tld='co.in', slow=False).save(raw_en_short)
-    gTTS('ड्रॉपझीवर नवीन ऑर्डर आली आहे!', lang='mr', slow=False).save(raw_mr_short)
+    # Primary English speech
+    gTTS('Attention! New order received on Dropzyy! Please check kitchen ticket immediately and start preparation.', lang='en', tld='co.in', slow=False).save(raw_en_p1)
+    gTTS('New order on Dropzyy! Start order now.', lang='en', tld='co.in', slow=False).save(raw_en_p2)
+    gTTS('New order on Dropzyy! Check kitchen ticket now!', lang='en', tld='co.in', slow=False).save(raw_en_quick)
     
-    # 1. Telegram Notification Tone (Under 5 seconds - strictly compatible with Telegram Custom Sound)
-    tone_out = os.path.join(AUDIO_DIR, "dropzyy_order_tone_bilingual.mp3")
+    # 1. PRIMARY 10-SECOND ENGLISH ORDER ALERT (Bell + Urgent Speech + Bell + Reminder)
+    en_10s_path = os.path.join(AUDIO_DIR, "dropzyy_order_alert_english_10s.mp3")
     subprocess.run([
         ffmpeg_exe, '-y',
         '-i', bell_path,
-        '-i', raw_en_short,
-        '-i', raw_mr_short,
-        '-filter_complex', '[0:a][1:a][2:a]concat=n=3:v=0:a=1[cat];[cat]atempo=1.25,volume=1.5[out]',
+        '-i', raw_en_p1,
+        '-i', bell_path,
+        '-i', raw_en_p2,
+        '-filter_complex', '[0:a][1:a][2:a][3:a]concat=n=4:v=0:a=1[cat];[cat]atempo=1.28,volume=1.5[out]',
+        '-map', '[out]',
+        '-b:a', '192k',
+        en_10s_path
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    # Also save as default dropzyy_order_alert_english.mp3 and dropzyy_order_tone_bilingual.mp3 for backward compatibility
+    import shutil
+    shutil.copyfile(en_10s_path, os.path.join(AUDIO_DIR, "dropzyy_order_alert_english.mp3"))
+    shutil.copyfile(en_10s_path, os.path.join(AUDIO_DIR, "dropzyy_order_tone_bilingual.mp3"))
+    
+    # 2. 5-SECOND FAST ENGLISH TONE (Under 5s Telegram Tone)
+    en_5s_path = os.path.join(AUDIO_DIR, "dropzyy_order_tone_english_5s.mp3")
+    subprocess.run([
+        ffmpeg_exe, '-y',
+        '-i', bell_path,
+        '-i', raw_en_quick,
+        '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1[cat];[cat]atempo=1.2,volume=1.5[out]',
         '-map', '[out]',
         '-b:a', '128k',
-        tone_out
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    
-    # 2. Full Bilingual Announcement (English + Marathi with Kitchen Bell)
-    full_out = os.path.join(AUDIO_DIR, "dropzyy_order_alert_bilingual.mp3")
-    subprocess.run([
-        ffmpeg_exe, '-y',
-        '-i', bell_path,
-        '-i', raw_en_full,
-        '-i', raw_mr_full,
-        '-filter_complex', '[0:a][1:a][2:a]concat=n=3:v=0:a=1[cat];[cat]volume=1.4[out]',
-        '-map', '[out]',
-        '-b:a', '192k',
-        full_out
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    
-    # 3. Marathi Order Alert
-    mr_out = os.path.join(AUDIO_DIR, "dropzyy_order_alert_marathi.mp3")
-    subprocess.run([
-        ffmpeg_exe, '-y',
-        '-i', bell_path,
-        '-i', raw_mr_full,
-        '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1[cat];[cat]volume=1.4[out]',
-        '-map', '[out]',
-        '-b:a', '192k',
-        mr_out
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    
-    # 4. English Order Alert
-    en_out = os.path.join(AUDIO_DIR, "dropzyy_order_alert_english.mp3")
-    subprocess.run([
-        ffmpeg_exe, '-y',
-        '-i', bell_path,
-        '-i', raw_en_full,
-        '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1[cat];[cat]volume=1.4[out]',
-        '-map', '[out]',
-        '-b:a', '192k',
-        en_out
+        en_5s_path
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
     # Clean up temp raws
-    for r in [raw_en_full, raw_mr_full, raw_en_short, raw_mr_short]:
+    for r in [raw_en_p1, raw_en_p2, raw_en_quick]:
         if os.path.exists(r):
             os.remove(r)
             
-    print("All Dropzyy order alert MP3 files successfully generated in 'audio/' folder!")
-    for f in os.listdir(AUDIO_DIR):
+    print("All English order alert MP3 files successfully generated in 'audio/' folder!")
+    for f in sorted(os.listdir(AUDIO_DIR)):
         fp = os.path.join(AUDIO_DIR, f)
-        print(f" - {f}: {os.path.getsize(fp):,} bytes")
+        if os.path.isfile(fp):
+            chk = subprocess.run([ffmpeg_exe, '-i', fp], stderr=subprocess.PIPE, text=True)
+            dur = 'unknown'
+            for line in chk.stderr.splitlines():
+                if 'Duration:' in line:
+                    dur = line.split('Duration:')[1].split(',')[0].strip()
+            print(f" - {f}: {os.path.getsize(fp):,} bytes | Duration: {dur}")
 
 if __name__ == "__main__":
     generate_all_sounds()

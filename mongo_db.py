@@ -78,12 +78,20 @@ def is_mongo_active() -> bool:
 # 1. USER ACCOUNTS
 def mongo_find_user(identifier: str) -> Optional[Dict[str, Any]]:
     db = get_mongo_db()
-    if db is None: return None
-    clean = identifier.strip().lower()
+    if db is None or not identifier: return None
+    import re
+    clean = str(identifier).strip()
+    clean_lower = clean.lower()
     user = db.users.find_one({
         "$or": [
             {"username": clean},
-            {"email": clean}
+            {"username": clean_lower},
+            {"username": {"$regex": f"^{re.escape(clean)}$", "$options": "i"}},
+            {"email": clean_lower},
+            {"supplier_company_name": clean},
+            {"supplier_company_name": {"$regex": f"^{re.escape(clean)}$", "$options": "i"}},
+            {"full_name": clean},
+            {"full_name": {"$regex": f"^{re.escape(clean)}$", "$options": "i"}}
         ]
     })
     if user and "_id" in user:
@@ -156,13 +164,20 @@ def mongo_update_user(identifier: str, update_dict: dict) -> bool:
     """Update fields on a user/supplier document in MongoDB Atlas."""
     db = get_mongo_db()
     if db is None or not identifier or not update_dict: return False
-    clean = str(identifier).strip().lower()
+    import re
+    clean = str(identifier).strip()
+    clean_lower = clean.lower()
     try:
         res = db.users.update_many(
             {"$or": [
                 {"username": clean},
-                {"email": clean},
-                {"supplier_company_name": str(identifier).strip()}
+                {"username": clean_lower},
+                {"username": {"$regex": f"^{re.escape(clean)}$", "$options": "i"}},
+                {"email": clean_lower},
+                {"supplier_company_name": clean},
+                {"supplier_company_name": {"$regex": f"^{re.escape(clean)}$", "$options": "i"}},
+                {"full_name": clean},
+                {"full_name": {"$regex": f"^{re.escape(clean)}$", "$options": "i"}}
             ]},
             {"$set": update_dict}
         )

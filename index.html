@@ -669,26 +669,29 @@
             <div style="margin-top: 14px; background: #FFFFFF; border: 1.5px solid #BAE6FD; border-radius: 10px; padding: 12px 14px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
                     <span style="font-size: 0.85rem; font-weight: 700; color: #0369A1; display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-volume-high" style="color: #0284C7;"></i> Dropzyy Order Alert Sound (English &amp; Marathi)
+                        <i class="fa-solid fa-volume-high" style="color: #0284C7;"></i> Dropzyy Order Alert Sound (10-Second English Voice &amp; Chime)
                     </span>
-                    <a id="supplierTelegramAudioDownloadBtn" href="/audio/dropzyy_order_tone_bilingual.mp3" download="dropzyy_order_alert.mp3" class="btn btn-sm" style="background: #0284C7; color: white; text-decoration: none; padding: 5px 12px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                    <a id="supplierTelegramAudioDownloadBtn" href="/audio/dropzyy_order_alert_english_10s.mp3" download="dropzyy_order_alert_english_10s.mp3" class="btn btn-sm" style="background: #0284C7; color: white; text-decoration: none; padding: 5px 12px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
                         <i class="fa-solid fa-download"></i> Download .MP3
                     </a>
                 </div>
 
                 <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
-                    <button type="button" onclick="window.switchTelegramAudioAlert('bilingual')" class="btn btn-sm" style="background: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                    <button type="button" id="btnAudioEn10s" onclick="window.switchTelegramAudioAlert('en10s')" class="btn btn-sm" style="background: #0284C7; color: #FFFFFF; border: 1px solid #0284C7; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                        🔊 10s English Alert (Primary)
+                    </button>
+                    <button type="button" id="btnAudioEn5s" onclick="window.switchTelegramAudioAlert('en5s')" class="btn btn-sm" style="background: #F8FAFC; color: #334155; border: 1px solid #CBD5E1; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                        ⚡ 5s Quick English Tone
+                    </button>
+                    <button type="button" id="btnAudioBilingual" onclick="window.switchTelegramAudioAlert('bilingual')" class="btn btn-sm" style="background: #F8FAFC; color: #334155; border: 1px solid #CBD5E1; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
                         🔔 Bilingual (EN + MR)
                     </button>
-                    <button type="button" onclick="window.switchTelegramAudioAlert('marathi')" class="btn btn-sm" style="background: #F8FAFC; color: #334155; border: 1px solid #E2E8F0; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
-                        🗣️ Marathi Only
-                    </button>
-                    <button type="button" onclick="window.switchTelegramAudioAlert('english')" class="btn btn-sm" style="background: #F8FAFC; color: #334155; border: 1px solid #E2E8F0; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
-                        🗣️ English Only
+                    <button type="button" id="btnAudioMarathi" onclick="window.switchTelegramAudioAlert('marathi')" class="btn btn-sm" style="background: #F8FAFC; color: #334155; border: 1px solid #CBD5E1; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                        🗣️ Marathi Alert
                     </button>
                 </div>
 
-                <audio id="supplierTelegramAudioPlayer" controls src="/audio/dropzyy_order_tone_bilingual.mp3" style="width: 100%; height: 36px; border-radius: 6px; margin-bottom: 8px;"></audio>
+                <audio id="supplierTelegramAudioPlayer" controls src="/audio/dropzyy_order_alert_english_10s.mp3" style="width: 100%; height: 36px; border-radius: 6px; margin-bottom: 8px;"></audio>
 
                 <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; color: #166534; line-height: 1.45;">
                     <strong>📱 How to set as Telegram Bot Ringtone (2 Taps):</strong><br>

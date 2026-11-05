@@ -3572,7 +3572,15 @@ async function loginUser(username, password) {
                 if (response.ok) {
                     const apiUser = await response.json();
                     state.currentUser = { ...matchedUser, ...apiUser };
+                    if (apiUser.telegram_chat_id) {
+                        state.currentUser.telegram_chat_id = apiUser.telegram_chat_id;
+                        if (matchedUser) matchedUser.telegram_chat_id = apiUser.telegram_chat_id;
+                        try { persistRegisteredUsers(); } catch(e){}
+                    }
                     saveUserSession(state.currentUser);
+                    if (typeof window.renderSupplierTelegramStatus === 'function') {
+                        setTimeout(() => window.renderSupplierTelegramStatus(), 200);
+                    }
                     updateUserAuthUI();
                     renderProducts();
                     closeModals();
@@ -9478,6 +9486,40 @@ window.renderSupplierTelegramStatus = function() {
         workersCountBadge.innerText = `${workerIds.length} Worker${workerIds.length === 1 ? '' : 's'} Active`;
     }
 
+    // Live Cloud Multi-Device Sync: Fetch authoritative connected workers from server
+    if (!window._syncingTelegramStatus && !window._skipRemoteSync && u.username) {
+        window._syncingTelegramStatus = true;
+        fetch(`/api/supplier/telegram-chat-id?username=${encodeURIComponent(u.username)}`, {
+            headers: {
+                'Authorization': (u.access_token || u.token) ? `Bearer ${u.access_token || u.token}` : ''
+            }
+        })
+        .then(res => res && res.ok ? res.json() : null)
+        .then(data => {
+            window._syncingTelegramStatus = false;
+            if (data && data.success) {
+                const serverChatId = (data.chat_id || '').trim();
+                const currentChatId = (state.currentUser?.telegram_chat_id || '').trim();
+                if (serverChatId !== currentChatId) {
+                    if (state.currentUser) state.currentUser.telegram_chat_id = serverChatId;
+                    const rUser = registeredUsers.find(ru => (ru.username || '').toLowerCase() === (u.username || '').toLowerCase());
+                    if (rUser) {
+                        rUser.telegram_chat_id = serverChatId;
+                    }
+                    try { persistRegisteredUsers(); } catch(e){}
+                    try { saveUserSession(state.currentUser); } catch(e){}
+                    // Refresh UI once with server data
+                    window._skipRemoteSync = true;
+                    window.renderSupplierTelegramStatus();
+                    window._skipRemoteSync = false;
+                }
+            }
+        })
+        .catch(() => {
+            window._syncingTelegramStatus = false;
+        });
+    }
+
     if (workersList) {
         if (workerIds.length > 0) {
             workersList.innerHTML = workerIds.map((cid, idx) => `
@@ -9718,14 +9760,17 @@ window.switchTelegramAudioAlert = function(type) {
     const dlBtn = document.getElementById('supplierTelegramAudioDownloadBtn');
     if (!player) return;
 
-    let src = '/audio/dropzyy_order_tone_bilingual.mp3';
-    let name = 'dropzyy_order_alert_bilingual.mp3';
-    if (type === 'marathi') {
+    let src = '/audio/dropzyy_order_alert_english_10s.mp3';
+    let name = 'dropzyy_order_alert_english_10s.mp3';
+    if (type === 'en5s') {
+        src = '/audio/dropzyy_order_tone_english_5s.mp3';
+        name = 'dropzyy_order_tone_english_5s.mp3';
+    } else if (type === 'bilingual') {
+        src = '/audio/dropzyy_order_alert_bilingual.mp3';
+        name = 'dropzyy_order_alert_bilingual.mp3';
+    } else if (type === 'marathi') {
         src = '/audio/dropzyy_order_alert_marathi.mp3';
         name = 'dropzyy_order_alert_marathi.mp3';
-    } else if (type === 'english') {
-        src = '/audio/dropzyy_order_alert_english.mp3';
-        name = 'dropzyy_order_alert_english.mp3';
     }
 
     player.src = src;
@@ -9733,6 +9778,28 @@ window.switchTelegramAudioAlert = function(type) {
     if (dlBtn) {
         dlBtn.href = src;
         dlBtn.setAttribute('download', name);
+    }
+
+    // Update active button state
+    ['btnAudioEn10s', 'btnAudioEn5s', 'btnAudioBilingual', 'btnAudioMarathi'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.style.background = '#F8FAFC';
+            btn.style.color = '#334155';
+            btn.style.borderColor = '#CBD5E1';
+        }
+    });
+    const activeBtnMap = {
+        'en10s': 'btnAudioEn10s',
+        'en5s': 'btnAudioEn5s',
+        'bilingual': 'btnAudioBilingual',
+        'marathi': 'btnAudioMarathi'
+    };
+    const activeBtn = document.getElementById(activeBtnMap[type] || 'btnAudioEn10s');
+    if (activeBtn) {
+        activeBtn.style.background = '#0284C7';
+        activeBtn.style.color = '#FFFFFF';
+        activeBtn.style.borderColor = '#0284C7';
     }
 };
 

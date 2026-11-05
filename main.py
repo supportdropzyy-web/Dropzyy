@@ -1344,7 +1344,9 @@ def send_telegram_audio_alert(token: str, chat_id: str, title: str = "New Order 
     if not token or not chat_id:
         return False
     try:
-        audio_file = os.path.join(AUDIO_DIR, "dropzyy_order_tone_bilingual.mp3")
+        audio_file = os.path.join(AUDIO_DIR, "dropzyy_order_alert_english_10s.mp3")
+        if not os.path.exists(audio_file):
+            audio_file = os.path.join(AUDIO_DIR, "dropzyy_order_alert_english.mp3")
         if not os.path.exists(audio_file):
             return False
         with open(audio_file, "rb") as af:
@@ -1355,13 +1357,13 @@ def send_telegram_audio_alert(token: str, chat_id: str, title: str = "New Order 
                     "title": title,
                     "performer": "Dropzyy Kitchen Alert",
                     "caption": caption or (
-                        "🛎️ <b>Dropzyy Kitchen Sound Alert!</b>\n"
-                        "🗣️ <i>'Alert! New order received on Dropzyy! लक्ष द्या, नवीन ऑर्डर आली आहे!'</i>\n\n"
+                        "🛎️ <b>Dropzyy Kitchen Sound Alert (10s English)!</b>\n"
+                        "🗣️ <i>'Attention! New order received on Dropzyy! Please check kitchen ticket immediately and start preparation.'</i>\n\n"
                         "💡 <b>Tip:</b> Tap <b>⋮ (3 dots)</b> on this audio &amp; select <b>'Save for Notifications'</b> to set as your custom order ringtone!"
                     ),
                     "parse_mode": "HTML"
                 },
-                files={"audio": ("dropzyy_order_tone_bilingual.mp3", af, "audio/mpeg")},
+                files={"audio": ("dropzyy_order_alert_english_10s.mp3", af, "audio/mpeg")},
                 timeout=8
             )
         return True
@@ -1595,6 +1597,66 @@ def detect_telegram_chat_id():
         }
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+@app.get("/api/supplier/telegram-chat-id")
+def get_supplier_telegram_chat_id(
+    username: Optional[str] = None,
+    db: Session = Depends(get_db),
+    caller: Optional[Dict[str, Any]] = Depends(get_current_user_token)
+):
+    """
+    Returns the real-time connected worker Telegram chat IDs for a supplier.
+    Ensures multi-device live synchronization across all devices and phones.
+    """
+    uname = (username or "").strip()
+    if not uname and caller:
+        uname = (caller.get("username") or "").strip()
+
+    if not uname:
+        raise HTTPException(status_code=400, detail="Supplier username is required.")
+
+    # 1. Fetch from SQLite
+    sup_user = db.query(models.User).filter(
+        (models.User.username.ilike(uname)) |
+        (models.User.supplier_company_name.ilike(uname))
+    ).first()
+
+    chat_id = (sup_user.telegram_chat_id if sup_user else None) or ""
+    store_name = (sup_user.supplier_company_name if sup_user else uname) or uname
+
+    # 2. Fetch from MongoDB Atlas to get authoritative live multi-device state
+    if mongo_db.is_mongo_active():
+        try:
+            m_u = mongo_db.mongo_find_user(uname)
+            if m_u:
+                if m_u.get("supplier_company_name"):
+                    store_name = m_u["supplier_company_name"]
+                if m_u.get("telegram_chat_id"):
+                    m_cid = str(m_u.get("telegram_chat_id")).strip()
+                    if m_cid:
+                        chat_id = m_cid
+                        if sup_user and sup_user.telegram_chat_id != chat_id:
+                            sup_user.telegram_chat_id = chat_id
+                            try:
+                                db.commit()
+                            except Exception:
+                                db.rollback()
+        except Exception as e:
+            print(f"[MONGO GET SUPPLIER TELEGRAM ERR]: {e}")
+
+    # Parse worker IDs
+    raw_ids = str(chat_id or "").replace(";", ",").replace("\n", ",")
+    chat_ids = [cid.strip() for cid in raw_ids.split(",") if cid.strip() and cid.strip().lstrip("-").isdigit()]
+
+    return {
+        "success": True,
+        "username": uname,
+        "store_name": store_name,
+        "chat_id": ", ".join(chat_ids) if chat_ids else None,
+        "chat_ids": chat_ids,
+        "workers_count": len(chat_ids),
+        "connected": len(chat_ids) > 0
+    }
 
 @app.post("/api/supplier/telegram-chat-id")
 def update_supplier_telegram_chat_id(
