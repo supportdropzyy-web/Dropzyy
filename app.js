@@ -1,4 +1,18 @@
 
+window.openAdminTelegramPreviewModal = function() {
+    const modal = document.getElementById('adminTelegramPreviewModal');
+    const overlay = document.getElementById('adminTelegramPreviewOverlay');
+    if (modal) modal.classList.add('active');
+    if (overlay) overlay.classList.add('active');
+};
+
+window.closeAdminTelegramPreviewModal = function() {
+    const modal = document.getElementById('adminTelegramPreviewModal');
+    const overlay = document.getElementById('adminTelegramPreviewOverlay');
+    if (modal) modal.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+};
+
 window.dismissMobileCartBar = function() {
     window._mobileCartBarDismissed = true;
     const bar = document.getElementById('mobileFloatingCartBar');
