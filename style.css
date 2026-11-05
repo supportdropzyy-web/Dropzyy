@@ -2072,18 +2072,22 @@ button {
 .qv-nutrition { background: var(--bg-secondary); padding: 10px; border-radius: var(--radius-sm); font-size: 0.78rem; margin-bottom: 16px; }
 
 /* Checkout Modal Architecture */
+#checkoutOverlay {
+    z-index: 2500 !important;
+}
+
 .checkout-modal {
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(0.9);
-    z-index: 1000;
+    z-index: 2600 !important; /* Strictly in the foreground above bottom navigation and all bars */
     background: #FFFFFF;
     border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3) !important;
     width: 95%;
     max-width: 520px;
-    max-height: 88vh !important;
+    max-height: 86vh !important;
     height: auto;
     padding: 0 !important;
     overflow: hidden !important;
@@ -2100,6 +2104,17 @@ button {
     visibility: visible !important;
 }
 
+/* STRICT OVERLAY GUARDS: Completely hide floating cart bar & bottom nav whenever checkout modal or overlay is active */
+body.checkout-active #mobileFloatingCartBar,
+body.modal-open #mobileFloatingCartBar,
+#checkoutOverlay.active ~ #mobileFloatingCartBar,
+.checkout-modal.active ~ #mobileFloatingCartBar,
+.modal-overlay.active ~ #mobileFloatingCartBar {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
 .checkout-modal .checkout-header {
     padding: 14px 18px 12px;
     border-bottom: 1.5px solid var(--border-color, #E2E8F0);
@@ -2112,7 +2127,7 @@ button {
 
 .checkout-modal .checkout-header h2 {
     font-family: var(--font-heading);
-    font-size: 1.25rem;
+    font-size: 1.22rem;
     font-weight: 800;
     color: #0F172A;
     margin: 0;
@@ -2125,6 +2140,14 @@ button {
     font-size: 0.78rem;
     color: #64748B;
     margin: 3px 0 0 0;
+}
+
+.checkout-header-back-btn {
+    transition: all 0.2s ease;
+}
+.checkout-header-back-btn:hover {
+    background: #E2E8F0 !important;
+    color: #0F172A !important;
 }
 
 .checkout-modal #closeCheckoutBtn {
@@ -2147,30 +2170,10 @@ button {
     transition: all 0.2s !important;
 }
 
-.checkout-back-btn {
-    height: 48px !important;
-    border-radius: 12px !important;
-    padding: 0 14px !important;
-    font-weight: 700 !important;
-    color: #475569 !important;
-    background: #F1F5F9 !important;
-    border: 1.5px solid #CBD5E1 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
-    font-size: 0.88rem !important;
-}
-.checkout-back-btn:hover {
-    background: #E2E8F0 !important;
-    color: #0F172A !important;
-}
-
 .checkout-modal #closeCheckoutBtn:hover {
-    background: #E2E8F0;
-    color: #0F172A;
+    background: #E2E8F0 !important;
+    color: #000000 !important;
+    transform: scale(1.05);
 }
 
 .checkout-form {
@@ -2261,12 +2264,12 @@ button {
     cursor: pointer;
 }
 
-/* Sticky / Pinned Bottom Summary & Place Order Bar */
+/* Sticky / Pinned Bottom Summary & Place Order Bar (Final Option) */
 .checkout-final-summary {
-    padding: 12px 18px !important;
+    padding: 14px 18px !important;
     background: #FFFFFF !important;
     border-top: 1.5px solid #E2E8F0 !important;
-    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.1) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
@@ -2280,6 +2283,7 @@ button {
     display: flex;
     flex-direction: column;
     gap: 1px;
+    flex-shrink: 0;
 }
 
 .checkout-price-label {
@@ -2302,19 +2306,20 @@ button {
     max-width: 250px;
     height: 48px;
     font-size: 1rem;
-    font-weight: 700;
+    font-weight: 800;
     border-radius: 12px;
-    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-    color: #FFFFFF;
-    border: none;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    padding: 0 18px;
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.42) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    padding: 0 18px !important;
+    white-space: nowrap !important;
 }
 
 .checkout-final-summary #placeOrderBtn:active {
@@ -2326,11 +2331,12 @@ button {
     .checkout-modal {
         width: 95% !important;
         max-width: 95% !important;
-        max-height: 86vh !important;
+        max-height: 84vh !important;
         border-radius: 18px !important;
         top: 50% !important;
         left: 50% !important;
         transform: translate(-50%, -50%) scale(0.9) !important;
+        z-index: 2600 !important;
     }
     .checkout-modal.active {
         transform: translate(-50%, -50%) scale(1) !important;
@@ -2339,7 +2345,7 @@ button {
         padding: 12px 14px 10px !important;
     }
     .checkout-modal .checkout-header h2 {
-        font-size: 1.15rem !important;
+        font-size: 1.12rem !important;
     }
     .checkout-modal .checkout-header p {
         font-size: 0.74rem !important;
@@ -2373,21 +2379,22 @@ button {
     }
     /* Sticky footer on mobile stays pinned at bottom */
     .checkout-final-summary {
-        padding: 10px 14px !important;
-        gap: 10px !important;
+        padding: 12px 14px !important;
+        gap: 12px !important;
         background: #FFFFFF !important;
+        box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.12) !important;
     }
     .checkout-price-label {
         font-size: 0.68rem !important;
     }
     .checkout-price-value {
-        font-size: 1.25rem !important;
+        font-size: 1.3rem !important;
     }
     .checkout-final-summary #placeOrderBtn {
-        height: 46px !important;
-        font-size: 0.94rem !important;
+        height: 48px !important;
+        font-size: 0.96rem !important;
         max-width: none !important;
-        padding: 0 14px !important;
+        padding: 0 16px !important;
     }
 }
 

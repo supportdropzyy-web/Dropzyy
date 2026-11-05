@@ -3112,7 +3112,8 @@ function updateCartUI() {
     const mTotalEl = document.getElementById('mCartBarTotal');
     const mSubEl = document.getElementById('mCartBarSub');
     if (mFloatBar) {
-        if (totalItems > 0 && !window._mobileCartBarDismissed) {
+        const isModalActive = document.querySelector('.checkout-modal.active, .cart-drawer.active, .order-success-modal.active, .auth-modal.active, #checkoutOverlay.active, .modal-overlay.active');
+        if (totalItems > 0 && !window._mobileCartBarDismissed && !isModalActive && !document.body.classList.contains('checkout-active')) {
             mFloatBar.classList.remove('hidden');
             if (mCountEl) mCountEl.textContent = `${totalItems} ${totalItems === 1 ? 'ITEM' : 'ITEMS'}`;
             if (mTotalEl) mTotalEl.textContent = `₹${grandTotal}`;
@@ -8386,6 +8387,9 @@ function setupEventListeners() {
                 window.populateCheckoutAddress('saved');
             }
 
+            document.body.classList.add('checkout-active');
+            const mFloatBar = document.getElementById('mobileFloatingCartBar');
+            if (mFloatBar) mFloatBar.classList.add('hidden');
             checkoutOverlay.classList.add('active');
             checkoutModal.classList.add('active');
         });
@@ -8920,9 +8924,13 @@ window.handleForgotPasswordSubmit = async function(e) {
 };
 
 window.closeModals = function() {
+    document.body.classList.remove('checkout-active', 'modal-open');
     document.querySelectorAll('.modal-overlay, .quick-view-modal, .checkout-modal, .order-success-modal, .auth-modal, .admin-modal, .supplier-dashboard-modal, .cart-drawer, .cart-overlay').forEach(el => {
         el.classList.remove('active');
     });
+    if (typeof updateCartUI === 'function') {
+        updateCartUI();
+    }
 };
 
 function showToast(message, type = 'success') {
