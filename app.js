@@ -2046,11 +2046,8 @@ window.renderRestaurants = function() {
                     </div>
 
                     <div class="restaurant-card-footer" style="margin-top: auto; border-top: 1px dashed #E2E8F0; padding-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-                        <div style="font-size: 0.82rem; font-weight: 700; color: #059669; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <span><i class="fa-solid fa-bowl-food"></i> ${count} Dish${count === 1 ? '' : 'es'}</span>
-                            <span style="font-size: 0.72rem; font-weight: 700; color: ${inStockCount > 0 ? '#059669' : '#DC2626'}; background: ${inStockCount > 0 ? '#ECFDF5' : '#FEF2F2'}; border: 1px solid ${inStockCount > 0 ? '#A7F3D0' : '#FECACA'}; padding: 1px 7px; border-radius: 6px;">
-                                <i class="fa-solid ${inStockCount > 0 ? 'fa-circle-check' : 'fa-ban'}"></i> ${inStockCount} In Stock
-                            </span>
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #059669; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-bowl-food"></i> ${count} Dish${count === 1 ? '' : 'es'}
                         </div>
                         <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                             ${mCard ? `
@@ -2321,9 +2318,7 @@ window.renderRestaurantMenuModalContent = function(target) {
                         <span>•</span>
                         <span style="color: #059669; font-weight: 700;"><i class="fa-solid fa-bowl-food"></i> ${items.length} Dishes</span>
                         <span>•</span>
-                        <span style="color: ${outOfStockCount > 0 ? '#DC2626' : '#059669'}; font-weight: 700;">
-                            <i class="fa-solid ${outOfStockCount > 0 ? 'fa-boxes-stacked' : 'fa-circle-check'}"></i> ${inStockCount} In Stock ${outOfStockCount > 0 ? `(${outOfStockCount} Out)` : ''}
-                        </span>
+                        <span style="color: #2563EB; font-weight: 700;"><i class="fa-solid fa-layer-group"></i> ${restaurantCategories.length} Categories</span>
                     </div>
                 </div>
             </div>
@@ -2498,26 +2493,20 @@ window.renderRestaurantMenuItemCard = function(p, isOpen) {
                 </h4>
                 ${p.unit ? `<div style="font-size: 0.75rem; color: #64748B; margin-bottom: 3px;">${p.unit}</div>` : ''}
                 
-                <!-- Stock Status Indicator Badge -->
-                <div style="margin: 2px 0 6px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                    ${!inStock ? `
+                <!-- Stock Status Indicator Badge (Only 1 to 5 left or Out of Stock) -->
+                ${!inStock ? `
+                    <div style="margin: 2px 0 6px 0;">
                         <span style="font-size: 0.72rem; font-weight: 800; color: #DC2626; background: #FEE2E2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
                             <i class="fa-solid fa-boxes-stacked"></i> Out of Stock
                         </span>
-                    ` : (stockQty <= 5 && showStockToCust) ? `
+                    </div>
+                ` : (stockQty <= 5 && stockQty >= 1 && showStockToCust) ? `
+                    <div style="margin: 2px 0 6px 0;">
                         <span style="font-size: 0.72rem; font-weight: 800; color: #D97706; background: #FEF3C7; border: 1px solid #FDE68A; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
                             <i class="fa-solid fa-fire text-danger"></i> Only ${stockQty} left!
                         </span>
-                    ` : showStockToCust ? `
-                        <span style="font-size: 0.72rem; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
-                            <i class="fa-solid fa-circle-check"></i> In Stock (${stockQty})
-                        </span>
-                    ` : canEdit ? `
-                        <span style="font-size: 0.72rem; font-weight: 600; color: #64748B; background: #F1F5F9; border: 1px solid #CBD5E1; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
-                            <i class="fa-solid fa-eye-slash"></i> Stock: ${stockQty} (Hidden)
-                        </span>
-                    ` : ''}
-                </div>
+                    </div>
+                ` : ''}
 
                 ${canEdit ? `
                     <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; padding: 4px 6px; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0;">
@@ -2858,21 +2847,17 @@ function renderProducts() {
                         ${!storeCheck.isOpen ? `<span style="color:#DC2626; font-size:0.72rem; margin-left:4px; font-weight:700;">(Closed)</span>` : ''}
                     </div>
 
-                    <!-- Customer Stock Status Display (If Enabled) -->
+                    <!-- Customer Stock Status Display (Only 1 to 5 left or Out of Stock) -->
                     ${showStockToCust ? `
                         ${!inStock ? `
                             <div class="product-stock-tag" style="font-size: 0.74rem; font-weight: 700; color: #DC2626; margin-top: 3px;">
                                 <i class="fa-solid fa-box-open"></i> Out of Stock
                             </div>
-                        ` : (product.stock_quantity !== undefined && product.stock_quantity !== null && Number(product.stock_quantity) <= 5) ? `
+                        ` : (product.stock_quantity !== undefined && product.stock_quantity !== null && Number(product.stock_quantity) <= 5 && Number(product.stock_quantity) >= 1) ? `
                             <div class="product-stock-tag" style="font-size: 0.74rem; font-weight: 700; color: #D97706; margin-top: 3px;">
                                 <i class="fa-solid fa-fire text-danger"></i> Only ${product.stock_quantity} left in stock!
                             </div>
-                        ` : `
-                            <div class="product-stock-tag" style="font-size: 0.74rem; font-weight: 600; color: #059669; margin-top: 3px;">
-                                <i class="fa-solid fa-circle-check"></i> In Stock
-                            </div>
-                        `}
+                        ` : ''}
                     ` : ''}
 
                     <!-- Admin & Supplier Stock Controls on Card -->
@@ -7936,6 +7921,9 @@ function openQuickView(productId) {
     const sName = product.supplierName || product.supplier_name || 'Dropzyy Direct';
     const storeCheck = isSupplierStoreOpen(product);
     const isOnline = isProductOnline(product);
+    const inStock = product.in_stock !== false && (product.stock_quantity === undefined || product.stock_quantity === null || Number(product.stock_quantity) > 0);
+    const stockQty = (product.stock_quantity !== undefined && product.stock_quantity !== null) ? Number(product.stock_quantity) : 50;
+    const showStockToCust = product.show_stock_to_customer !== false;
 
     const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
     const selectedIdx = (hasVariants && product._selectedVariantIndex !== undefined && product._selectedVariantIndex < product.variants.length)
@@ -7981,6 +7969,14 @@ function openQuickView(productId) {
                 <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #991B1B; font-weight: 600;">
                     <i class="fa-solid fa-eye-slash"></i> This product has been marked OFFLINE by the store and is currently unavailable for order.
                 </div>
+            ` : !inStock ? `
+                <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #DC2626; font-weight: 700;">
+                    <i class="fa-solid fa-boxes-stacked"></i> Out of Stock — This item is currently unavailable for order.
+                </div>
+            ` : (stockQty <= 5 && stockQty >= 1 && showStockToCust) ? `
+                <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #D97706; font-weight: 700;">
+                    <i class="fa-solid fa-fire text-danger"></i> Hurry, only ${stockQty} left in stock!
+                </div>
             ` : !storeCheck.isOpen ? `
                 <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #991B1B; font-weight: 600;">
                     <i class="fa-solid fa-triangle-exclamation"></i> ${storeCheck.reason}
@@ -7994,8 +7990,8 @@ function openQuickView(productId) {
                     <span class="current-price" style="font-size: 1.5rem;">₹${currentPrice}</span>
                     <span class="original-price">₹${product.originalPrice}</span>
                 </div>
-                <button class="btn btn-primary btn-lg" onclick="addToCart('${product.id}', 1, ${selectedIdx}); closeModals();" ${(!isOnline || !storeCheck.isOpen) ? 'disabled style="opacity:0.5; cursor:not-allowed;" title="' + (!isOnline ? 'Product is offline' : storeCheck.reason) + '"' : ''}>
-                    <i class="fa-solid fa-cart-shopping"></i> ${!isOnline ? 'Offline' : (!storeCheck.isOpen ? 'Store Closed' : 'Add to Cart')}
+                <button class="btn btn-primary btn-lg" onclick="addToCart('${product.id}', 1, ${selectedIdx}); closeModals();" ${(!isOnline || !storeCheck.isOpen || !inStock) ? 'disabled style="opacity:0.5; cursor:not-allowed;" title="' + (!isOnline ? 'Product is offline' : (!inStock ? 'Out of Stock' : storeCheck.reason)) + '"' : ''}>
+                    <i class="fa-solid fa-cart-shopping"></i> ${!isOnline ? 'Offline' : (!storeCheck.isOpen ? 'Store Closed' : (!inStock ? 'Out of Stock' : 'Add to Cart'))}
                 </button>
             </div>
         </div>
