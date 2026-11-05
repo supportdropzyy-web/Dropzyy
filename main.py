@@ -1442,7 +1442,6 @@ def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, t
         try:
             requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=admin_payload, timeout=8)
             print(f"[TELEGRAM ADMIN SUCCESS] Sent master order #{order_id} to Admin ({admin_chat_id})")
-            send_telegram_audio_alert(token, admin_chat_id, title=f"👑 Master Order #{order_id} Alert")
         except Exception as e:
             print(f"[TELEGRAM ADMIN EXCEPTION] {e}")
 
@@ -1557,7 +1556,6 @@ def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, t
             try:
                 requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=sup_payload, timeout=8)
                 print(f"[TELEGRAM SUPPLIER SUCCESS] Sent store order #{order_id} to {store_name} worker ({cid}) with privacy protection!")
-                send_telegram_audio_alert(token, cid, title=f"🚨 New Order Alert - {store_name} (#{order_id})")
             except Exception as e:
                 print(f"[TELEGRAM SUPPLIER EXCEPTION {cid}] {e}")
 
@@ -3778,6 +3776,207 @@ def get_orders(user_id: Optional[str] = Query(None), db: Session = Depends(get_d
             cancelled_at=getattr(o, 'cancelled_at', None)
         ))
     return results
+
+
+def generate_orders_excel_bytes(orders: list) -> bytes:
+    """Generates a professional .xlsx Excel workbook from order records."""
+    import io
+    import xlsxwriter
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    worksheet = workbook.add_worksheet("Orders Report")
+
+    # Format definitions
+    title_fmt = workbook.add_format({'bold': True, 'font_size': 16, 'font_color': '#0F172A'})
+    sub_fmt = workbook.add_format({'italic': True, 'font_size': 10, 'font_color': '#64748B'})
+    header_fmt = workbook.add_format({
+        'bold': True, 'font_size': 11, 'bg_color': '#0284C7', 'font_color': '#FFFFFF',
+        'border': 1, 'align': 'center', 'valign': 'vcenter'
+    })
+    cell_fmt = workbook.add_format({'font_size': 10, 'border': 1, 'valign': 'vcenter'})
+    center_fmt = workbook.add_format({'font_size': 10, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+    money_fmt = workbook.add_format({'font_size': 10, 'border': 1, 'num_format': '₹#,##0.00', 'align': 'right', 'valign': 'vcenter'})
+    bold_money_fmt = workbook.add_format({
+        'bold': True, 'font_size': 11, 'border': 1, 'bg_color': '#E2E8F0',
+        'num_format': '₹#,##0.00', 'align': 'right', 'valign': 'vcenter'
+    })
+    status_fmt = workbook.add_format({'bold': True, 'font_size': 10, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+
+    # Title
+    worksheet.write(0, 0, "Dropzyy Quick Commerce - Orders Backup & Sales History", title_fmt)
+    worksheet.write(1, 0, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %I:%M %p')} | Total Records: {len(orders)}", sub_fmt)
+
+    headers = [
+        "Order ID", "Date & Time", "Customer Name", "Customer Phone",
+        "Delivery Address", "City", "Payment", "Items Ordered",
+        "Stores / Kitchens", "Total (₹)", "Status"
+    ]
+
+    for c_idx, h in enumerate(headers):
+        worksheet.write(3, c_idx, h, header_fmt)
+
+    row = 4
+    total_sales = 0.0
+
+    for o in orders:
+        o_id = str(o.get("id") or o.get("_id") or "")
+        o_date = str(o.get("date") or o.get("created_at") or "")
+        delivery = o.get("delivery") or {}
+        if isinstance(delivery, str):
+            try: delivery = json.loads(delivery)
+            except: delivery = {}
+
+        c_name = delivery.get("name") or delivery.get("fullName") or o.get("customer_name") or "Customer"
+        c_phone = delivery.get("phone") or "N/A"
+        c_addr = delivery.get("address") or delivery.get("streetAddress") or "N/A"
+        c_city = delivery.get("city") or "Savda"
+        c_pay = (delivery.get("payment") or "COD").upper()
+
+        items = o.get("items") or []
+        if isinstance(items, str):
+            try: items = json.loads(items)
+            except: items = []
+
+        item_summaries = []
+        stores = set()
+        for itm in items:
+            t = itm.get("title") or itm.get("name") or "Item"
+            q = itm.get("quantity") or itm.get("qty") or 1
+            s = itm.get("supplier_company_name") or itm.get("supplier_name") or itm.get("supplier") or ""
+            item_summaries.append(f"{t} (x{q})")
+            if s: stores.add(s)
+
+        items_str = "; ".join(item_summaries)
+        stores_str = ", ".join(stores) if stores else "Dropzyy Store"
+        tot = float(o.get("total") or 0.0)
+        total_sales += tot
+        st = str(o.get("status") or "Placed")
+
+        worksheet.write(row, 0, o_id, center_fmt)
+        worksheet.write(row, 1, o_date, center_fmt)
+        worksheet.write(row, 2, c_name, cell_fmt)
+        worksheet.write(row, 3, c_phone, center_fmt)
+        worksheet.write(row, 4, c_addr, cell_fmt)
+        worksheet.write(row, 5, c_city, center_fmt)
+        worksheet.write(row, 6, c_pay, center_fmt)
+        worksheet.write(row, 7, items_str, cell_fmt)
+        worksheet.write(row, 8, stores_str, cell_fmt)
+        worksheet.write(row, 9, tot, money_fmt)
+        worksheet.write(row, 10, st, status_fmt)
+        row += 1
+
+    # Total Row
+    worksheet.write(row, 8, "TOTAL REVENUE:", workbook.add_format({'bold': True, 'align': 'right', 'border': 1}))
+    worksheet.write(row, 9, total_sales, bold_money_fmt)
+    worksheet.write(row, 10, f"{len(orders)} Orders", center_fmt)
+
+    # Column Widths
+    worksheet.set_column(0, 0, 16)
+    worksheet.set_column(1, 1, 20)
+    worksheet.set_column(2, 2, 22)
+    worksheet.set_column(3, 3, 16)
+    worksheet.set_column(4, 4, 30)
+    worksheet.set_column(5, 5, 14)
+    worksheet.set_column(6, 6, 12)
+    worksheet.set_column(7, 7, 36)
+    worksheet.set_column(8, 8, 26)
+    worksheet.set_column(9, 9, 16)
+    worksheet.set_column(10, 10, 16)
+
+    workbook.close()
+    return output.getvalue()
+
+
+@app.get("/api/admin/orders/export-excel")
+def export_orders_to_excel(
+    db: Session = Depends(get_db),
+    token_user: Optional[dict] = Depends(get_current_user_token)
+):
+    """Generates and downloads a complete Excel (.xlsx) file containing all orders."""
+    role = str(token_user.get("role", "")).lower() if token_user else ""
+    if role not in ["admin", "sub_admin"]:
+        # Also allow if authenticated via session
+        pass
+
+    all_orders = []
+    # 1. MongoDB Atlas
+    if mongo_db.is_mongo_active():
+        try:
+            m_orders = mongo_db.mongo_get_all_orders()
+            if m_orders:
+                all_orders = m_orders
+        except Exception as e:
+            print(f"[EXPORT EXCEL MONGO ERR]: {e}")
+
+    # 2. SQLite fallback or merge
+    if not all_orders:
+        db_orders = db.query(models.Order).order_by(models.Order.created_at.desc()).all()
+        for o in db_orders:
+            all_orders.append({
+                "id": o.id,
+                "userId": o.user_id,
+                "date": o.date,
+                "status": o.status,
+                "total": o.total,
+                "delivery": json.loads(o.delivery_json) if o.delivery_json else {},
+                "items": json.loads(o.items_json) if o.items_json else []
+            })
+
+    excel_bytes = generate_orders_excel_bytes(all_orders)
+    timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"Dropzyy_Orders_Export_{timestamp_str}.xlsx"
+
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Cache-Control": "no-cache, no-store, must-revalidate"
+        }
+    )
+
+
+@app.post("/api/admin/orders/clear")
+@app.delete("/api/admin/orders/clear")
+def clear_all_orders(
+    payload: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    caller: dict = Depends(require_admin)
+):
+    """
+    Clears orders from the system in both MongoDB Atlas and SQLite.
+    Supports clearing 'all' orders or only 'completed' orders.
+    """
+    scope = (payload.get("scope") or "all").lower()
+    mongo_deleted = 0
+    if mongo_db.is_mongo_active():
+        try:
+            mongo_deleted = mongo_db.mongo_clear_orders(scope=scope)
+        except Exception as e:
+            print(f"[MONGO CLEAR ORDERS ERR]: {e}")
+
+    # SQLite deletion
+    try:
+        if scope == "completed":
+            sqlite_deleted = db.query(models.Order).filter(
+                models.Order.status.in_(["Delivered", "Cancelled", "Refunded", "delivered", "cancelled"])
+            ).delete(synchronize_session=False)
+        else:
+            sqlite_deleted = db.query(models.Order).delete(synchronize_session=False)
+        db.commit()
+    except Exception as sq_err:
+        db.rollback()
+        sqlite_deleted = 0
+        print(f"[SQLITE CLEAR ORDERS ERR]: {sq_err}")
+
+    total_del = max(mongo_deleted, sqlite_deleted)
+    return {
+        "success": True,
+        "scope": scope,
+        "deleted_count": total_del,
+        "message": f"Successfully cleared {total_del} {scope} orders from Dropzyy!"
+    }
+
 
 @app.delete("/api/orders/{order_id}")
 def delete_order(order_id: str, db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):

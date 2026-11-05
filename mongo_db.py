@@ -536,6 +536,15 @@ def mongo_delete_order(order_id: str) -> bool:
     })
     return res.deleted_count > 0
 
+def mongo_clear_orders(scope: str = "all") -> int:
+    db = get_mongo_db()
+    if db is None: return 0
+    if scope == "completed":
+        res = db.orders.delete_many({"status": {"$in": ["Delivered", "Cancelled", "Refunded", "delivered", "cancelled"]}})
+    else:
+        res = db.orders.delete_many({})
+    return res.deleted_count
+
 
 # 4. CART & WISHLIST
 def mongo_get_user_cart(user_id: str) -> List[Dict[str, Any]]:

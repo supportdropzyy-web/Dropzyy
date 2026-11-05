@@ -11049,6 +11049,156 @@ window.reorderItems = function(orderId) {
 };
 
 // 19. BOOKING TRACKING PLATFORM
+
+window.playSupplierProductOrderSound = function() {
+    const audio = document.getElementById('supplierProductAudioElement');
+    const icon = document.getElementById('supplierProductAudioPlayIcon');
+    const text = document.getElementById('supplierProductAudioPlayText');
+    if (!audio) return;
+    if (audio.paused) {
+        audio.currentTime = 0;
+        audio.play().then(() => {
+            if (icon) { icon.classList.remove('fa-play'); icon.classList.add('fa-pause'); }
+            if (text) text.innerText = 'Stop 10s Sound';
+        }).catch(() => {});
+        audio.onended = function() {
+            if (icon) { icon.classList.remove('fa-pause'); icon.classList.add('fa-play'); }
+            if (text) text.innerText = 'Play 10s Sound';
+        };
+    } else {
+        audio.pause();
+        audio.currentTime = 0;
+        if (icon) { icon.classList.remove('fa-pause'); icon.classList.add('fa-play'); }
+        if (text) text.innerText = 'Play 10s Sound';
+    }
+};
+
+window.exportAdminOrdersToExcel = function() {
+    showToast('📊 Generating and downloading complete Excel report of all orders...', 'info');
+    const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+    
+    // Direct link trigger with authorization header or fallback link
+    fetch('/api/admin/orders/export-excel', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('Failed to generate Excel report');
+        return res.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        const now = new Date().toISOString().slice(0, 10);
+        a.download = `Dropzyy_Orders_Report_${now}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast('✅ Excel sheet downloaded successfully!', 'success');
+    })
+    .catch(err => {
+        console.warn('Excel export error:', err);
+        // Fallback: Generate clean CSV on client side from state.ordersHistory
+        try {
+            window.exportOrdersToCSVFallback();
+        } catch(e) {
+            showToast('Error exporting Excel: ' + err.message, 'error');
+        }
+    });
+};
+
+window.exportOrdersToCSVFallback = function() {
+    const orders = state.ordersHistory || [];
+    if (!orders.length) {
+        showToast('No orders found to export', 'warning');
+        return;
+    }
+    const headers = ['Order ID', 'Date', 'Customer Name', 'Phone', 'Address', 'Payment', 'Items', 'Total', 'Status'];
+    const rows = orders.map(o => {
+        const d = o.delivery || {};
+        const items = (o.items || []).map(i => `${i.title || i.name} (x${i.qty || i.quantity || 1})`).join('; ');
+        return [
+            o.id,
+            o.date || '',
+            `"${(d.name || d.fullName || '').replace(/"/g, '""')}"`,
+            `"${(d.phone || '').replace(/"/g, '""')}"`,
+            `"${(d.address || '').replace(/"/g, '""')}"`,
+            d.payment || 'COD',
+            `"${items.replace(/"/g, '""')}"`,
+            o.total || 0,
+            o.status || 'Placed'
+        ];
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Dropzyy_Orders_Backup_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('✅ Orders CSV exported successfully!', 'success');
+};
+
+window.confirmClearAdminOrders = async function() {
+    const ordersCount = (state.ordersHistory || []).length;
+    if (ordersCount === 0) {
+        showToast('No orders found to clear.', 'info');
+        return;
+    }
+
+    const exportFirst = confirm(
+        `⚠️ CLEAR ALL ORDERS\n\nYou currently have ${ordersCount} order(s) in the system.\n\nWould you like to Export to Excel first to save a backup?\n\n[OK] = Export to Excel Backup Now\n[Cancel] = Continue directly to Clear Orders`
+    );
+
+    if (exportFirst) {
+        window.exportAdminOrdersToExcel();
+        setTimeout(() => {
+            window.executeClearAdminOrders();
+        }, 1200);
+        return;
+    }
+
+    window.executeClearAdminOrders();
+};
+
+window.executeClearAdminOrders = async function() {
+    const finalConfirm = prompt(
+        "🚨 PERMANENT ACTION:\n\nType 'CLEAR' to delete all orders from the system and database:"
+    );
+    if (!finalConfirm || finalConfirm.trim().toUpperCase() !== 'CLEAR') {
+        showToast('Order clearing cancelled.', 'info');
+        return;
+    }
+
+    showToast('⏳ Clearing orders from database...', 'info');
+    const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
+
+    try {
+        const res = await fetch('/api/admin/orders/clear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ scope: 'all' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            state.ordersHistory = [];
+            try { localStorage.removeItem('dropzyy_orders_history'); } catch(e){}
+            renderBookingTracking();
+            showToast(`✅ ${data.message || 'Orders cleared successfully!'}`, 'success');
+        } else {
+            showToast(data.message || 'Failed to clear orders', 'error');
+        }
+    } catch(err) {
+        showToast('Error clearing orders: ' + err.message, 'error');
+    }
+};
+
+
 async function openBookingTrackingModal() {
     closeModals();
     if (!state.currentUser) {
@@ -11129,6 +11279,23 @@ function renderBookingTracking(searchQuery = '') {
         } else {
             toggleRefundClaimsBtn.classList.add('hidden');
             if (adminRefundClaimsContainer) adminRefundClaimsContainer.classList.add('hidden');
+        }
+    }
+
+    const adminExportOrdersExcelBtn = document.getElementById('adminExportOrdersExcelBtn');
+    const adminClearOrdersBtn = document.getElementById('adminClearOrdersBtn');
+    if (adminExportOrdersExcelBtn) {
+        if (isSystemAdmin) {
+            adminExportOrdersExcelBtn.classList.remove('hidden');
+        } else {
+            adminExportOrdersExcelBtn.classList.add('hidden');
+        }
+    }
+    if (adminClearOrdersBtn) {
+        if (isSystemAdmin) {
+            adminClearOrdersBtn.classList.remove('hidden');
+        } else {
+            adminClearOrdersBtn.classList.add('hidden');
         }
     }
 
