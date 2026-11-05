@@ -719,6 +719,79 @@ def seed_initial_data(db: Session):
         db.add_all([l1, l2, l3, l4])
         db.commit()
 
+    # Seed Platform Categories
+    seed_initial_categories(db)
+
+def seed_initial_categories(db: Session):
+    """Ensure standard platform categories exist in SQLite and MongoDB Atlas, and purged categories are removed."""
+    DEFAULT_SYSTEM_CATEGORIES = [
+        {"code": "food", "name": "Hotels & Dishes", "icon": "fa-solid fa-utensils", "created_by_supplier": None},
+        {"code": "pizza", "name": "Pizza & Fast Food", "icon": "fa-solid fa-pizza-slice", "created_by_supplier": None},
+        {"code": "biryani", "name": "Biryani & Rice", "icon": "fa-solid fa-bowl-rice", "created_by_supplier": None},
+        {"code": "banjos", "name": "Banjos", "icon": "fa-solid fa-bread-slice", "created_by_supplier": "Banjos Cafe"},
+        {"code": "burgers", "name": "Burgers", "icon": "fa-solid fa-burger", "created_by_supplier": "Banjos Cafe"},
+        {"code": "sandwich", "name": "Sandwich", "icon": "fa-solid fa-bread-slice", "created_by_supplier": "Banjos Cafe"},
+        {"code": "rolls", "name": "Rolls", "icon": "fa-solid fa-hotdog", "created_by_supplier": "Banjos Cafe"},
+        {"code": "fries", "name": "Fries", "icon": "fa-solid fa-bowl-food", "created_by_supplier": "Banjos Cafe"},
+        {"code": "momos_desserts", "name": "Momos & Desserts", "icon": "fa-solid fa-cookie-bite", "created_by_supplier": "Banjos Cafe"},
+        {"code": "staples", "name": "Atta, Rice & Dal", "icon": "fa-solid fa-wheat-awn", "created_by_supplier": None},
+        {"code": "oil", "name": "Oil & Ghee", "icon": "fa-solid fa-bottle-droplet", "created_by_supplier": None},
+        {"code": "dairy", "name": "Dairy & Butter", "icon": "fa-solid fa-cow", "created_by_supplier": None},
+        {"code": "vegetables", "name": "Sabzi & Fruits", "icon": "fa-solid fa-carrot", "created_by_supplier": None},
+        {"code": "tea", "name": "Tea & Drinks", "icon": "fa-solid fa-mug-hot", "created_by_supplier": None},
+        {"code": "snacks", "name": "Snacks & Munchies", "icon": "fa-solid fa-cookie-bite", "created_by_supplier": None},
+        {"code": "sweets", "name": "Sweets & Desserts", "icon": "fa-solid fa-cake-candles", "created_by_supplier": None}
+    ]
+    try:
+        # Purge deleted categories like rangoli from SQLite
+        db.query(models.Category).filter(
+            (models.Category.code == "rangoli") | (models.Category.name.ilike("rangoli"))
+        ).delete(synchronize_session=False)
+
+        for cat in DEFAULT_SYSTEM_CATEGORIES:
+            existing = db.query(models.Category).filter(models.Category.code == cat["code"]).first()
+            if not existing:
+                db.add(models.Category(
+                    code=cat["code"],
+                    name=cat["name"],
+                    icon=cat["icon"],
+                    created_by_supplier=cat["created_by_supplier"]
+                ))
+            else:
+                existing.name = cat["name"]
+                existing.icon = cat["icon"]
+                if cat["created_by_supplier"] is not None:
+                    existing.created_by_supplier = cat["created_by_supplier"]
+        db.commit()
+
+        if mongo_db.is_mongo_active():
+            m_db = mongo_db.get_mongo_db()
+            if m_db is not None:
+                # Remove rangoli from MongoDB Atlas
+                m_db.categories.delete_many({
+                    "$or": [
+                        {"code": "rangoli"},
+                        {"id": "rangoli"},
+                        {"name": {"$regex": "^rangoli$", "$options": "i"}}
+                    ]
+                })
+                # Upsert canonical categories into MongoDB Atlas
+                for idx, cat in enumerate(DEFAULT_SYSTEM_CATEGORIES, 1):
+                    m_db.categories.update_one(
+                        {"code": cat["code"]},
+                        {"$set": {
+                            "id": str(idx),
+                            "code": cat["code"],
+                            "name": cat["name"],
+                            "icon": cat["icon"],
+                            "created_by_supplier": cat["created_by_supplier"]
+                        }},
+                        upsert=True
+                    )
+    except Exception as err:
+        db.rollback()
+        print(f"[CATEGORY SEED ERROR]: {err}")
+
 def sync_mongo_users_to_sqlite(db: Session):
     """Ensure all accounts in MongoDB Atlas exist in SQLite with consistent credentials."""
     if not mongo_db.is_mongo_active():

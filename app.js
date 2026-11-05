@@ -420,7 +420,6 @@ const DEFAULT_PRODUCTS = [
 
 const DEFAULT_CATEGORIES = [
     { id: 'all', name: 'All Categories', icon: 'fa-solid fa-border-all', count: 16 },
-    { id: 'rangoli', name: 'Rangoli', icon: 'fa-solid fa-layer-group', count: 2, created_by_supplier: 'Dropzyy' },
     { id: 'food', name: 'Hotels & Dishes', icon: 'fa-solid fa-utensils', count: 12 },
     { id: 'pizza', name: 'Pizza & Fast Food', icon: 'fa-solid fa-pizza-slice', count: 8 },
     { id: 'banjos', name: 'Banjos', icon: 'fa-solid fa-bread-slice', count: 6 },
@@ -437,7 +436,7 @@ const DEFAULT_CATEGORIES = [
     { id: 'sweets', name: 'Sweets & Desserts', icon: 'fa-solid fa-cake-candles', count: 4 }
 ];
 
-const PURGED_UNUSED_CATS = new Set(['hotel_dishes', 'hotelndish', 'foofsd', 'foofsdsdsd', 'bakery_items']);
+const PURGED_UNUSED_CATS = new Set(['rangoli', 'hotel_dishes', 'hotelndish', 'foofsd', 'foofsdsdsd', 'bakery_items']);
 let customCategories = (JSON.parse(localStorage.getItem('dropzyy_custom_categories')) || []).filter(c => !PURGED_UNUSED_CATS.has(c.id));
 // custom categories stored in memory and db
 let CATEGORIES = [...DEFAULT_CATEGORIES];
@@ -11707,7 +11706,7 @@ window.openAdminCategoriesModal = async function() {
         overlay.classList.add('active');
     }
 
-    // Fetch fresh from backend (MongoDB Atlas) to ensure latest categories like Rangoli are visible
+    // Fetch fresh from backend (MongoDB Atlas) to ensure latest categories are visible
     await fetchCategoriesFromAPI();
     renderAdminCategoriesList();
 };
@@ -11805,10 +11804,12 @@ CATEGORIES.push(newCat);
 };
 
 window.deleteCategory = function(catId) {
-    customCategories = customCategories.filter(c => c.id !== catId);
-    /* cleaned */
-CATEGORIES = CATEGORIES.filter(c => c.id !== catId);
-    syncDeleteCategoryFromDB(catId);
+    if (!catId) return;
+    const cleanId = String(catId).toLowerCase().trim();
+    PURGED_UNUSED_CATS.add(cleanId);
+    customCategories = customCategories.filter(c => String(c.id).toLowerCase() !== cleanId);
+    CATEGORIES = CATEGORIES.filter(c => String(c.id).toLowerCase() !== cleanId);
+    syncDeleteCategoryFromDB(cleanId);
     renderCategories();
     renderCategoryPills();
     window.populateCategoryDropdowns();
@@ -11853,25 +11854,21 @@ async function fetchCategoriesFromAPI() {
         }, 10000);
         if (res && res.ok) {
             const apiCats = await res.json();
-            if (Array.isArray(apiCats)) {
-                apiCats.forEach(c => {
-                    const code = (c.code || '').trim().toLowerCase();
-                    if (!code) return;
-                    const existing = CATEGORIES.find(cat => cat.id.toLowerCase() === code);
-                    if (!existing) {
-                        CATEGORIES.push({
+            if (Array.isArray(apiCats) && apiCats.length > 0) {
+                const allCat = { id: 'all', name: 'All Categories', icon: 'fa-solid fa-border-all', count: 0 };
+                const validCats = apiCats
+                    .filter(c => c && c.code && !PURGED_UNUSED_CATS.has(String(c.code).toLowerCase()))
+                    .map(c => {
+                        const code = (c.code || '').trim().toLowerCase();
+                        return {
                             id: code,
                             name: c.name || code,
                             icon: c.icon || 'fa-solid fa-layer-group',
                             created_by_supplier: c.created_by_supplier || null,
                             count: 0
-                        });
-                    } else {
-                        if (c.name) existing.name = c.name;
-                        if (c.icon) existing.icon = c.icon;
-                        if (c.created_by_supplier !== undefined) existing.created_by_supplier = c.created_by_supplier;
-                    }
-                });
+                        };
+                    });
+                CATEGORIES = [allCat, ...validCats];
                 renderCategories();
                 renderCategoryPills();
                 populateCategoryDropdowns();
@@ -13716,10 +13713,10 @@ if (document.readyState === 'loading') {
 
 const DEFAULT_BANNER_SLIDES = [
     {
-        id: 'slide_rangoli',
-        badge: '✨ FESTIVE SPECIAL OFFER • RANGOLI & SWEETS',
-        title: 'Festive Rangoli & Pooja Specials',
-        subtext: 'Rangoli colors, fragrant marigolds, clay diyas, pure ghee sweets & celebratory treats delivered in 15 mins!',
+        id: 'slide_sweets',
+        badge: '✨ SWEETS & CELEBRATION TREATS',
+        title: 'Mouthwatering Sweets & Desserts',
+        subtext: 'Gulab jamuns, rasgulla, pure ghee sweets & celebratory treats delivered in 15 mins!',
         btnText: '',
         showButton: false,
         status: 'online',
