@@ -881,7 +881,7 @@ def mongo_delete_restaurant(identifier: str, store_name: Optional[str] = None) -
         if u.get("_id"):
             user_or.append({"_id": u["_id"]})
 
-    PROTECTED_MONGO_USERS = {"arnav", "pranav", "banjos", "supplier", "admin", "yashpatil"}
+    PROTECTED_MONGO_USERS = {"arnav", "pranav", "banjos", "supplier", "admin", "yash", "yashpatil"}
     user_deleted = 0
     if user_or:
         # Exclude protected partner usernames

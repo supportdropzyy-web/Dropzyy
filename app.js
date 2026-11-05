@@ -612,6 +612,7 @@ window.setSavedUserAddress = function(username, addressObj) {
 const DEFAULT_REGISTERED_USERS = [
     { id: 9, username: 'arnav', email: 'arnav@dropzyy.com', password: 'Arnav@Faizpur', full_name: 'Arnav Patil', role: 'supplier', supplier_company_name: 'Urban Tadka', restaurant_name: 'Urban Tadka', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Quick Bites • Great Vibes', store_open: true, open_time: '08:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80' },
     { id: 6, username: 'pranav', email: 'pranav@dropzyy.com', password: 'Pranav@Faizpur', full_name: 'Pranav Firake', role: 'supplier', supplier_company_name: 'Katta Biryani and Tandoor', restaurant_name: 'Katta Biryani and Tandoor', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Great Vibes', store_open: true, open_time: '11:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80' },
+    { id: 35, username: 'yash', email: 'yash@dropzyy.com', password: '12528289Yash@', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
     { id: 1, username: 'yashpatil', email: 'yashpatil@dropzyy.com', password: '12528289Yash@', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
     { id: 2, username: 'admin', email: 'admin@dropzyy.com', password: 'Dropzyy@Admin#2026!', full_name: 'System Administrator', role: 'admin', city: 'Savda' },
     { id: 22, username: 'banjos', email: 'banjos@dropzyy.com', password: 'Banjos@123', full_name: 'Banjos Cafe', role: 'supplier', supplier_company_name: 'Banjos Cafe', city: 'Savda-Faizpur', store_open: true, open_time: '08:00 AM', close_time: '10:00 PM', menu_card_image: 'uploads/banjos_menu_card_page_1.jpg' }
@@ -3282,7 +3283,7 @@ function updateUserAuthUI() {
         const mobileNavNotificationBtn = document.getElementById('mobileNavNotificationBtn');
         const toolbarNotificationBtn = document.getElementById('toolbarNotificationBtn');
 
-        if (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin') {
+        if (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin' || ['admin', 'yash', 'yashpatil'].includes((state.currentUser.username || '').toLowerCase())) {
             if (adminControlCenterBtn) adminControlCenterBtn.classList.remove('hidden');
             if (adminAnalyticsBtn) adminAnalyticsBtn.classList.remove('hidden');
             if (adminPortalBtn) adminPortalBtn.classList.remove('hidden');
@@ -3526,14 +3527,18 @@ async function loginUser(username, password) {
     const matchedUser = registeredUsers.find(u => {
         const uClean = (u.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const cClean = (u.supplier_company_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const isYashAdmin = (cleanInput === 'yash' || cleanInput === 'yashpatil' || cleanInput === 'yash@dropzyy.com' || cleanInput === 'yashpatil@dropzyy.com') &&
+                            (uClean === 'yash' || uClean === 'yashpatil');
         const uMatches = (u.username && u.username.toLowerCase() === cleanInput) || 
                          (u.email && u.email.toLowerCase() === cleanInput) ||
+                         isYashAdmin ||
                          ((cleanAlpha === 'banjos' || cleanAlpha === 'banjoscafe' || cleanAlpha === 'banjo') && (uClean === 'banjos' || cClean.includes('banjo')));
         if (!uMatches) return false;
         if (u.password === password) return true;
-        if (cleanInput === 'admin' && (password === 'admin123' || password === 'Dropzyy@Admin#2026!')) return true;
+        if (cleanInput === 'admin' && (password === 'admin123' || password === 'Dropzyy@Admin#2026!' || password === '12528289Yash@')) return true;
         if (cleanInput === 'supplier' && (password === 'supplier123' || password === 'Supplier@Dropzyy#2026!')) return true;
-        if (cleanInput === 'yashpatil' && password === '12528289Yash@') return true;
+        if ((cleanInput === 'yash' || cleanInput === 'yashpatil' || cleanInput === 'yash@dropzyy.com' || cleanInput === 'yashpatil@dropzyy.com') && 
+            (password === '12528289Yash@' || password === 'Dropzyy@Admin#2026!' || password === 'admin123')) return true;
         if ((cleanAlpha === 'banjos' || cleanAlpha === 'banjoscafe' || cleanAlpha === 'banjo' || cleanInput === 'banjos@dropzyy.com') && 
             (password === 'Banjos@123' || password === 'banjos@123' || password === 'Banjos@Dropzyy#2026!' || password === 'banjos' || password === '123456')) {
             return true;
@@ -5069,7 +5074,7 @@ function renderAdminUsersDirectory() {
     if (container) {
         container.innerHTML = usersList.map(u => {
             const isBlocked = isCustomerBlocked(u.phone, u.email || (u.username && u.username.includes('@') ? u.username : ''));
-            const isProtectedAdmin = u.username === 'yashpatil' || u.role === 'admin' || (state.currentUser && u.username === state.currentUser.username);
+            const isProtectedAdmin = u.username === 'yash' || u.username === 'yashpatil' || u.role === 'admin' || (state.currentUser && u.username === state.currentUser.username);
 
             return `
             <div class="supplier-item-row" style="padding: 12px; margin-bottom: 8px; background: rgba(255,255,255,0.7); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
@@ -5120,7 +5125,7 @@ function renderAdminUsersDirectory() {
                             <i class="fa-solid ${u.store_open !== false ? 'fa-power-off' : 'fa-circle-check'}"></i> ${u.store_open !== false ? '🚨 Emergency Offline' : '🟢 Bring Online'}
                         </button>
                     ` : ''}
-                    ${(u.username !== 'yashpatil' && state.currentUser && u.username !== state.currentUser.username) ? `
+                    ${(u.username !== 'yash' && u.username !== 'yashpatil' && state.currentUser && u.username !== state.currentUser.username) ? `
                         <button type="button" class="btn btn-secondary btn-sm text-danger" onclick="deleteUserAccount(${u.id || 0}, '${u.username}')" style="border-radius: 8px; padding: 6px 10px;" title="Delete User Account">
                             <i class="fa-solid fa-trash"></i>
                         </button>
@@ -11078,8 +11083,11 @@ window.exportAdminOrdersToExcel = function() {
     const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
     
     // Direct link trigger with authorization header or fallback link
-    fetch('/api/admin/orders/export-excel', {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    fetch(`${API_BASE_URL}/admin/orders/export-excel`, {
+        headers: {
+            'X-Admin-Role': 'admin',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
     })
     .then(res => {
         if (!res.ok) throw new Error('Failed to generate Excel report');
@@ -11176,10 +11184,11 @@ window.executeClearAdminOrders = async function() {
     const token = state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : '';
 
     try {
-        const res = await fetch('/api/admin/orders/clear', {
+        const res = await fetch(`${API_BASE_URL}/admin/orders/clear`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Admin-Role': 'admin',
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             },
             body: JSON.stringify({ scope: 'all' })
@@ -11206,6 +11215,27 @@ async function openBookingTrackingModal() {
         openAuthModal();
         return;
     }
+
+    const isSystemAdmin = Boolean(
+        state.currentUser && (
+            state.currentUser.role === 'admin' || 
+            state.currentUser.role === 'sub_admin' ||
+            ['admin', 'yash', 'yashpatil'].includes((state.currentUser.username || '').toLowerCase()) ||
+            ['admin@dropzyy.com', 'yash@dropzyy.com', 'yashpatil@dropzyy.com'].includes((state.currentUser.email || '').toLowerCase())
+        )
+    );
+
+    const adminExportOrdersExcelBtn = document.getElementById('adminExportOrdersExcelBtn');
+    const adminClearOrdersBtn = document.getElementById('adminClearOrdersBtn');
+    if (adminExportOrdersExcelBtn) {
+        adminExportOrdersExcelBtn.classList.remove('hidden');
+        adminExportOrdersExcelBtn.style.display = isSystemAdmin ? 'inline-flex' : 'none';
+    }
+    if (adminClearOrdersBtn) {
+        adminClearOrdersBtn.classList.remove('hidden');
+        adminClearOrdersBtn.style.display = isSystemAdmin ? 'inline-flex' : 'none';
+    }
+
     await fetchOrdersFromAPI();
     renderBookingTracking();
     if (bookingTrackingOverlay) bookingTrackingOverlay.classList.add('active');
@@ -11217,7 +11247,50 @@ function renderBookingTracking(searchQuery = '') {
     
     let bookingsToDisplay = [...state.ordersHistory];
     const isSupplierRole = state.currentUser && state.currentUser.role === 'supplier';
-    const isSystemAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin');
+    const isSystemAdmin = Boolean(
+        state.currentUser && (
+            state.currentUser.role === 'admin' || 
+            state.currentUser.role === 'sub_admin' ||
+            ['admin', 'yash', 'yashpatil'].includes((state.currentUser.username || '').toLowerCase()) ||
+            ['admin@dropzyy.com', 'yash@dropzyy.com', 'yashpatil@dropzyy.com'].includes((state.currentUser.email || '').toLowerCase())
+        )
+    );
+
+    // Update Admin Action Buttons BEFORE any early returns
+    const toggleSoundAlertBtn = document.getElementById('toggleSoundAlertBtn');
+    if (toggleSoundAlertBtn) {
+        if (isSystemAdmin) {
+            toggleSoundAlertBtn.classList.remove('hidden');
+            toggleSoundAlertBtn.style.display = 'inline-flex';
+        } else {
+            toggleSoundAlertBtn.classList.add('hidden');
+            toggleSoundAlertBtn.style.display = 'none';
+        }
+    }
+
+    const toggleRefundClaimsBtn = document.getElementById('toggleRefundClaimsBtn');
+    const adminRefundClaimsContainer = document.getElementById('adminRefundClaimsContainer');
+    if (toggleRefundClaimsBtn) {
+        if (isSystemAdmin) {
+            toggleRefundClaimsBtn.classList.remove('hidden');
+            toggleRefundClaimsBtn.style.display = 'inline-flex';
+        } else {
+            toggleRefundClaimsBtn.classList.add('hidden');
+            toggleRefundClaimsBtn.style.display = 'none';
+            if (adminRefundClaimsContainer) adminRefundClaimsContainer.classList.add('hidden');
+        }
+    }
+
+    const adminExportOrdersExcelBtn = document.getElementById('adminExportOrdersExcelBtn');
+    const adminClearOrdersBtn = document.getElementById('adminClearOrdersBtn');
+    if (adminExportOrdersExcelBtn) {
+        adminExportOrdersExcelBtn.classList.remove('hidden');
+        adminExportOrdersExcelBtn.style.display = isSystemAdmin ? 'inline-flex' : 'none';
+    }
+    if (adminClearOrdersBtn) {
+        adminClearOrdersBtn.classList.remove('hidden');
+        adminClearOrdersBtn.style.display = isSystemAdmin ? 'inline-flex' : 'none';
+    }
 
     if (searchQuery && searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
@@ -11262,42 +11335,7 @@ function renderBookingTracking(searchQuery = '') {
 
     const isAdminOrSupplier = isSystemAdmin || isSupplierRole;
 
-    const toggleSoundAlertBtn = document.getElementById('toggleSoundAlertBtn');
-    if (toggleSoundAlertBtn) {
-        if (isSystemAdmin) {
-            toggleSoundAlertBtn.classList.remove('hidden');
-        } else {
-            toggleSoundAlertBtn.classList.add('hidden');
-        }
-    }
 
-    const toggleRefundClaimsBtn = document.getElementById('toggleRefundClaimsBtn');
-    const adminRefundClaimsContainer = document.getElementById('adminRefundClaimsContainer');
-    if (toggleRefundClaimsBtn) {
-        if (isSystemAdmin) {
-            toggleRefundClaimsBtn.classList.remove('hidden');
-        } else {
-            toggleRefundClaimsBtn.classList.add('hidden');
-            if (adminRefundClaimsContainer) adminRefundClaimsContainer.classList.add('hidden');
-        }
-    }
-
-    const adminExportOrdersExcelBtn = document.getElementById('adminExportOrdersExcelBtn');
-    const adminClearOrdersBtn = document.getElementById('adminClearOrdersBtn');
-    if (adminExportOrdersExcelBtn) {
-        if (isSystemAdmin) {
-            adminExportOrdersExcelBtn.classList.remove('hidden');
-        } else {
-            adminExportOrdersExcelBtn.classList.add('hidden');
-        }
-    }
-    if (adminClearOrdersBtn) {
-        if (isSystemAdmin) {
-            adminClearOrdersBtn.classList.remove('hidden');
-        } else {
-            adminClearOrdersBtn.classList.add('hidden');
-        }
-    }
 
     bookingTrackingContainer.innerHTML = bookingsToDisplay.map(order => {
         // Filter item list: Suppliers ONLY see items from their own catalog!
