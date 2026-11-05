@@ -3324,7 +3324,7 @@ def update_product(product_id: str, product_data: schemas.ProductCreate, db: Ses
             if prod_sup_name and caller_name and prod_sup_name != caller_name and prod_sup_uid != caller_id:
                 raise HTTPException(status_code=403, detail="Forbidden: You can only modify your own products.")
 
-        is_on = bool(product_data.is_online if product_data.is_online is not None else True)
+    is_on = bool(product_data.is_online if product_data.is_online is not None else True)
     in_st = bool(product_data.in_stock if product_data.in_stock is not None else True)
     st_qty = int(product_data.stock_quantity if product_data.stock_quantity is not None else 50)
     sh_st = bool(product_data.show_stock_to_customer if product_data.show_stock_to_customer is not None else True)

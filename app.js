@@ -1990,6 +1990,7 @@ window.renderRestaurants = function() {
         // Count products belonging strictly to this supplier (online only for customers)
         const items = state.products.filter(p => doesProductBelongToSupplier(p, sup) && (isSupplierUser ? true : isProductOnline(p)));
         const count = items.length;
+        const inStockCount = items.filter(p => p.in_stock !== false && (p.stock_quantity === undefined || p.stock_quantity === null || Number(p.stock_quantity) > 0)).length;
 
         const { banner, avatarIcon, avatarBg } = getSupplierBannerAndAvatar(sup);
         const filterParam = String(sup.username || sup.id || sup.supplier_company_name).replace(/'/g, "\\'");
@@ -2045,8 +2046,11 @@ window.renderRestaurants = function() {
                     </div>
 
                     <div class="restaurant-card-footer" style="margin-top: auto; border-top: 1px dashed #E2E8F0; padding-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-                        <div style="font-size: 0.82rem; font-weight: 700; color: #059669; display: flex; align-items: center; gap: 6px;">
-                            <i class="fa-solid fa-bowl-food"></i> ${count} Menu Item${count === 1 ? '' : 's'}
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #059669; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span><i class="fa-solid fa-bowl-food"></i> ${count} Dish${count === 1 ? '' : 'es'}</span>
+                            <span style="font-size: 0.72rem; font-weight: 700; color: ${inStockCount > 0 ? '#059669' : '#DC2626'}; background: ${inStockCount > 0 ? '#ECFDF5' : '#FEF2F2'}; border: 1px solid ${inStockCount > 0 ? '#A7F3D0' : '#FECACA'}; padding: 1px 7px; border-radius: 6px;">
+                                <i class="fa-solid ${inStockCount > 0 ? 'fa-circle-check' : 'fa-ban'}"></i> ${inStockCount} In Stock
+                            </span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                             ${mCard ? `
@@ -2277,6 +2281,9 @@ window.renderRestaurantMenuModalContent = function(target) {
         mCard = 'uploads/banjos_menu_card_page_1.jpg';
     }
 
+    const inStockCount = items.filter(p => p.in_stock !== false && (p.stock_quantity === undefined || p.stock_quantity === null || Number(p.stock_quantity) > 0)).length;
+    const outOfStockCount = items.length - inStockCount;
+
     const hasSecondaryActions = Boolean(
         (state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin')) ||
         (state.currentUser && state.currentUser.role === 'supplier' && window.isSameSupplierEntity(target, state.currentUser))
@@ -2314,7 +2321,9 @@ window.renderRestaurantMenuModalContent = function(target) {
                         <span>•</span>
                         <span style="color: #059669; font-weight: 700;"><i class="fa-solid fa-bowl-food"></i> ${items.length} Dishes</span>
                         <span>•</span>
-                        <span style="color: #2563EB; font-weight: 700;"><i class="fa-solid fa-layer-group"></i> ${restaurantCategories.length} Categories</span>
+                        <span style="color: ${outOfStockCount > 0 ? '#DC2626' : '#059669'}; font-weight: 700;">
+                            <i class="fa-solid ${outOfStockCount > 0 ? 'fa-boxes-stacked' : 'fa-circle-check'}"></i> ${inStockCount} In Stock ${outOfStockCount > 0 ? `(${outOfStockCount} Out)` : ''}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -2460,16 +2469,20 @@ window.renderRestaurantMenuItemCard = function(p, isOpen) {
     const inCart = state.cart.find(c => String(c.id) === String(cartItemId));
     const cartQty = inCart ? inCart.qty : 0;
     const isOnline = isProductOnline(p);
-    const canOrder = isOpen && isOnline;
+    const inStock = p.in_stock !== false && (p.stock_quantity === undefined || p.stock_quantity === null || Number(p.stock_quantity) > 0);
+    const stockQty = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : 50;
+    const showStockToCust = p.show_stock_to_customer !== false;
+    const canEdit = typeof canUserEditProduct === 'function' ? canUserEditProduct(p) : false;
+    const canOrder = isOpen && isOnline && inStock;
 
     return `
-        <div class="restaurant-dish-card">
-            <div class="restaurant-menu-card-img-wrap">
-                <img src="${p.image}" alt="${p.title}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
-                ${p.badge ? `<span style="position: absolute; top: 8px; left: 8px; background: #10B981; color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;">${p.badge}</span>` : ''}
+        <div class="restaurant-dish-card" style="${!inStock ? 'border-color: #FECACA; background: #FFFBFB;' : ''}">
+            <div class="restaurant-menu-card-img-wrap" style="position: relative;">
+                <img src="${p.image}" alt="${p.title}" style="width: 100%; height: 100%; object-fit: cover; ${!inStock ? 'filter: grayscale(35%);' : ''}" loading="lazy">
+                ${p.badge ? `<span style="position: absolute; top: 8px; left: 8px; background: #10B981; color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; z-index: 2;">${p.badge}</span>` : ''}
                 ${!canOrder ? `
-                    <div style="position: absolute; inset: 0; background: rgba(15,23,42,0.65); display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 0.78rem;">
-                        🔴 ${!isOnline ? 'OFFLINE' : 'STORE CLOSED'}
+                    <div style="position: absolute; inset: 0; background: ${!inStock ? 'rgba(220, 38, 38, 0.74)' : 'rgba(15,23,42,0.65)'}; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 0.76rem; letter-spacing: 0.3px; z-index: 2; padding: 4px; text-align: center;">
+                        ${!isOnline ? '🔴 OFFLINE' : (!isOpen ? '⏱️ STORE CLOSED' : '❌ OUT OF STOCK')}
                     </div>
                 ` : ''}
             </div>
@@ -2478,12 +2491,45 @@ window.renderRestaurantMenuItemCard = function(p, isOpen) {
                     <div style="font-size: 0.72rem; color: #10B981; font-weight: 700; text-transform: uppercase;">
                         ${p.category || 'Store Item'}
                     </div>
-                    ${window.renderFoodTypeBadge(p.food_type)}
+                    ${window.renderFoodTypeBadge ? window.renderFoodTypeBadge(p.food_type) : ''}
                 </div>
                 <h4 class="restaurant-dish-title">
                     ${p.title}
                 </h4>
                 ${p.unit ? `<div style="font-size: 0.75rem; color: #64748B; margin-bottom: 3px;">${p.unit}</div>` : ''}
+                
+                <!-- Stock Status Indicator Badge -->
+                <div style="margin: 2px 0 6px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    ${!inStock ? `
+                        <span style="font-size: 0.72rem; font-weight: 800; color: #DC2626; background: #FEE2E2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-boxes-stacked"></i> Out of Stock
+                        </span>
+                    ` : (stockQty <= 5 && showStockToCust) ? `
+                        <span style="font-size: 0.72rem; font-weight: 800; color: #D97706; background: #FEF3C7; border: 1px solid #FDE68A; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-fire text-danger"></i> Only ${stockQty} left!
+                        </span>
+                    ` : showStockToCust ? `
+                        <span style="font-size: 0.72rem; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-circle-check"></i> In Stock (${stockQty})
+                        </span>
+                    ` : canEdit ? `
+                        <span style="font-size: 0.72rem; font-weight: 600; color: #64748B; background: #F1F5F9; border: 1px solid #CBD5E1; padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-eye-slash"></i> Stock: ${stockQty} (Hidden)
+                        </span>
+                    ` : ''}
+                </div>
+
+                ${canEdit ? `
+                    <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; padding: 4px 6px; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0;">
+                        <button type="button" class="btn btn-sm ${inStock ? 'btn-outline-danger' : 'btn-success'}" onclick="event.stopPropagation(); toggleProductStockStatus('${p.id}'); setTimeout(() => renderRestaurantMenuModalContent(state.activeModalRestaurant), 10);" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;" title="Quick toggle In-Stock / Out-of-Stock">
+                            <i class="fa-solid ${inStock ? 'fa-box' : 'fa-ban'}"></i> ${inStock ? `Stock: ${stockQty}` : 'Out of Stock'}
+                        </button>
+                        <button type="button" class="btn btn-sm" onclick="event.stopPropagation(); window._previousRestaurantModalBeforeEdit = state.activeModalRestaurant; openEditProductModal('${p.id}');" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;" title="Edit Product Details">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                        </button>
+                    </div>
+                ` : ''}
+
                 ${p.description ? `<p style="font-size: 0.76rem; color: #64748B; margin: 0 0 6px 0; line-height: 1.32; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${p.description}</p>` : ''}
                 
                 ${hasVariants ? `
@@ -2503,8 +2549,8 @@ window.renderRestaurantMenuItemCard = function(p, isOpen) {
                     </div>
 
                     ${!canOrder ? `
-                        <button class="btn btn-sm" disabled style="background:#E2E8F0; color:#94A3B8; border-radius: 8px; font-size: 0.72rem; font-weight: 700; cursor: not-allowed; padding: 4px 8px;">
-                            Closed
+                        <button class="btn btn-sm" disabled style="background:${!inStock ? '#FEE2E2' : '#E2E8F0'}; color:${!inStock ? '#DC2626' : '#94A3B8'}; border: 1px solid ${!inStock ? '#FCA5A5' : 'transparent'}; border-radius: 8px; font-size: 0.72rem; font-weight: 800; cursor: not-allowed; padding: 4px 10px;">
+                            ${!isOnline ? 'Offline' : (!isOpen ? 'Closed' : 'Out of Stock')}
                         </button>
                     ` : cartQty > 0 ? `
                         <div style="display: flex; align-items: center; gap: 3px; background: #ECFDF5; border: 1.5px solid #10B981; border-radius: 8px; padding: 2px 4px;">
@@ -7338,8 +7384,8 @@ window.openAddProductModal = function() {
     closeModals();
     populateCategoryDropdowns();
     if (editProductId) editProductId.value = '';
-    if (adminModalTitle) adminModalTitle.innerHTML = `<i class="fa-solid fa-plus-circle text-primary"></i> Add Kirana Product`;
-    if (adminModalSub) adminModalSub.textContent = `Add a new product to the catalog`;
+    if (adminModalTitle) adminModalTitle.innerHTML = `<i class="fa-solid fa-plus-circle text-primary"></i> Add Product`;
+    if (adminModalSub) adminModalSub.textContent = `Add a new product or dish to catalog`;
     if (addProductForm) addProductForm.reset();
 
     if (document.getElementById('prodStatus')) {
@@ -7397,12 +7443,17 @@ window.openEditProductModal = function(productId) {
         return;
     }
 
+    const restModal = document.getElementById('restaurantMenuModal');
+    if (restModal && restModal.classList.contains('active') && state.activeModalRestaurant) {
+        window._previousRestaurantModalBeforeEdit = state.activeModalRestaurant;
+    }
+
     closeModals();
     populateCategoryDropdowns();
 
     if (editProductId) editProductId.value = product.id;
-    if (adminModalTitle) adminModalTitle.innerHTML = `<i class="fa-solid fa-pen-to-square text-primary"></i> Edit Kirana Product`;
-    if (adminModalSub) adminModalSub.textContent = `Update details for "${product.title}"`;
+    if (adminModalTitle) adminModalTitle.innerHTML = `<i class="fa-solid fa-pen-to-square text-primary"></i> Edit Product Details`;
+    if (adminModalSub) adminModalSub.textContent = `Update details, pricing & stock for "${product.title}"`;
 
     if (document.getElementById('prodTitle')) document.getElementById('prodTitle').value = product.title;
     
@@ -7666,6 +7717,15 @@ function saveProduct(productData, isEdit = false) {
         if (state.activeModalRestaurant) renderRestaurantMenuModalContent(state.activeModalRestaurant);
         closeModals();
         showToast(`Updated <strong>${productData.title}</strong>!`, 'success');
+        if (window._previousRestaurantModalBeforeEdit) {
+            const prevRest = window._previousRestaurantModalBeforeEdit;
+            window._previousRestaurantModalBeforeEdit = null;
+            setTimeout(() => {
+                if (typeof openRestaurantMenuModal === 'function') {
+                    openRestaurantMenuModal(prevRest.username || prevRest.id);
+                }
+            }, 120);
+        }
 
         try {
             fetchWithTimeout(`${API_BASE_URL}/products/${productData.id}`, {
@@ -7731,6 +7791,15 @@ function saveProduct(productData, isEdit = false) {
         if (state.activeModalRestaurant) renderRestaurantMenuModalContent(state.activeModalRestaurant);
         closeModals();
         showToast(`Added <strong>${productData.title}</strong> successfully!`, 'success');
+        if (window._previousRestaurantModalBeforeEdit) {
+            const prevRest = window._previousRestaurantModalBeforeEdit;
+            window._previousRestaurantModalBeforeEdit = null;
+            setTimeout(() => {
+                if (typeof openRestaurantMenuModal === 'function') {
+                    openRestaurantMenuModal(prevRest.username || prevRest.id);
+                }
+            }, 120);
+        }
 
         try {
             fetchWithTimeout(`${API_BASE_URL}/products`, {
@@ -7750,6 +7819,9 @@ function saveProduct(productData, isEdit = false) {
                     supplier_company_name: sCompName,
                     supplier_user_id: sUserId,
                     is_online: isOnlineVal,
+                    in_stock: productData.in_stock !== false,
+                    stock_quantity: productData.stock_quantity !== undefined ? productData.stock_quantity : 50,
+                    show_stock_to_customer: productData.show_stock_to_customer !== false,
                     variants: productData.variants || null,
                     food_type: productData.food_type || null
                 })
@@ -8216,9 +8288,21 @@ function setupEventListeners() {
 
     // Admin Portal
     if (adminPortalBtn) adminPortalBtn.addEventListener('click', openAddProductModal);
-    if (closeAdminBtn) closeAdminBtn.addEventListener('click', closeModals);
-    if (cancelAdminBtn) cancelAdminBtn.addEventListener('click', closeModals);
-    if (adminOverlay) adminOverlay.addEventListener('click', closeModals);
+    const handleCloseAdminProductModal = () => {
+        closeModals();
+        if (window._previousRestaurantModalBeforeEdit) {
+            const prevRest = window._previousRestaurantModalBeforeEdit;
+            window._previousRestaurantModalBeforeEdit = null;
+            setTimeout(() => {
+                if (typeof openRestaurantMenuModal === 'function') {
+                    openRestaurantMenuModal(prevRest.username || prevRest.id);
+                }
+            }, 120);
+        }
+    };
+    if (closeAdminBtn) closeAdminBtn.addEventListener('click', handleCloseAdminProductModal);
+    if (cancelAdminBtn) cancelAdminBtn.addEventListener('click', handleCloseAdminProductModal);
+    if (adminOverlay) adminOverlay.addEventListener('click', handleCloseAdminProductModal);
 
     if (addProductForm) {
         addProductForm.addEventListener('submit', (e) => {

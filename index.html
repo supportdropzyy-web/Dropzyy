@@ -1799,12 +1799,12 @@
             <input type="hidden" id="editProductId" value="">
             <div class="form-grid">
                 <div class="form-group">
-                    <label for="prodTitle">Product Title</label>
-                    <input type="text" id="prodTitle" required placeholder="e.g. Fortune Mustard Oil 1L">
+                    <label for="prodTitle"><i class="fa-solid fa-tag text-primary"></i> Product Title</label>
+                    <input type="text" id="prodTitle" required placeholder="e.g. Fortune Mustard Oil 1L" class="admin-input">
                 </div>
                 <div class="form-group">
-                    <label for="prodCategory">Category</label>
-                    <select id="prodCategory" class="sort-dropdown" style="padding: 10px;" required>
+                    <label for="prodCategory"><i class="fa-solid fa-list text-primary"></i> Category</label>
+                    <select id="prodCategory" class="admin-select" required>
                         <option value="rangoli">Rangoli (Festive)</option>
                         <option value="food">Hotels & Dishes</option>
                         <option value="pizza">Pizza & Fast Food</option>
@@ -1823,33 +1823,33 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="prodPrice">Offer Price (₹)</label>
-                    <input type="number" step="0.5" id="prodPrice" required placeholder="185">
+                    <label for="prodPrice"><i class="fa-solid fa-indian-rupee-sign text-primary"></i> Offer Price (₹)</label>
+                    <input type="number" step="0.5" id="prodPrice" required placeholder="185" class="admin-input">
                 </div>
                 <div class="form-group">
-                    <label for="prodOriginalPrice">Original MRP Price (₹)</label>
-                    <input type="number" step="0.5" id="prodOriginalPrice" required placeholder="210">
+                    <label for="prodOriginalPrice"><i class="fa-solid fa-tag text-muted"></i> Original MRP Price (₹)</label>
+                    <input type="number" step="0.5" id="prodOriginalPrice" required placeholder="210" class="admin-input">
                 </div>
                 <div class="form-group">
-                    <label for="prodUnit">Unit / Weight</label>
-                    <input type="text" id="prodUnit" required placeholder="e.g. 1 kg Pack or 1 L Bottle">
+                    <label for="prodUnit"><i class="fa-solid fa-weight-scale text-primary"></i> Unit / Weight</label>
+                    <input type="text" id="prodUnit" required placeholder="e.g. 1 kg Pack or 1 L Bottle" class="admin-input">
                 </div>
                 <div class="form-group">
-                    <label for="prodBadge">Quality Badge</label>
-                    <input type="text" id="prodBadge" placeholder="e.g. 100% Pure or Mandi Fresh">
+                    <label for="prodBadge"><i class="fa-solid fa-award text-primary"></i> Quality Badge</label>
+                    <input type="text" id="prodBadge" placeholder="e.g. 100% Pure or Mandi Fresh" class="admin-input">
                 </div>
                 <div class="form-group">
                     <label for="prodFoodType"><i class="fa-solid fa-leaf text-success"></i> Dietary / Food Type</label>
-                    <select id="prodFoodType" class="sort-dropdown" style="padding: 10px;">
+                    <select id="prodFoodType" class="admin-select">
                         <option value="">Standard (No Badge)</option>
                         <option value="veg">🟢 Veg (Vegetarian)</option>
                         <option value="egg">🟡 Egg (Contains Egg)</option>
                         <option value="non_veg">🔴 Non-Veg (Chicken / Meat)</option>
                     </select>
                 </div>
-                                <div class="form-group">
+                <div class="form-group">
                     <label for="prodStatus"><i class="fa-solid fa-globe text-primary"></i> Website Visibility Mode</label>
-                    <select id="prodStatus" class="sort-dropdown" style="padding: 10px;">
+                    <select id="prodStatus" class="admin-select">
                         <option value="online">✅ Online (Visible to Website Customers)</option>
                         <option value="offline">❌ Offline (Taken off Website)</option>
                     </select>
@@ -1857,21 +1857,21 @@
                 <!-- Stock Status & Quantity Controls -->
                 <div class="form-group">
                     <label for="prodStockStatus"><i class="fa-solid fa-boxes-stacked text-primary"></i> Stock Availability Status</label>
-                    <select id="prodStockStatus" class="sort-dropdown" style="padding: 10px;">
+                    <select id="prodStockStatus" class="admin-select">
                         <option value="in_stock">✅ In Stock (Available for Customer Orders)</option>
                         <option value="out_of_stock">❌ Out of Stock (Disabled for Orders)</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="prodStockQuantity"><i class="fa-solid fa-calculator text-primary"></i> Stock Quantity / Units</label>
-                    <input type="number" id="prodStockQuantity" min="0" value="50" placeholder="e.g. 50">
+                    <input type="number" id="prodStockQuantity" min="0" value="50" placeholder="e.g. 50" class="admin-input">
                 </div>
-                <div class="form-group full-width" style="background: #F1F5F9; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #CBD5E1;">
-                    <label for="prodShowStockToCustomer" style="margin-bottom: 4px; font-weight: 700; color: #0F172A; display: flex; align-items: center; justify-content: space-between;">
+                <div class="form-group full-width" style="background: #F8FAFC; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #CBD5E1;">
+                    <label for="prodShowStockToCustomer" style="margin-bottom: 6px; font-weight: 700; color: #0F172A; display: flex; align-items: center; justify-content: space-between;">
                         <span><i class="fa-solid fa-eye text-primary"></i> Stock Visibility to Customers</span>
                         <span style="font-size: 0.75rem; color: #64748B; font-weight: 600;">Show/Hide stock badge to buyers</span>
                     </label>
-                    <select id="prodShowStockToCustomer" class="sort-dropdown" style="padding: 10px; background: #FFF;">
+                    <select id="prodShowStockToCustomer" class="admin-select" style="background: #FFF;">
                         <option value="true">👁️ Visible to Customer (Show In Stock / Out of Stock / Low Stock count on card)</option>
                         <option value="false">🔒 Hidden from Customer (Private — Only Admin & Supplier see stock)</option>
                     </select>
