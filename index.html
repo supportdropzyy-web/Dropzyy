@@ -14,7 +14,7 @@
     <!-- Chart.js Library for Data Analytics Graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Main Stylesheet -->
-    <link rel="stylesheet" href="style.css?v=4.4">
+    <link rel="stylesheet" href="style.css?v=4.5">
     <!-- EmailJS SDK & Configuration -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
@@ -499,7 +499,7 @@
                 <h2>Kirana Basket</h2>
                 <span class="item-count-pill" id="cartItemCountPill">0 items</span>
             </div>
-            <button class="close-drawer-btn" id="closeCartBtn"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="close-drawer-btn" id="closeCartBtn" onclick="closeModals()" title="Close Kirana Basket" aria-label="Close Cart"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
         <!-- Free Delivery Progress -->
@@ -2080,10 +2080,14 @@
     <!-- Checkout Modal -->
     <div class="modal-overlay" id="checkoutOverlay" onclick="closeModals()"></div>
     <div class="checkout-modal" id="checkoutModal">
-        <button type="button" class="close-modal-btn" id="closeCheckoutBtn" onclick="closeModals()" title="Close"><i class="fa-solid fa-xmark"></i></button>
         <div class="checkout-header">
-            <h2><i class="fa-solid fa-truck-ramp-box"></i> Delivery & Payment</h2>
-            <p>Confirm your address & choose payment method</p>
+            <div style="padding-right: 44px;">
+                <h2><i class="fa-solid fa-truck-ramp-box"></i> Delivery & Payment</h2>
+                <p>Confirm your address & choose payment method</p>
+            </div>
+            <button type="button" class="close-modal-btn" id="closeCheckoutBtn" onclick="closeModals()" title="Close Delivery & Payment" aria-label="Close Delivery & Payment">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
         <form class="checkout-form" id="checkoutForm">
             <div class="checkout-modal-body">
@@ -2148,6 +2152,9 @@
             </div>
 
             <div class="checkout-final-summary">
+                <button type="button" class="btn btn-secondary checkout-back-btn" onclick="closeModals()" title="Back to Store / Cart" aria-label="Back to Store / Cart">
+                    <i class="fa-solid fa-arrow-left"></i> <span>Back</span>
+                </button>
                 <div class="checkout-summary-price">
                     <span class="checkout-price-label">Total Payable</span>
                     <strong id="checkoutTotalAmount" class="checkout-price-value">₹0</strong>
@@ -2836,9 +2843,14 @@
                 <div class="m-cart-bar-sub" id="mCartBarSub">Tap to view items & checkout</div>
             </div>
         </div>
-        <div class="m-cart-bar-right">
-            <span>View Cart</span>
-            <i class="fa-solid fa-arrow-right"></i>
+        <div class="m-cart-bar-right-group">
+            <div class="m-cart-bar-right">
+                <span>View Cart</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+            <button type="button" class="m-cart-bar-close" onclick="event.stopPropagation(); if(window.dismissMobileCartBar) window.dismissMobileCartBar();" title="Close Cart Preview" aria-label="Close Cart Preview">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
     </div>
 
@@ -3062,7 +3074,7 @@
     <!-- Menu Card Data (Embedded Base64 for 100% Reliable Offline & File Protocol Display) -->
     <script src="menu_card_data.js"></script>
     <!-- JavaScript -->
-    <script src="app.js?v=4.5"></script>
+    <script src="app.js?v=4.6"></script>
         <!-- Dedicated Change Password Modal -->
 
     <div class="modal-overlay" id="changePasswordOverlay" onclick="closeChangePasswordModal()"></div>

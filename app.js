@@ -1,3 +1,9 @@
+
+window.dismissMobileCartBar = function() {
+    window._mobileCartBarDismissed = true;
+    const bar = document.getElementById('mobileFloatingCartBar');
+    if (bar) bar.classList.add('hidden');
+};
 /* ==========================================
    Dropzyy Instant Delivery Logic & FastAPI Integration
    ========================================== */
@@ -2859,6 +2865,7 @@ function renderProducts() {
 
 // 8. CART MANAGEMENT
 async function addToCart(productId, quantity = 1, variantIndex = null) {
+    window._mobileCartBarDismissed = false;
     const product = state.products.find(p => String(p.id) === String(productId));
     if (!product) return;
 
@@ -3105,7 +3112,7 @@ function updateCartUI() {
     const mTotalEl = document.getElementById('mCartBarTotal');
     const mSubEl = document.getElementById('mCartBarSub');
     if (mFloatBar) {
-        if (totalItems > 0) {
+        if (totalItems > 0 && !window._mobileCartBarDismissed) {
             mFloatBar.classList.remove('hidden');
             if (mCountEl) mCountEl.textContent = `${totalItems} ${totalItems === 1 ? 'ITEM' : 'ITEMS'}`;
             if (mTotalEl) mTotalEl.textContent = `₹${grandTotal}`;
