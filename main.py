@@ -155,6 +155,7 @@ def auto_migrate_db():
             ("is_verified", "BOOLEAN"),
             ("banner_image", "VARCHAR"),
             ("menu_card_image", "VARCHAR"),
+            ("telegram_chat_id", "VARCHAR"),
             ("max_devices", "INTEGER DEFAULT 1"),
         ]:
             try:
@@ -1437,6 +1438,24 @@ def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, t
             if sup_user and sup_user.telegram_chat_id:
                 sup_chat_id = sup_user.telegram_chat_id.strip()
 
+        # Check MongoDB Atlas if not found in SQLite
+        if not sup_chat_id and mongo_db.is_mongo_active():
+            try:
+                db_m = mongo_db.get_mongo_db()
+                if db_m is not None:
+                    m_sup = db_m.users.find_one({
+                        "role": "supplier",
+                        "$or": [
+                            {"supplier_company_name": {"$regex": re.escape(store_name), "$options": "i"}},
+                            {"username": {"$regex": re.escape(store_name), "$options": "i"}},
+                            {"full_name": {"$regex": re.escape(store_name), "$options": "i"}}
+                        ]
+                    })
+                    if m_sup and m_sup.get("telegram_chat_id"):
+                        sup_chat_id = str(m_sup.get("telegram_chat_id")).strip()
+            except Exception as m_err:
+                print(f"[MONGO FIND SUPPLIER TELEGRAM ERR]: {m_err}")
+
         # Fallback to .env mapping (e.g. TELEGRAM_CHAT_ID_URBAN_TADKA)
         if not sup_chat_id:
             env_var_name = "TELEGRAM_CHAT_ID_" + re.sub(r"[^A-Za-z0-9]", "_", store_name).upper()
@@ -1478,24 +1497,31 @@ def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, t
             f"⚡ <b>Kitchen Status:</b> Ready for Preparation!"
         )
 
-        sup_payload = {
-            "chat_id": sup_chat_id,
-            "text": supplier_ticket_message,
-            "parse_mode": "HTML",
-            "reply_markup": {
-                "inline_keyboard": [
-                    [
-                        {"text": f"🟢 Open {store_name} Kitchen Ticket", "url": f"https://dropzyy.onrender.com/?open_order={order_id}"}
-                    ]
-                ]
-            }
-        }
+        # Parse all worker chat IDs (comma/semicolon/newline separated)
+        raw_ids = str(sup_chat_id).replace(";", ",").replace("\n", ",")
+        target_chat_ids = [cid.strip() for cid in raw_ids.split(",") if cid.strip() and cid.strip().lstrip("-").isdigit()]
 
-        try:
-            requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=sup_payload, timeout=8)
-            print(f"[TELEGRAM SUPPLIER SUCCESS] Sent store order #{order_id} to {store_name} ({sup_chat_id}) with privacy protection!")
-        except Exception as e:
-            print(f"[TELEGRAM SUPPLIER EXCEPTION] {e}")
+        if not target_chat_ids:
+            continue
+
+        for cid in target_chat_ids:
+            sup_payload = {
+                "chat_id": cid,
+                "text": supplier_ticket_message,
+                "parse_mode": "HTML",
+                "reply_markup": {
+                    "inline_keyboard": [
+                        [
+                            {"text": f"🟢 Open {store_name} Kitchen Ticket", "url": f"https://dropzyy.onrender.com/?open_order={order_id}"}
+                        ]
+                    ]
+                }
+            }
+            try:
+                requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=sup_payload, timeout=8)
+                print(f"[TELEGRAM SUPPLIER SUCCESS] Sent store order #{order_id} to {store_name} worker ({cid}) with privacy protection!")
+            except Exception as e:
+                print(f"[TELEGRAM SUPPLIER EXCEPTION {cid}] {e}")
 
     return True
 
@@ -1541,7 +1567,7 @@ def update_supplier_telegram_chat_id(
     caller: Optional[Dict[str, Any]] = Depends(get_current_user_token)
 ):
     chat_id = data.get("chat_id")
-    chat_id = str(chat_id).strip() if chat_id else None
+    action = data.get("action", "set")  # 'set', 'add', 'remove'
     
     # Identify supplier username
     uname = (data.get("username") or "").strip()
@@ -1551,26 +1577,66 @@ def update_supplier_telegram_chat_id(
     if not uname:
         raise HTTPException(status_code=400, detail="Supplier username is required.")
 
-    # 1. Update SQLite
+    # 1. Fetch existing chat_id from SQLite or MongoDB Atlas
+    existing_chat_id = ""
     sup_user = db.query(models.User).filter(
         (models.User.username.ilike(uname)) |
         (models.User.supplier_company_name.ilike(uname))
     ).first()
+    if sup_user and sup_user.telegram_chat_id:
+        existing_chat_id = str(sup_user.telegram_chat_id).strip()
 
+    if not existing_chat_id and mongo_db.is_mongo_active():
+        try:
+            m_u = mongo_db.mongo_find_user(uname)
+            if m_u and m_u.get("telegram_chat_id"):
+                existing_chat_id = str(m_u.get("telegram_chat_id")).strip()
+        except Exception:
+            pass
+
+    # Parse existing list
+    raw_exist = existing_chat_id.replace(";", ",").replace("\n", ",")
+    existing_list = [cid.strip() for cid in raw_exist.split(",") if cid.strip() and cid.strip().lstrip("-").isdigit()]
+
+    # Parse incoming list
+    raw_incoming = str(chat_id or "").replace(";", ",").replace("\n", ",")
+    incoming_list = [cid.strip() for cid in raw_incoming.split(",") if cid.strip() and cid.strip().lstrip("-").isdigit()]
+
+    newly_added_ids = []
+    if action == "add":
+        for inc in incoming_list:
+            if inc not in existing_list:
+                existing_list.append(inc)
+                newly_added_ids.append(inc)
+        final_chat_id = ", ".join(existing_list) if existing_list else None
+    elif action == "remove":
+        for inc in incoming_list:
+            existing_list = [cid for cid in existing_list if cid != inc]
+        final_chat_id = ", ".join(existing_list) if existing_list else None
+    else:  # 'set' or replacement
+        final_chat_id = ", ".join(incoming_list) if incoming_list else None
+        newly_added_ids = [inc for inc in incoming_list if inc not in existing_list]
+        existing_list = incoming_list
+
+    # 1. Update SQLite
     if sup_user:
-        sup_user.telegram_chat_id = chat_id
+        sup_user.telegram_chat_id = final_chat_id
         db.commit()
         db.refresh(sup_user)
 
     # 2. Update MongoDB Atlas
     if mongo_db.is_mongo_active():
         try:
-            mongo_db.mongo_update_user(uname, {"telegram_chat_id": chat_id})
+            mongo_db.mongo_update_user(uname, {
+                "telegram_chat_id": final_chat_id,
+                "telegram_chat_ids": existing_list
+            })
         except Exception as e:
             print(f"[MONGO SUPPLIER CHAT_ID UPDATE ERR]: {e}")
 
-    # If newly connected, send a live welcome confirmation message to Telegram
-    if chat_id:
+    # If newly connected worker(s), send live welcome confirmation message to Telegram
+    welcome_targets = newly_added_ids if newly_added_ids else (incoming_list if action == "set" and incoming_list else [])
+    if welcome_targets:
         from dotenv import load_dotenv
         dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
         if os.path.exists(dotenv_path):
@@ -1580,27 +1646,32 @@ def update_supplier_telegram_chat_id(
         token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
         store_display = (sup_user.supplier_company_name if sup_user else uname) or "your restaurant"
         if token:
-            try:
-                requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={
-                    "chat_id": chat_id,
-                    "text": (
-                        f"🎉 <b>DROPZYY KITCHEN BOT CONNECTED!</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━━━\n"
-                        f"🏪 <b>Store:</b> <b>{store_display}</b>\n"
-                        f"🆔 <b>Chat ID:</b> <code>{chat_id}</code>\n"
-                        f"✅ <b>Status:</b> Ready for Live Kitchen Orders!\n\n"
-                        f"Whenever customers order food from <b>{store_display}</b> on Dropzyy, "
-                        f"your phone will instantly ring with loud sound & vibration showing your kitchen preparation tickets! 🛎️"
-                    ),
-                    "parse_mode": "HTML"
-                }, timeout=6)
-            except Exception as e:
-                print(f"[TELEGRAM WELCOME ERR]: {e}")
+            for w_cid in welcome_targets:
+                try:
+                    requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={
+                        "chat_id": w_cid,
+                        "text": (
+                            f"🎉 <b>DROPZYY KITCHEN BOT CONNECTED!</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"🏪 <b>Store:</b> <b>{store_display}</b>\n"
+                            f"🆔 <b>Chat ID:</b> <code>{w_cid}</code>\n"
+                            f"👥 <b>Staff Connected:</b> {len(existing_list)} worker(s) active\n"
+                            f"✅ <b>Status:</b> Ready for Live Kitchen Orders!\n\n"
+                            f"Whenever customers order food from <b>{store_display}</b> on Dropzyy, "
+                            f"your phone will instantly ring with loud sound & vibration showing kitchen preparation tickets! 🛎️"
+                        ),
+                        "parse_mode": "HTML"
+                    }, timeout=6)
+                except Exception as e:
+                    print(f"[TELEGRAM WELCOME ERR {w_cid}]: {e}")
 
+    workers_count = len(existing_list)
     return {
         "success": True,
-        "chat_id": chat_id,
-        "message": f"Telegram {'connected' if chat_id else 'disconnected'} successfully for {uname}!"
+        "chat_id": final_chat_id,
+        "chat_ids": existing_list,
+        "workers_count": workers_count,
+        "message": f"Telegram updated successfully for {uname}! ({workers_count} worker(s) active)"
     }
 
 @app.post("/api/telegram/test")
@@ -1628,6 +1699,12 @@ def test_telegram_alert(payload: Optional[dict] = Body(default=None)):
             "message": "Please connect your Telegram Bot or provide a valid Chat ID before testing."
         }
 
+    raw_ids = str(target_chat_id).replace(";", ",").replace("\n", ",")
+    chat_ids = [cid.strip() for cid in raw_ids.split(",") if cid.strip() and cid.strip().lstrip("-").isdigit()]
+
+    if not chat_ids:
+        return {"success": False, "message": "No valid numeric Chat IDs provided."}
+
     test_ticket_message = (
         f"🚨 <b>DROPZYY KITCHEN LIVE ALERT TEST</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -1644,27 +1721,41 @@ def test_telegram_alert(payload: Optional[dict] = Body(default=None)):
         f"⚡ <b>Status:</b> Connection Successful! Loud Alert & Vibration Verified! 🎉"
     )
 
-    test_payload = {
-        "chat_id": target_chat_id,
-        "text": test_ticket_message,
-        "parse_mode": "HTML",
-        "reply_markup": {
-            "inline_keyboard": [
-                [
-                    {"text": f"🟢 Open {store_name} Dashboard", "url": "https://dropzyy.onrender.com"}
+    sent_count = 0
+    errors = []
+    for cid in chat_ids:
+        test_payload = {
+            "chat_id": cid,
+            "text": test_ticket_message,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [
+                    [
+                        {"text": f"🟢 Open {store_name} Dashboard", "url": "https://dropzyy.onrender.com"}
+                    ]
                 ]
-            ]
+            }
         }
-    }
+        try:
+            resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=test_payload, timeout=8)
+            if resp.status_code == 200:
+                sent_count += 1
+            else:
+                errors.append(f"Chat {cid}: {resp.text}")
+        except Exception as e:
+            errors.append(f"Chat {cid}: {str(e)}")
 
-    try:
-        resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=test_payload, timeout=8)
-        if resp.status_code == 200:
-            return {"success": True, "message": f"Test alert sent successfully to Telegram ({target_chat_id})!"}
-        else:
-            return {"success": False, "message": f"Telegram API error: {resp.text}"}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
+    if sent_count > 0:
+        return {
+            "success": True,
+            "workers_count": sent_count,
+            "message": f"Test alert sent successfully to {sent_count} worker device(s)!"
+        }
+    else:
+        return {
+            "success": False,
+            "message": "Failed to send test alerts: " + "; ".join(errors)
+        }
 
 def send_admin_order_sms_alert(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session = None) -> bool:
     """
@@ -2318,6 +2409,11 @@ def login_user(credentials: schemas.UserLogin, request: Request, db: Session = D
                 if m_user.get("supplier_company_name"): user.supplier_company_name = m_user["supplier_company_name"]
                 if m_user.get("banner_image"): user.banner_image = m_user["banner_image"]
                 if m_user.get("max_devices"): user.max_devices = m_user["max_devices"]
+                if m_user.get("telegram_chat_id"): user.telegram_chat_id = m_user["telegram_chat_id"]
+                try:
+                    db.commit()
+                except Exception:
+                    db.rollback()
         # Check supplier device limit
         check_and_register_supplier_device(user, credentials, request, db)
         # Generate JWT Bearer Token
@@ -2346,6 +2442,7 @@ def login_user(credentials: schemas.UserLogin, request: Request, db: Session = D
                         phone=m_user.get("phone"),
                         role=m_user.get("role") or "customer",
                         supplier_company_name=m_user.get("supplier_company_name"),
+                        telegram_chat_id=m_user.get("telegram_chat_id"),
                         is_verified=m_user.get("is_verified", True),
                         open_time=m_user.get("open_time") or "08:00 AM",
                         close_time=m_user.get("close_time") or "10:00 PM",
@@ -2376,6 +2473,7 @@ def login_user(credentials: schemas.UserLogin, request: Request, db: Session = D
                         phone=m_user.get("phone"),
                         role=m_user.get("role") or "customer",
                         supplier_company_name=m_user.get("supplier_company_name"),
+                        telegram_chat_id=m_user.get("telegram_chat_id"),
                         is_verified=m_user.get("is_verified", True),
                         open_time=m_user.get("open_time") or "08:00 AM",
                         close_time=m_user.get("close_time") or "10:00 PM",
@@ -2848,6 +2946,7 @@ def get_all_users(request: Request, db: Session = Depends(get_db)):
                     pincode=mu.get("pincode") or (mu.get("address") or {}).get("pincode"),
                     banner_image=mu.get("banner_image") or mu.get("cover_image"),
                     menu_card_image=mu.get("menu_card_image"),
+                    telegram_chat_id=mu.get("telegram_chat_id"),
                     is_verified=mu.get("is_verified", True),
                     open_time=mu.get("open_time") or "08:00 AM",
                     close_time=mu.get("close_time") or "10:00 PM",
