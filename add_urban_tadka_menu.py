@@ -305,9 +305,10 @@ def setup_urban_tadka():
     tagline = RAW_URBAN_MENU["tagline"]
 
     user_doc = db.users.find_one({"username": {"$regex": "^arnav$", "$options": "i"}})
-    user_id = user_doc.get("id", 7) if user_doc else 7
+    user_id = 9
 
     user_fields = {
+        "id": 9,
         "username": "arnav",
         "email": "arnav@dropzyy.com",
         "password_hash": pw_hash,
@@ -322,10 +323,10 @@ def setup_urban_tadka():
         "close_time": "11:00 PM",
         "store_open": True,
         "is_verified": True,
-        "max_devices": 2,
+        "max_devices": 5,
         "banner_image": banner_img,
         "cover_image": banner_img,
-        "supplier_id": user_id
+        "supplier_id": 9
     }
 
     if user_doc:

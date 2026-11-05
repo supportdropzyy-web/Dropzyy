@@ -759,19 +759,20 @@ def mongo_toggle_supplier_status(identifier: str, store_open: bool) -> bool:
     db = get_mongo_db()
     if db is None: return False
     clean = str(identifier).strip().lower()
+    clean_esc = re.escape(clean)
     
     # 1. Update user store_open flag
     user = db.users.find_one({"$or": [
-        {"username": {"$regex": f"^{clean}$", "$options": "i"}},
-        {"email": {"$regex": f"^{clean}$", "$options": "i"}},
-        {"supplier_company_name": {"$regex": f"^{clean}$", "$options": "i"}}
+        {"username": {"$regex": f"^{clean_esc}$", "$options": "i"}},
+        {"email": {"$regex": f"^{clean_esc}$", "$options": "i"}},
+        {"supplier_company_name": {"$regex": f"^{clean_esc}$", "$options": "i"}}
     ]})
     
     db.users.update_many(
         {"$or": [
-            {"username": {"$regex": f"^{clean}$", "$options": "i"}},
-            {"email": {"$regex": f"^{clean}$", "$options": "i"}},
-            {"supplier_company_name": str(identifier).strip()}
+            {"username": {"$regex": f"^{clean_esc}$", "$options": "i"}},
+            {"email": {"$regex": f"^{clean_esc}$", "$options": "i"}},
+            {"supplier_company_name": {"$regex": f"^{clean_esc}$", "$options": "i"}}
         ]},
         {"$set": {"store_open": store_open}}
     )
@@ -783,7 +784,7 @@ def mongo_toggle_supplier_status(identifier: str, store_open: bool) -> bool:
         if user.get("restaurant_name"): s_names.append(user["restaurant_name"])
         if user.get("username"): s_names.append(user["username"])
 
-    regex_pattern = "|".join([f"^{n}$" for n in set(s_names) if n])
+    regex_pattern = "|".join([f"^{re.escape(n)}$" for n in set(s_names) if n])
     db.products.update_many(
         {"$or": [
             {"supplier_name": {"$regex": regex_pattern, "$options": "i"}},

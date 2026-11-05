@@ -725,8 +725,17 @@ let serviceableLocations = DEFAULT_LOCATIONS;
 // Online / Offline Status Helper
 window.isProductOnline = function(p) {
     if (!p) return false;
+    if (p.store_open === false || p.store_open === 0 || p.store_open === '0' || p.store_open === 'false') return false;
     const val = (p.isOnline !== undefined) ? p.isOnline : p.is_online;
     if (val === false || val === 0 || val === '0' || val === 'false' || val === 'offline') return false;
+
+    // Check supplier store status if product belongs to a registered partner
+    if (typeof window.isSupplierStoreOpen === 'function') {
+        const storeStatus = window.isSupplierStoreOpen(p);
+        if (storeStatus && storeStatus.isOpen === false && storeStatus.isManuallyClosed) {
+            return false;
+        }
+    }
     return Boolean(val ?? true);
 };
 
@@ -1228,7 +1237,7 @@ if (typeof window !== 'undefined') {
     });
     setInterval(() => {
         if (typeof fetchRestaurantsFromAPI === 'function') fetchRestaurantsFromAPI();
-    }, 30000);
+    }, 10000);
 }
 
 // 4.1 FETCH AVAILABILITY CALENDAR DATA
@@ -1653,6 +1662,26 @@ window.doesProductBelongToSupplier = function(product, supplierUser) {
         return false;
     }
 
+    const pSupplier = (product.supplierName || product.supplier_name || product.supplier_company_name || '').trim().toLowerCase();
+    const sCompany = (supplierUser.supplier_company_name || supplierUser.restaurant_name || '').trim().toLowerCase();
+    const sName = (supplierUser.full_name || '').trim().toLowerCase();
+    const sUser = (supplierUser.username || '').trim().toLowerCase();
+
+    // STRICT CROSS-STORE ISOLATION GUARD: Known distinct stores must NEVER cross-match!
+    if (pSupplier) {
+        const isProdKatta = pSupplier.includes('katta') || pSupplier.includes('biryani');
+        const isSupKatta = sCompany.includes('katta') || sUser.includes('pranav');
+        if (isProdKatta !== isSupKatta && (isProdKatta || isSupKatta)) return false;
+
+        const isProdUrban = pSupplier.includes('urban') || pSupplier.includes('tadka');
+        const isSupUrban = sCompany.includes('urban') || sUser.includes('arnav');
+        if (isProdUrban !== isSupUrban && (isProdUrban || isSupUrban)) return false;
+
+        const isProdBanjo = pSupplier.includes('banjo');
+        const isSupBanjo = sCompany.includes('banjo') || sUser.includes('banjo');
+        if (isProdBanjo !== isSupBanjo && (isProdBanjo || isSupBanjo)) return false;
+    }
+
     // 1. Direct ID match
     const pSupUserId = product.supplier_user_id || product.supplierUserId;
     if (supplierUser.id && pSupUserId) {
@@ -1665,12 +1694,7 @@ window.doesProductBelongToSupplier = function(product, supplierUser) {
     }
 
     // 2. Name matches (exact or long company/user match)
-    const pSupplier = (product.supplierName || product.supplier_name || '').trim().toLowerCase();
     if (!pSupplier) return false;
-
-    const sCompany = (supplierUser.supplier_company_name || '').trim().toLowerCase();
-    const sName = (supplierUser.full_name || '').trim().toLowerCase();
-    const sUser = (supplierUser.username || '').trim().toLowerCase();
 
     if (sCompany && pSupplier === sCompany) return true;
     if (sName && pSupplier === sName) return true;
@@ -1707,6 +1731,21 @@ window.isSameSupplierEntity = function(supA, supB) {
     const isSupA = supA.role === 'supplier' || Boolean(supA.supplier_company_name);
     const isSupB = supB.role === 'supplier' || Boolean(supB.supplier_company_name);
     if (!isSupA || !isSupB) return false;
+
+    const uA = (supA.username || '').trim().toLowerCase();
+    const uB = (supB.username || '').trim().toLowerCase();
+    const cA = (supA.supplier_company_name || supA.restaurant_name || '').trim().toLowerCase();
+    const cB = (supB.supplier_company_name || supB.restaurant_name || '').trim().toLowerCase();
+    const nA = (supA.full_name || '').trim().toLowerCase();
+    const nB = (supB.full_name || '').trim().toLowerCase();
+
+    // Strict cross-store guard
+    const tagA = `${uA} ${cA} ${nA}`;
+    const tagB = `${uB} ${cB} ${nB}`;
+    if ((tagA.includes('katta') || tagA.includes('pranav')) && (tagB.includes('urban') || tagB.includes('arnav'))) return false;
+    if ((tagB.includes('katta') || tagB.includes('pranav')) && (tagA.includes('urban') || tagA.includes('arnav'))) return false;
+    if (tagA.includes('banjo') && (tagB.includes('urban') || tagB.includes('katta'))) return false;
+    if (tagB.includes('banjo') && (tagA.includes('urban') || tagA.includes('katta'))) return false;
 
     if (supA.id && supB.id && String(supA.id) === String(supB.id)) return true;
 
@@ -3582,11 +3621,13 @@ async function loginUser(username, password) {
                         if (matchedUser) matchedUser.telegram_chat_id = apiUser.telegram_chat_id;
                         try { persistRegisteredUsers(); } catch(e){}
                     }
+                    state.activeSupplierFilter = state.currentUser;
                     saveUserSession(state.currentUser);
                     if (typeof window.renderSupplierTelegramStatus === 'function') {
                         setTimeout(() => window.renderSupplierTelegramStatus(), 200);
                     }
                     updateUserAuthUI();
+                    renderRestaurants();
                     renderProducts();
                     closeModals();
                     showToast(`Logged in as <strong>${matchedUser.supplier_company_name || matchedUser.full_name}</strong> (${matchedUser.role})!`, 'success');
@@ -6467,13 +6508,34 @@ async function executeDeleteRestaurantByAdminConfirmed(identifier, cleanName) {
 // ==============================================================================
 window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsername) {
     if (!state.currentUser) {
-        showToast('Please login first', 'error');
+        showToast('Please login as a store owner or admin', 'warning');
         return;
     }
 
-    const targetUser = targetUsername || state.currentUser.username;
-    const isSelf = targetUser.toLowerCase() === (state.currentUser.username || '').toLowerCase();
-    const isAdmin = state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin';
+    const cleanTarget = String(targetUsername || '').trim().toLowerCase();
+    const curUname = String((state.currentUser && state.currentUser.username) || '').trim().toLowerCase();
+    const curComp = String((state.currentUser && state.currentUser.supplier_company_name) || '').trim().toLowerCase();
+    const curId = String((state.currentUser && state.currentUser.id) || '').trim();
+
+    const isSelf = Boolean(
+        state.currentUser && state.currentUser.role === 'supplier' && (
+            !cleanTarget ||
+            cleanTarget === curUname ||
+            cleanTarget === curComp ||
+            cleanTarget === curId ||
+            (cleanTarget.includes('urban') && (curComp.includes('urban') || curUname.includes('arnav'))) ||
+            (cleanTarget.includes('katta') && (curComp.includes('katta') || curUname.includes('pranav'))) ||
+            (cleanTarget.includes('banjo') && (curComp.includes('banjo') || curUname.includes('banjo'))) ||
+            (typeof window.isSameSupplierEntity === 'function' && window.isSameSupplierEntity({ username: cleanTarget, supplier_company_name: cleanTarget, id: cleanTarget }, state.currentUser))
+        )
+    );
+    const isAdmin = Boolean(
+        state.currentUser && (
+            state.currentUser.role === 'admin' || 
+            state.currentUser.role === 'sub_admin' ||
+            ['admin', 'yash', 'yashpatil'].includes((state.currentUser.username || '').toLowerCase())
+        )
+    );
 
     if (!isSelf && !isAdmin) {
         showToast('Only administrators or store owners can toggle store status.', 'error');
@@ -6487,26 +6549,34 @@ window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsern
 
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (isAdmin) headers['X-Admin-Role'] = 'admin';
+
+        const apiTargetUser = isSelf ? (state.currentUser.username || cleanTarget) : (targetUsername || cleanTarget);
 
         const res = await fetch(`${API_BASE_URL}/supplier/toggle-status`, {
             method: 'PUT',
             headers: headers,
             body: JSON.stringify({
                 store_open: newStatus,
-                username: targetUser
+                username: apiTargetUser
             })
         });
 
         const data = await res.json();
         if (res.ok && (data.success || data.status === 'success' || data.store_open !== undefined)) {
-            const targetClean = String(targetUser).trim().toLowerCase();
-            const uIdx = registeredUsers.findIndex(u => (u.username || '').toLowerCase() === targetClean || (u.supplier_company_name || '').toLowerCase() === targetClean);
-            if (uIdx > -1) {
-                registeredUsers[uIdx].store_open = newStatus;
-                persistRegisteredUsers();
-            }
+            // Update registeredUsers
+            registeredUsers.forEach(u => {
+                const matches = (u.username && u.username.toLowerCase() === cleanTarget) ||
+                                (u.supplier_company_name && u.supplier_company_name.toLowerCase() === cleanTarget) ||
+                                (String(u.id) === cleanTarget) ||
+                                (isSelf && (u.username && u.username.toLowerCase() === curUname));
+                if (matches) {
+                    u.store_open = newStatus;
+                }
+            });
+            persistRegisteredUsers();
 
-            if (state.currentUser && (state.currentUser.username || '').toLowerCase() === targetClean) {
+            if (isSelf && state.currentUser) {
                 state.currentUser.store_open = newStatus;
                 try {
                     localStorage.setItem('dropzyy_user', JSON.stringify(state.currentUser));
@@ -6514,29 +6584,31 @@ window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsern
             }
 
             // Update matching products in state.products
-            if (state.products && state.products.length > 0) {
+            if (Array.isArray(state.products) && state.products.length > 0) {
                 state.products.forEach(p => {
-                    const supMatch = (p.supplier_username && p.supplier_username.toLowerCase() === targetClean) ||
-                                     (p.supplier && p.supplier.toLowerCase() === targetClean) ||
-                                     (p.supplier_name && p.supplier_name.toLowerCase() === targetClean) ||
-                                     (p.supplier_company_name && p.supplier_company_name.toLowerCase() === targetClean) ||
-                                     (registeredUsers[uIdx] && p.supplier_name && p.supplier_name.toLowerCase() === (registeredUsers[uIdx].supplier_company_name || '').toLowerCase()) ||
-                                     (registeredUsers[uIdx] && p.supplier && p.supplier.toLowerCase() === (registeredUsers[uIdx].supplier_company_name || '').toLowerCase());
-                    if (supMatch) {
+                    const belongs = (typeof doesProductBelongToSupplier === 'function' && doesProductBelongToSupplier(p, { username: cleanTarget, supplier_company_name: cleanTarget, id: cleanTarget })) ||
+                                    (isSelf && typeof doesProductBelongToSupplier === 'function' && doesProductBelongToSupplier(p, state.currentUser));
+                    if (belongs) {
                         p.store_open = newStatus;
                         p.is_online = newStatus;
                     }
                 });
+                if (typeof persistCustomProducts === 'function') persistCustomProducts();
             }
 
+            // Sync all UI components immediately
             if (typeof renderRestaurants === 'function') renderRestaurants();
             if (typeof renderProducts === 'function') renderProducts();
             if (typeof renderSupplierDashboard === 'function') renderSupplierDashboard();
-            if (typeof updateAuthUI === 'function') updateAuthUI();
+            if (typeof updateUserAuthUI === 'function') updateUserAuthUI();
             if (typeof renderAdminUsersDirectory === 'function') renderAdminUsersDirectory();
+            if (state.activeModalRestaurant && typeof renderRestaurantMenuModalContent === 'function') {
+                state.activeModalRestaurant.store_open = newStatus;
+                renderRestaurantMenuModalContent(state.activeModalRestaurant);
+            }
 
             const statusText = newStatus ? 'ONLINE 🟢' : 'EMERGENCY OFFLINE 🔴';
-            const storeLabel = (registeredUsers[uIdx] && (registeredUsers[uIdx].supplier_company_name || registeredUsers[uIdx].restaurant_name)) || targetUser;
+            const storeLabel = (isSelf && (state.currentUser.supplier_company_name || state.currentUser.full_name)) || targetUsername || cleanTarget;
             showToast(`Store "<strong>${storeLabel}</strong>" is now <strong>${statusText}</strong>!`, newStatus ? 'success' : 'warning');
         } else {
             showToast(data.detail || 'Could not update store status', 'error');
@@ -6624,43 +6696,11 @@ window.toggleCurrentSupplierEmergencyOffline = function() {
 };
 
 window.adminToggleRestaurantStatus = async function(identifier, storeName, currentOpenState) {
-    if (!state.currentUser || (state.currentUser.role !== 'admin' && state.currentUser.role !== 'sub_admin')) {
+    if (!state.currentUser || (state.currentUser.role !== 'admin' && state.currentUser.role !== 'sub_admin' && !['admin', 'yash', 'yashpatil'].includes((state.currentUser.username || '').toLowerCase()))) {
         showToast('Only administrators can toggle restaurant statuses.', 'error');
         return;
     }
-
-    const newStatus = !currentOpenState;
-    try {
-        await fetchWithTimeout(`${API_BASE_URL}/supplier/toggle-status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                store_open: newStatus,
-                username: identifier
-            })
-        }, 5000);
-    } catch (e) {
-        console.warn('[ADMIN TOGGLE RESTAURANT STATUS API ERR]', e);
-    }
-
-    const targetClean = String(identifier).trim().toLowerCase();
-    const uIdx = registeredUsers.findIndex(u => (u.username || '').toLowerCase() === targetClean || (u.supplier_company_name || '').toLowerCase() === targetClean);
-    if (uIdx > -1) {
-        registeredUsers[uIdx].store_open = newStatus;
-        persistRegisteredUsers();
-    }
-
-    if (typeof renderRestaurants === 'function') renderRestaurants();
-    if (typeof renderProducts === 'function') renderProducts();
-
-    if (state.activeModalRestaurant) {
-        state.activeModalRestaurant.store_open = newStatus;
-        if (typeof renderRestaurantMenuModalContent === 'function') {
-            renderRestaurantMenuModalContent(state.activeModalRestaurant);
-        }
-    }
-
-    showToast(`Restaurant "<strong>${storeName}</strong>" is now ${newStatus ? 'ONLINE 🟢' : 'OFFLINE 🔴'}.`, 'success');
+    await window.toggleStoreEmergencyOfflineStatus(!currentOpenState, identifier);
 };
 
 // ==============================================================================
