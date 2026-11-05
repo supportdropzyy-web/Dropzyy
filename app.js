@@ -9713,6 +9713,29 @@ window.testSupplierTelegramAlert = async function() {
     }
 };
 
+window.switchTelegramAudioAlert = function(type) {
+    const player = document.getElementById('supplierTelegramAudioPlayer');
+    const dlBtn = document.getElementById('supplierTelegramAudioDownloadBtn');
+    if (!player) return;
+
+    let src = '/audio/dropzyy_order_tone_bilingual.mp3';
+    let name = 'dropzyy_order_alert_bilingual.mp3';
+    if (type === 'marathi') {
+        src = '/audio/dropzyy_order_alert_marathi.mp3';
+        name = 'dropzyy_order_alert_marathi.mp3';
+    } else if (type === 'english') {
+        src = '/audio/dropzyy_order_alert_english.mp3';
+        name = 'dropzyy_order_alert_english.mp3';
+    }
+
+    player.src = src;
+    player.play().catch(() => {});
+    if (dlBtn) {
+        dlBtn.href = src;
+        dlBtn.setAttribute('download', name);
+    }
+};
+
 window.testTelegramAlert = async function() {
     showToast('⏳ Sending Telegram alert to your phone... Turn screen off to test ringtone!', 'info');
     try {

@@ -380,6 +380,10 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+AUDIO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio")
+os.makedirs(AUDIO_DIR, exist_ok=True)
+app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
+
 @app.get("/api/images/{image_id}")
 def get_mongodb_image(image_id: str):
     """Serve uploaded images directly from MongoDB Atlas Cloud Database."""
@@ -1335,6 +1339,36 @@ def send_customer_delivery_bill_email(order_id: str, customer_email: str, custom
     return send_smtp_email(customer_email, subject, html_body)
 
 
+def send_telegram_audio_alert(token: str, chat_id: str, title: str = "New Order Alert", caption: str = ""):
+    """Dispatches the bilingual (English & Marathi) order chime MP3 to Telegram chat_id."""
+    if not token or not chat_id:
+        return False
+    try:
+        audio_file = os.path.join(AUDIO_DIR, "dropzyy_order_tone_bilingual.mp3")
+        if not os.path.exists(audio_file):
+            return False
+        with open(audio_file, "rb") as af:
+            requests.post(
+                f"https://api.telegram.org/bot{token}/sendAudio",
+                data={
+                    "chat_id": chat_id,
+                    "title": title,
+                    "performer": "Dropzyy Kitchen Alert",
+                    "caption": caption or (
+                        "🛎️ <b>Dropzyy Kitchen Sound Alert!</b>\n"
+                        "🗣️ <i>'Alert! New order received on Dropzyy! लक्ष द्या, नवीन ऑर्डर आली आहे!'</i>\n\n"
+                        "💡 <b>Tip:</b> Tap <b>⋮ (3 dots)</b> on this audio &amp; select <b>'Save for Notifications'</b> to set as your custom order ringtone!"
+                    ),
+                    "parse_mode": "HTML"
+                },
+                files={"audio": ("dropzyy_order_tone_bilingual.mp3", af, "audio/mpeg")},
+                timeout=8
+            )
+        return True
+    except Exception as e:
+        print(f"[TELEGRAM AUDIO ALERT ERR {chat_id}]: {e}")
+        return False
+
 
 def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session = None) -> bool:
     """
@@ -1406,6 +1440,7 @@ def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, t
         try:
             requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=admin_payload, timeout=8)
             print(f"[TELEGRAM ADMIN SUCCESS] Sent master order #{order_id} to Admin ({admin_chat_id})")
+            send_telegram_audio_alert(token, admin_chat_id, title=f"👑 Master Order #{order_id} Alert")
         except Exception as e:
             print(f"[TELEGRAM ADMIN EXCEPTION] {e}")
 
@@ -1520,6 +1555,7 @@ def send_order_telegram_alert(order_id: str, customer_info: dict, items: list, t
             try:
                 requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=sup_payload, timeout=8)
                 print(f"[TELEGRAM SUPPLIER SUCCESS] Sent store order #{order_id} to {store_name} worker ({cid}) with privacy protection!")
+                send_telegram_audio_alert(token, cid, title=f"🚨 New Order Alert - {store_name} (#{order_id})")
             except Exception as e:
                 print(f"[TELEGRAM SUPPLIER EXCEPTION {cid}] {e}")
 
@@ -1740,6 +1776,7 @@ def test_telegram_alert(payload: Optional[dict] = Body(default=None)):
             resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=test_payload, timeout=8)
             if resp.status_code == 200:
                 sent_count += 1
+                send_telegram_audio_alert(token, cid, title=f"🛎️ Test Sound Alert - {store_name}")
             else:
                 errors.append(f"Chat {cid}: {resp.text}")
         except Exception as e:
