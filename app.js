@@ -454,13 +454,15 @@ customCategories.forEach(c => {
 // 3. User roles can NEVER be manipulated via DevTools / localStorage tampering.
 
 const DB_CACHE_KEYS_TO_PURGE = [
+    'dropzyy_registered_users',
+    'dropzyy_announcement_notice',
+    'dropzyy_deleted_restaurants',
     'dropzyy_all_products_cache',
     'dropzyy_banner_slides',
     'dropzyy_blocked_contacts',
     'dropzyy_custom_categories',
     'dropzyy_custom_products',
     'dropzyy_deleted_products',
-    'dropzyy_deleted_restaurants',
     'dropzyy_delivery_settings',
     'dropzyy_orders_history',
     'dropzyy_selected_location',
@@ -501,9 +503,7 @@ purgeDatabaseKeysFromLocalStorage();
 
 function persistRegisteredUsers() {
     try {
-        if (Array.isArray(registeredUsers)) {
-            localStorage.setItem('dropzyy_registered_users', JSON.stringify(registeredUsers));
-        }
+        localStorage.removeItem('dropzyy_registered_users');
     } catch (e) {}
 }
 
@@ -610,56 +610,19 @@ window.setSavedUserAddress = function(username, addressObj) {
 };
 
 const DEFAULT_REGISTERED_USERS = [
-    { id: 9, username: 'arnav', email: 'arnav@dropzyy.com', password: 'Arnav@Faizpur', full_name: 'Arnav Patil', role: 'supplier', supplier_company_name: 'Urban Tadka', restaurant_name: 'Urban Tadka', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Quick Bites • Great Vibes', store_open: true, open_time: '08:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80' },
-    { id: 6, username: 'pranav', email: 'pranav@dropzyy.com', password: 'Pranav@Faizpur', full_name: 'Pranav Firake', role: 'supplier', supplier_company_name: 'Katta Biryani and Tandoor', restaurant_name: 'Katta Biryani and Tandoor', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Great Vibes', store_open: true, open_time: '11:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80' },
-    { id: 35, username: 'yash', email: 'yash@dropzyy.com', password: '12528289Yash@', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
-    { id: 1, username: 'yashpatil', email: 'yashpatil@dropzyy.com', password: '12528289Yash@', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
-    { id: 2, username: 'admin', email: 'admin@dropzyy.com', password: 'Dropzyy@Admin#2026!', full_name: 'System Administrator', role: 'admin', city: 'Savda' },
-    { id: 22, username: 'banjos', email: 'banjos@dropzyy.com', password: 'Banjos@123', full_name: 'Banjos Cafe', role: 'supplier', supplier_company_name: 'Banjos Cafe', city: 'Savda-Faizpur', store_open: true, open_time: '08:00 AM', close_time: '10:00 PM', menu_card_image: 'uploads/banjos_menu_card_page_1.jpg' }
+    { id: 9, username: 'arnav', email: 'arnav@dropzyy.com', full_name: 'Arnav Patil', role: 'supplier', supplier_company_name: 'Urban Tadka', restaurant_name: 'Urban Tadka', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Quick Bites • Great Vibes', store_open: true, open_time: '08:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80' },
+    { id: 6, username: 'pranav', email: 'pranav@dropzyy.com', full_name: 'Pranav Firake', role: 'supplier', supplier_company_name: 'Katta Biryani and Tandoor', restaurant_name: 'Katta Biryani and Tandoor', city: 'Faizpur', location: 'Faizpur', tagline: 'Good Food • Great Vibes', store_open: true, open_time: '11:00 AM', close_time: '11:00 PM', banner_image: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80' },
+    { id: 35, username: 'yash', email: 'yash@dropzyy.com', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
+    { id: 1, username: 'yashpatil', email: 'yashpatil@dropzyy.com', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
+    { id: 2, username: 'admin', email: 'admin@dropzyy.com', full_name: 'System Administrator', role: 'admin', city: 'Savda' },
+    { id: 22, username: 'banjos', email: 'banjos@dropzyy.com', full_name: 'Banjos Cafe', role: 'supplier', supplier_company_name: 'Banjos Cafe', city: 'Savda-Faizpur', store_open: true, open_time: '08:00 AM', close_time: '10:00 PM', menu_card_image: 'uploads/banjos_menu_card_page_1.jpg' }
 ];
 
 let registeredUsers = [...DEFAULT_REGISTERED_USERS];
 try {
-    const savedCustomUsers = JSON.parse(localStorage.getItem('dropzyy_registered_users') || '[]');
-    if (Array.isArray(savedCustomUsers)) {
-        savedCustomUsers.forEach(su => {
-            if (su && su.username && !registeredUsers.some(u => (u.username || '').toLowerCase() === (su.username || '').toLowerCase())) {
-                registeredUsers.push(su);
-            }
-        });
-    }
-} catch (e) {}
-// Purge legacy deleted test accounts from local storage
-registeredUsers = registeredUsers.filter(u => {
-    if (!u) return false;
-    const uName = (u.username || '').toLowerCase();
-    const cName = (u.supplier_company_name || '').toLowerCase();
-    if (uName === 'bhupesh11' || cName === 'bhupeshkirana') return false;
-    if (uName === 'dhanji' || cName === 'dhanji') return false;
-    if (uName === 'ritesh@123') return false;
-    if (uName.startsWith('fresh_sup') || cName.includes('fresh farm')) return false;
-    if (uName.startsWith('sup_dev') || cName.includes('test devices')) return false;
-    if (uName.startsWith('mongo_sup') || cName.includes('mongo store')) return false;
-    if (uName === 'supplier' || cName.includes('ramesh kirana')) return false;
-    if (cName.includes('amul') || cName.includes('maharashtra farmers')) return false;
-    return true;
-});
-try {
-    let savedU = JSON.parse(localStorage.getItem('dropzyy_registered_users') || '[]');
-    if (Array.isArray(savedU)) {
-        savedU = savedU.filter(u => {
-            if (!u) return false;
-            const un = (u.username || '').toLowerCase();
-            const cn = (u.supplier_company_name || '').toLowerCase();
-            if (un.startsWith('fresh_sup') || cn.includes('fresh farm')) return false;
-            if (un.startsWith('sup_dev') || cn.includes('test devices')) return false;
-            if (un.startsWith('mongo_sup') || cn.includes('mongo store')) return false;
-            if (un === 'supplier' || cn.includes('ramesh kirana')) return false;
-            if (cn.includes('amul') || cn.includes('maharashtra farmers')) return false;
-            return true;
-        });
-        localStorage.setItem('dropzyy_registered_users', JSON.stringify(savedU));
-    }
+    localStorage.removeItem('dropzyy_registered_users');
+    localStorage.removeItem('dropzyy_announcement_notice');
+    localStorage.removeItem('dropzyy_deleted_restaurants');
 } catch (e) {}
 
 // Always ensure banjos has the valid menu_card_image attached
@@ -675,7 +638,7 @@ try {
     if (Array.isArray(delRest) && delRest.length > 0) {
         const protectedRest = ['banjo', 'urban', 'tadka', 'arnav', 'katta', 'biryani', 'pranav'];
         delRest = delRest.filter(r => !protectedRest.some(pk => String(r).toLowerCase().includes(pk)));
-        localStorage.setItem('dropzyy_deleted_restaurants', JSON.stringify(delRest));
+        // delRest kept in memory only
     }
 } catch (e) {}
 
@@ -3562,131 +3525,30 @@ async function loginUser(username, password) {
     const deviceName = getDeviceName();
     const statusNotice = document.getElementById('loginStatusNotice');
 
-    // 1. Check local registered users list
+    // Resolve local directory profile for supplier metadata if matching
     const matchedUser = registeredUsers.find(u => {
         const uClean = (u.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const cClean = (u.supplier_company_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const isYashAdmin = (cleanInput === 'yash' || cleanInput === 'yashpatil' || cleanInput === 'yash@dropzyy.com' || cleanInput === 'yashpatil@dropzyy.com') &&
                             (uClean === 'yash' || uClean === 'yashpatil');
-        const uMatches = (u.username && u.username.toLowerCase() === cleanInput) || 
-                         (u.email && u.email.toLowerCase() === cleanInput) ||
-                         isYashAdmin ||
-                         ((cleanAlpha === 'banjos' || cleanAlpha === 'banjoscafe' || cleanAlpha === 'banjo') && (uClean === 'banjos' || cClean.includes('banjo')));
-        if (!uMatches) return false;
-        if (u.password === password) return true;
-        if (cleanInput === 'admin' && (password === 'admin123' || password === 'Dropzyy@Admin#2026!' || password === '12528289Yash@')) return true;
-        if (cleanInput === 'supplier' && (password === 'supplier123' || password === 'Supplier@Dropzyy#2026!')) return true;
-        if ((cleanInput === 'yash' || cleanInput === 'yashpatil' || cleanInput === 'yash@dropzyy.com' || cleanInput === 'yashpatil@dropzyy.com') && 
-            (password === '12528289Yash@' || password === 'Dropzyy@Admin#2026!' || password === 'admin123')) return true;
-        if ((cleanAlpha === 'banjos' || cleanAlpha === 'banjoscafe' || cleanAlpha === 'banjo' || cleanInput === 'banjos@dropzyy.com') && 
-            (password === 'Banjos@123' || password === 'banjos@123' || password === 'Banjos@Dropzyy#2026!' || password === 'banjos' || password === '123456')) {
-            return true;
-        }
-        return false;
+        return (u.username && u.username.toLowerCase() === cleanInput) || 
+               (u.email && u.email.toLowerCase() === cleanInput) ||
+               isYashAdmin ||
+               ((cleanAlpha === 'banjos' || cleanAlpha === 'banjoscafe' || cleanAlpha === 'banjo') && (uClean === 'banjos' || cClean.includes('banjo')));
     });
-    
-    // For suppliers, strictly verify device limits with server BEFORE allowing access
-    if (matchedUser && matchedUser.role === 'supplier') {
-        try {
-            const response = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    username: matchedUser.username || username, 
-                    password, 
-                    device_id: deviceId, 
-                    device_name: deviceName 
-                })
-            }, 15000);
 
-            if (response) {
-                if (response.status === 403) {
-                    const errData = await response.json().catch(() => ({}));
-                    const msg = errData.detail || 'Device limit reached! You are already logged in on the maximum allowed devices. Please contact Dropzyy Admin or log out from another device.';
-                    if (statusNotice) {
-                        statusNotice.style.display = 'block';
-                        statusNotice.style.background = '#FEF2F2';
-                        statusNotice.style.color = '#991B1B';
-                        statusNotice.style.border = '1px solid #FECACA';
-                        statusNotice.innerHTML = `<i class="fa-solid fa-mobile-screen-button" style="margin-right: 6px;"></i> ${msg}`;
-                    }
-                    showToast(msg, 'error');
-                    return;
-                }
-                if (response.ok) {
-                    const apiUser = await response.json();
-                    state.currentUser = { ...matchedUser, ...apiUser };
-                    if (apiUser.telegram_chat_id) {
-                        state.currentUser.telegram_chat_id = apiUser.telegram_chat_id;
-                        if (matchedUser) matchedUser.telegram_chat_id = apiUser.telegram_chat_id;
-                        try { persistRegisteredUsers(); } catch(e){}
-                    }
-                    state.activeSupplierFilter = state.currentUser;
-                    saveUserSession(state.currentUser);
-                    if (typeof window.renderSupplierTelegramStatus === 'function') {
-                        setTimeout(() => window.renderSupplierTelegramStatus(), 200);
-                    }
-                    updateUserAuthUI();
-                    renderRestaurants();
-                    renderProducts();
-                    closeModals();
-                    showToast(`Logged in as <strong>${matchedUser.supplier_company_name || matchedUser.full_name}</strong> (${matchedUser.role})!`, 'success');
-                    return;
-                }
-                const errData = await response.json().catch(() => ({}));
-                const msg = errData.detail || 'Unable to authenticate supplier with server. Please check credentials.';
-                if (statusNotice) {
-                    statusNotice.style.display = 'block';
-                    statusNotice.style.background = '#FEF2F2';
-                    statusNotice.style.color = '#991B1B';
-                    statusNotice.style.border = '1px solid #FECACA';
-                    statusNotice.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i> ${msg}`;
-                }
-                showToast(msg, 'error');
-                return;
-            }
-        } catch (e) {
-            console.warn('Backend login verification failed:', e);
-            const msg = 'Cannot reach server to verify supplier device session. Ensure backend server is running.';
-            if (statusNotice) {
-                statusNotice.style.display = 'block';
-                statusNotice.style.background = '#FEF2F2';
-                statusNotice.style.color = '#991B1B';
-                statusNotice.style.border = '1px solid #FECACA';
-                statusNotice.innerHTML = `<i class="fa-solid fa-wifi" style="margin-right: 6px;"></i> ${msg}`;
-            }
-            showToast(msg, 'error');
-            return;
-        }
-    } else if (matchedUser) {
-        state.currentUser = { ...matchedUser };
-        saveUserSession(state.currentUser);
-        updateUserAuthUI();
-        renderProducts();
-        closeModals();
-        showToast(`Logged in as <strong>${matchedUser.supplier_company_name || matchedUser.full_name}</strong> (${matchedUser.role})!`, 'success');
+    const apiUsername = (matchedUser && matchedUser.username) ? matchedUser.username : username.trim();
 
-        // Request fresh JWT bearer token from backend in background
-        fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, device_id: deviceId, device_name: deviceName })
-        }, 10000).then(res => res && res.ok && res.json()).then(apiUser => {
-            if (apiUser && (apiUser.access_token || apiUser.token)) {
-                state.currentUser = { ...matchedUser, ...apiUser };
-                saveUserSession(state.currentUser);
-            }
-        }).catch(() => {});
-        return;
-    }
-
-    // 2. Check REST API for cloud authentication
-    let apiErrorMsg = '';
     try {
         const response = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, device_id: deviceId, device_name: deviceName })
+            body: JSON.stringify({ 
+                username: apiUsername, 
+                password: password, 
+                device_id: deviceId, 
+                device_name: deviceName 
+            })
         }, 15000);
 
         if (response) {
@@ -3704,39 +3566,53 @@ async function loginUser(username, password) {
                 return;
             }
             if (response.ok) {
-                const user = await response.json();
-                state.currentUser = user;
-                saveUserSession(user);
-                if (!registeredUsers.some(u => (u.username || '').toLowerCase() === (user.username || '').toLowerCase())) {
-                    registeredUsers.push(user);
-                    persistRegisteredUsers();
+                const apiUser = await response.json();
+                state.currentUser = { ...(matchedUser || {}), ...apiUser };
+                if (apiUser.telegram_chat_id) {
+                    state.currentUser.telegram_chat_id = apiUser.telegram_chat_id;
+                    if (matchedUser) matchedUser.telegram_chat_id = apiUser.telegram_chat_id;
+                }
+                if (state.currentUser.role === 'supplier') {
+                    state.activeSupplierFilter = state.currentUser;
+                }
+                saveUserSession(state.currentUser);
+                if (typeof window.renderSupplierTelegramStatus === 'function') {
+                    setTimeout(() => window.renderSupplierTelegramStatus(), 200);
                 }
                 updateUserAuthUI();
+                renderRestaurants();
                 renderProducts();
                 closeModals();
-                showToast(`Welcome back, <strong>${user.supplier_company_name || user.full_name}</strong> (${user.role})!`, 'success');
+                const displayName = state.currentUser.supplier_company_name || state.currentUser.full_name || state.currentUser.username;
+                showToast(`Welcome back, <strong>${displayName}</strong> (${state.currentUser.role})!`, 'success');
                 return;
             }
-            // Response not ok (401, 400, 422, etc.)
+
             const errData = await response.json().catch(() => ({}));
-            apiErrorMsg = errData.detail || (response.status === 401 ? 'Invalid email/username or password! Please check credentials.' : `Login error (${response.status})`);
-        } else {
-            apiErrorMsg = 'Server response timed out. Please try again.';
+            const msg = errData.detail || 'Invalid username or password. Please try again.';
+            if (statusNotice) {
+                statusNotice.style.display = 'block';
+                statusNotice.style.background = '#FEF2F2';
+                statusNotice.style.color = '#991B1B';
+                statusNotice.style.border = '1px solid #FECACA';
+                statusNotice.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i> ${msg}`;
+            }
+            showToast(msg, 'error');
+            return;
         }
     } catch (e) {
-        console.warn('FastAPI server offline or unreachable:', e);
-        apiErrorMsg = 'Unable to connect to Dropzyy server. Please verify your internet connection.';
+        console.warn('Backend login verification failed:', e);
+        const msg = 'Cannot reach authentication server. Please check your internet connection.';
+        if (statusNotice) {
+            statusNotice.style.display = 'block';
+            statusNotice.style.background = '#FEF2F2';
+            statusNotice.style.color = '#991B1B';
+            statusNotice.style.border = '1px solid #FECACA';
+            statusNotice.innerHTML = `<i class="fa-solid fa-wifi" style="margin-right: 6px;"></i> ${msg}`;
+        }
+        showToast(msg, 'error');
+        return;
     }
-
-    const finalMsg = apiErrorMsg || 'Invalid email/username or password! Please check credentials.';
-    if (statusNotice) {
-        statusNotice.style.display = 'block';
-        statusNotice.style.background = '#FEF2F2';
-        statusNotice.style.color = '#991B1B';
-        statusNotice.style.border = '1px solid #FECACA';
-        statusNotice.innerHTML = `<i class="fa-solid fa-circle-exclamation" style="margin-right: 6px;"></i> ${finalMsg}`;
-    }
-    showToast(finalMsg, 'error');
 }
 
 window.handleLoginSubmit = async function(e) {
@@ -4788,8 +4664,6 @@ window.logoutUser = function() {
         } catch (e) {}
     }
 
-    // Preserve local user cache & device ID across logouts
-    const cachedUsersJson = localStorage.getItem('dropzyy_registered_users');
     state.currentUser = null;
     localStorage.clear();
     sessionStorage.clear();
@@ -4798,9 +4672,6 @@ window.logoutUser = function() {
     // Preserve physical device identifier across logins/logouts
     if (savedDeviceId) {
         localStorage.setItem('dropzyy_device_id', savedDeviceId);
-    }
-    if (cachedUsersJson) {
-        localStorage.setItem('dropzyy_registered_users', cachedUsersJson);
     }
 
     updateUserAuthUI();
@@ -14759,17 +14630,7 @@ window.quickUpdateStockQuantity = async function(productId, qty) {
 // ==============================================================================
 window.fetchWebsiteAnnouncement = async function() {
     try {
-        const cached = localStorage.getItem('dropzyy_announcement_notice');
-        if (cached) {
-            try {
-                const parsed = JSON.parse(cached);
-                if (parsed) {
-                    state.websiteAnnouncement = parsed;
-                    window.renderWebsiteAnnouncement(parsed);
-                }
-            } catch (e) {}
-        }
-
+        localStorage.removeItem('dropzyy_announcement_notice');
         const res = await fetchWithTimeout(`${API_BASE_URL}/announcement?_t=${Date.now()}`, {
             headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
         }, 6000);
@@ -14777,7 +14638,6 @@ window.fetchWebsiteAnnouncement = async function() {
             const data = await res.json();
             if (data) {
                 state.websiteAnnouncement = data;
-                localStorage.setItem('dropzyy_announcement_notice', JSON.stringify(data));
                 window.renderWebsiteAnnouncement(data);
             }
         }
@@ -15002,7 +14862,7 @@ window.handleSaveAnnouncementNotice = async function(e) {
 
     // 1. Immediately persist locally
     state.websiteAnnouncement = payload;
-    localStorage.setItem('dropzyy_announcement_notice', JSON.stringify(payload));
+    // kept in state.websiteAnnouncement only
     window.renderWebsiteAnnouncement(payload);
 
     // 2. Sync to Backend REST API
@@ -15020,7 +14880,7 @@ window.handleSaveAnnouncementNotice = async function(e) {
         if (res && res.ok) {
             const saved = await res.json();
             state.websiteAnnouncement = saved;
-            localStorage.setItem('dropzyy_announcement_notice', JSON.stringify(saved));
+            // kept in state.websiteAnnouncement only
             window.renderWebsiteAnnouncement(saved);
         }
     } catch (err) {
