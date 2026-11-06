@@ -1,0 +1,32 @@
+{
+  "appId": "com.dropzyy.app",
+  "appName": "Dropzyy",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://www.dropzyy.in",
+    "cleartext": true,
+    "allowNavigation": [
+      "www.dropzyy.in",
+      "dropzyy.in",
+      "*.dropzyy.in",
+      "freshkart-9j9b.onrender.com",
+      "*.onrender.com",
+      "images.unsplash.com",
+      "cdnjs.cloudflare.com",
+      "cdn.jsdelivr.net",
+      "fonts.googleapis.com",
+      "fonts.gstatic.com"
+    ]
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#10B981",
+      "sound": "dropzyy_order_alert_english_10s.mp3"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

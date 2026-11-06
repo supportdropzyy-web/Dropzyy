@@ -272,7 +272,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Configurable CORS Middleware (loaded securely from .env)
 _raw_origins = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:5500,https://dropzyy.onrender.com,https://dropzyy.vercel.app"
+    "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:5500,https://www.dropzyy.in,https://dropzyy.in,https://dropzyy.onrender.com,https://freshkart-9j9b.onrender.com,https://dropzyy.vercel.app"
 )
 _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 if not _allowed_origins or "*" in _allowed_origins:

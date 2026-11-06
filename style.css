@@ -2670,7 +2670,13 @@ body.modal-open #mobileFloatingCartBar,
     .main-header { padding: 6px 0; }
     .header-inner { height: 60px; gap: 8px; }
     .header-left-wrapper { gap: 10px; }
-    .brand-logo-img { height: 58px !important; max-height: 62px !important; }
+    .brand-logo-img { 
+        height: 52px !important; 
+        max-height: 54px !important; 
+        width: auto !important;
+        object-fit: contain !important;
+        display: block !important;
+    }
     .search-box { display: none; }
     .header-actions { gap: 8px; }
     .action-btn { padding: 6px 10px; font-size: 0.8rem; }
@@ -5151,4 +5157,12 @@ input:checked + .slider-veg:before {
     color: #FFFFFF !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+}
+
+/* Ultra-compact screen optimization for small mobile devices */
+@media (max-width: 420px) {
+    .header-inner { height: 54px !important; gap: 6px !important; }
+    .brand-logo-img { height: 44px !important; max-height: 46px !important; }
+    .login-trigger-btn { padding: 6px 11px !important; font-size: 0.78rem !important; }
+    .header-delivery-badge { font-size: 0.75rem !important; }
 }
