@@ -9338,7 +9338,7 @@ window.subscribeDropzyyPushNotifications = async function(isSilent = false) {
         if (!reg) return false;
 
         // Fetch VAPID public key
-        const keyRes = await fetch('/api/push/vapid-public-key');
+        const keyRes = await fetch(`${(typeof API_BASE_URL !== 'undefined' ? API_BASE_URL.replace(/\/api$/, '') : '')}/api/push/vapid-public-key`);
         if (!keyRes.ok) return false;
         const keyData = await keyRes.json();
         const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
@@ -9370,7 +9370,7 @@ window.subscribeDropzyyPushNotifications = async function(isSilent = false) {
         const token = sessionStorage.getItem('dropzyy_auth_token');
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        await fetch('/api/push/subscribe', {
+        await fetch(`${(typeof API_BASE_URL !== 'undefined' ? API_BASE_URL.replace(/\/api$/, '') : '')}/api/push/subscribe`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(payload)
@@ -9757,7 +9757,7 @@ window.testScreenOffWebPush = async function() {
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const res = await fetch('/api/push/test', {
+        const res = await fetch(`${(typeof API_BASE_URL !== 'undefined' ? API_BASE_URL.replace(/\/api$/, '') : '')}/api/push/test`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({
@@ -15349,7 +15349,7 @@ window.refreshPushSubscribersCount = async function() {
     if (badge) badge.textContent = 'Updating...';
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/push/subscribers-count`);
+        const res = await fetch(`${(typeof API_BASE_URL !== 'undefined' ? API_BASE_URL.replace(/\/api$/, '') : '')}/api/push/subscribers-count`);
         if (res && res.ok) {
             const data = await res.json();
             if (badge) {
@@ -15428,7 +15428,7 @@ window.sendAdminTestPush = async function(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/push/test`, {
+        const res = await fetch(`${(typeof API_BASE_URL !== 'undefined' ? API_BASE_URL.replace(/\/api$/, '') : '')}/api/push/test`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -15481,7 +15481,7 @@ window.handleSendPushBroadcast = async function(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/push/broadcast`, {
+        const res = await fetch(`${(typeof API_BASE_URL !== 'undefined' ? API_BASE_URL.replace(/\/api$/, '') : '')}/api/push/broadcast`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

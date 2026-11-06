@@ -5834,11 +5834,13 @@ def get_vapid_config():
     return data
 
 @app.get("/api/push/vapid-public-key")
+@app.get("/api/api/push/vapid-public-key")
 def get_vapid_public_key():
     config = get_vapid_config()
     return {"publicKey": config["public_key"]}
 
 @app.post("/api/push/subscribe")
+@app.post("/api/api/push/subscribe")
 def register_push_subscription(payload: schemas.PushSubscriptionCreate, request: Request, db: Session = Depends(get_db)):
     # Check if subscription already exists
     existing = db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == payload.endpoint).first()
@@ -5924,6 +5926,7 @@ def get_all_active_push_subscriptions(db: Session) -> list:
     return list(sub_map.values())
 
 @app.get("/api/push/subscribers-count")
+@app.get("/api/api/push/subscribers-count")
 def get_push_subscribers_count(db: Session = Depends(get_db)):
     subs = get_all_active_push_subscriptions(db)
     customers = sum(1 for s in subs if s.get("role") == "customer")
@@ -5941,6 +5944,7 @@ def get_push_subscribers_count(db: Session = Depends(get_db)):
     }
 
 @app.post("/api/push/test")
+@app.post("/api/api/push/test")
 def test_push_notification(request: Request, db: Session = Depends(get_db)):
     from pywebpush import webpush, WebPushException
     config = get_vapid_config()
@@ -5984,6 +5988,7 @@ def test_push_notification(request: Request, db: Session = Depends(get_db)):
         return {"success": False, "message": str(e)}
 
 @app.post("/api/push/broadcast")
+@app.post("/api/api/push/broadcast")
 def broadcast_push_notification(payload: schemas.PushBroadcastPayload, request: Request, db: Session = Depends(get_db)):
     from pywebpush import webpush, WebPushException
     config = get_vapid_config()
