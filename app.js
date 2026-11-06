@@ -15120,3 +15120,43 @@ function initPullToRefresh() {
         }
     }, { passive: true });
 }
+
+
+// -------------------------------------------------------------
+// GLOBAL PUSH NOTIFICATION CLICK LISTENER & STARTUP HANDLER
+// -------------------------------------------------------------
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.type === 'DROPZYY_PUSH_OPEN_ORDER') {
+            console.log('[PUSH MESSAGE RECEIVED]', event.data);
+            setTimeout(() => {
+                if (typeof openLiveNotificationModal === 'function') {
+                    openLiveNotificationModal();
+                }
+            }, 300);
+        }
+    });
+}
+
+function handleNotificationStartupParams() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('open_live_order') || params.has('notification_click')) {
+            const orderId = params.get('open_live_order');
+            console.log('[NOTIFICATION CLICK LAUNCH DETECTED]', { orderId });
+            setTimeout(() => {
+                if (typeof openLiveNotificationModal === 'function') {
+                    openLiveNotificationModal();
+                }
+                if (orderId && typeof showToast === 'function') {
+                    showToast(`🔔 Opened Order #${orderId}`, 'info');
+                }
+            }, 900);
+        }
+    } catch (e) {
+        console.warn('Notification startup check notice:', e);
+    }
+}
+
+// Check URL params on DOM load and window load
+document.addEventListener('DOMContentLoaded', handleNotificationStartupParams);
