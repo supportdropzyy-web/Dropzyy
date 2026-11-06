@@ -9343,14 +9343,19 @@ window.subscribeDropzyyPushNotifications = async function(isSilent = false) {
         const keyData = await keyRes.json();
         const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
 
-        // Get or create push subscription
+        // Always unsubscribe any old/stale subscription first to get a clean key pair
         let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-            sub = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: applicationServerKey
-            });
+        if (sub) {
+            try {
+                await sub.unsubscribe();
+            } catch (unsubErr) {
+                console.warn('Old sub unsubscribe notice:', unsubErr);
+            }
         }
+        sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey
+        });
 
         dropzyyPushSubscription = sub;
         const subJson = sub.toJSON();

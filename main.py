@@ -5945,15 +5945,30 @@ def get_push_subscribers_count(db: Session = Depends(get_db)):
 
 @app.post("/api/push/test")
 @app.post("/api/api/push/test")
-def test_push_notification(request: Request, db: Session = Depends(get_db)):
+async def test_push_notification(request: Request, db: Session = Depends(get_db)):
     from pywebpush import webpush, WebPushException
     config = get_vapid_config()
+
+    body_data = {}
+    try:
+        body_data = await request.json()
+    except Exception:
+        pass
+
+    target_endpoint = body_data.get("endpoint")
     subs = get_all_active_push_subscriptions(db)
     if not subs:
-        return {"success": False, "message": "No push subscriptions found on server. Please click 'Enable Push on this Device' first."}
+        return {"success": False, "message": "No active registered devices found. Please click 'Enable Alerts on This Device' first."}
 
-    # Target the most recent subscription
-    target_sub = subs[-1]
+    target_sub = None
+    if target_endpoint:
+        for s in subs:
+            if s.get("endpoint") == target_endpoint:
+                target_sub = s
+                break
+    if not target_sub:
+        target_sub = subs[-1]
+
     sub_info = {
         "endpoint": target_sub["endpoint"],
         "keys": {
@@ -5963,8 +5978,8 @@ def test_push_notification(request: Request, db: Session = Depends(get_db)):
     }
 
     test_payload = json.dumps({
-        "title": "🔔 Dropzyy Alert Test (Lock Screen Mode)",
-        "body": "Hardware vibration & lock-screen push working! Your device is verified.",
+        "title": "🔔 Dropzyy Order Alert Test",
+        "body": "Your device is verified! Real orders will wake up your screen with sound.",
         "icon": "/dropzyy-logo.png",
         "badge": "/dropzyy-logo.png",
         "orderId": f"TEST-{int(time.time())}",
@@ -5981,10 +5996,26 @@ def test_push_notification(request: Request, db: Session = Depends(get_db)):
         )
         return {"success": True, "message": "Test push delivered to your device!"}
     except WebPushException as ex:
-        print("[TEST PUSH ERROR]", ex)
-        return {"success": False, "message": f"Push delivery error: {str(ex)}"}
+        if ex.response is not None and ex.response.status_code in (404, 410):
+            try:
+                db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == target_sub["endpoint"]).delete()
+                db.commit()
+            except Exception:
+                pass
+            if mongo_db.is_mongo_active():
+                mongo_db.mongo_delete_push_subscription(target_sub["endpoint"])
+            return {"success": False, "message": "Device token expired. Please click 'Enable Alerts on This Device' to renew."}
+        return {"success": False, "message": f"Push delivery notice: {str(ex)}"}
     except Exception as e:
-        print("[TEST PUSH GENERAL ERROR]", e)
+        if "Invalid EC key" in str(e) or "deserialize" in str(e):
+            try:
+                db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == target_sub["endpoint"]).delete()
+                db.commit()
+            except Exception:
+                pass
+            if mongo_db.is_mongo_active():
+                mongo_db.mongo_delete_push_subscription(target_sub["endpoint"])
+            return {"success": False, "message": "Cleaned corrupted token. Please click 'Enable Alerts on This Device' to refresh."}
         return {"success": False, "message": str(e)}
 
 @app.post("/api/push/broadcast")
