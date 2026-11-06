@@ -5166,3 +5166,41 @@ input:checked + .slider-veg:before {
     .login-trigger-btn { padding: 6px 11px !important; font-size: 0.78rem !important; }
     .header-delivery-badge { font-size: 0.75rem !important; }
 }
+
+
+/* Mobile Pull To Refresh Indicator */
+.dropzyy-pull-indicator {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -80px);
+    background: #FFFFFF;
+    color: #0F172A;
+    padding: 8px 18px;
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(16, 185, 129, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    z-index: 99999;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.15s ease, opacity 0.2s ease;
+    border: 1px solid #E2E8F0;
+}
+.dropzyy-pull-indicator .pull-icon {
+    color: #10B981;
+    font-size: 0.95rem;
+    transition: transform 0.1s linear;
+}
+.dropzyy-pull-indicator.ready-to-refresh {
+    background: #ECFDF5;
+    border-color: #A7F3D0;
+    color: #065F46;
+}
+.dropzyy-pull-indicator.ready-to-refresh .pull-icon {
+    color: #059669;
+}

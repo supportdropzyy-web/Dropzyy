@@ -1104,6 +1104,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateWishlistUI();
     renderServiceableCitiesDatalist();
     setupEventListeners();
+    initPullToRefresh();
+    if (typeof window.dismissAppLaunchLoader === 'function') {
+        window.dismissAppLaunchLoader();
+    }
+});
+
+window.addEventListener('load', () => {
+    if (typeof window.dismissAppLaunchLoader === 'function') {
+        window.dismissAppLaunchLoader();
+    }
 });
 
 // 4.0 FETCH LIVE PARTNER RESTAURANTS, TIMINGS & IMAGES FROM API
@@ -15008,3 +15018,104 @@ window.handlePasswordChangeSubmit = async function(e) {
         }
     }
 };
+
+
+// -------------------------------------------------------------
+// MOBILE APP & MOBILE BROWSER PULL-TO-REFRESH SYSTEM
+// -------------------------------------------------------------
+function initPullToRefresh() {
+    let touchStartY = 0;
+    let touchCurrentY = 0;
+    let isPulling = false;
+    let pullIndicator = null;
+
+    function getOrCreateIndicator() {
+        if (!pullIndicator) {
+            pullIndicator = document.getElementById('dropzyyPullToRefresh');
+            if (!pullIndicator) {
+                pullIndicator = document.createElement('div');
+                pullIndicator.id = 'dropzyyPullToRefresh';
+                pullIndicator.className = 'dropzyy-pull-indicator';
+                pullIndicator.innerHTML = '<i class="fa-solid fa-arrows-rotate pull-icon"></i><span class="pull-text">Pull to refresh</span>';
+                document.body.prepend(pullIndicator);
+            }
+        }
+        return pullIndicator;
+    }
+
+    window.addEventListener('touchstart', (e) => {
+        if (window.scrollY <= 2 && e.touches.length === 1) {
+            touchStartY = e.touches[0].clientY;
+            isPulling = false;
+        }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+        if (touchStartY === 0 || window.scrollY > 5) return;
+        touchCurrentY = e.touches[0].clientY;
+        const diff = touchCurrentY - touchStartY;
+        if (diff > 25 && diff < 160) {
+            isPulling = true;
+            const el = getOrCreateIndicator();
+            const pullProgress = Math.min(diff / 90, 1);
+            el.style.transform = `translate(-50%, ${Math.min(diff * 0.45, 60)}px)`;
+            el.style.opacity = String(pullProgress);
+            const icon = el.querySelector('.pull-icon');
+            const text = el.querySelector('.pull-text');
+            if (icon) icon.style.transform = `rotate(${diff * 2.5}deg)`;
+            if (diff >= 75) {
+                if (text) text.textContent = 'Release to refresh';
+                el.classList.add('ready-to-refresh');
+            } else {
+                if (text) text.textContent = 'Pull to refresh';
+                el.classList.remove('ready-to-refresh');
+            }
+        }
+    }, { passive: true });
+
+    window.addEventListener('touchend', async () => {
+        if (!isPulling) return;
+        const diff = touchCurrentY - touchStartY;
+        const el = getOrCreateIndicator();
+        touchStartY = 0;
+        touchCurrentY = 0;
+        isPulling = false;
+
+        if (diff >= 75) {
+            el.classList.add('refreshing');
+            const text = el.querySelector('.pull-text');
+            const icon = el.querySelector('.pull-icon');
+            if (text) text.textContent = 'Updating store...';
+            if (icon) icon.classList.add('fa-spin');
+
+            try {
+                await Promise.allSettled([
+                    fetchProductsFromAPI(),
+                    fetchRestaurantsFromAPI(),
+                    fetchCategoriesFromAPI(),
+                    fetchWebsiteAnnouncement()
+                ]);
+                renderCategories();
+                renderRestaurants();
+                renderProducts();
+                if (typeof showToast === 'function') {
+                    showToast('⚡ Store updated with latest menus & items!', 'success');
+                }
+            } catch (err) {
+                console.warn('Pull-to-refresh error:', err);
+            } finally {
+                if (icon) icon.classList.remove('fa-spin');
+                if (text) text.textContent = 'Updated!';
+                setTimeout(() => {
+                    el.style.transform = 'translate(-50%, -80px)';
+                    el.style.opacity = '0';
+                    el.classList.remove('refreshing', 'ready-to-refresh');
+                }, 400);
+            }
+        } else {
+            el.style.transform = 'translate(-50%, -80px)';
+            el.style.opacity = '0';
+            el.classList.remove('ready-to-refresh');
+        }
+    }, { passive: true });
+}
