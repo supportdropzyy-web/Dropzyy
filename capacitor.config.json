@@ -1,7 +1,7 @@
 {
   "appId": "com.dropzyy.app",
   "appName": "Dropzyy",
-  "webDir": ".",
+  "webDir": "www",
   "bundledWebRuntime": false,
   "server": {
     "url": "https://www.dropzyy.in",

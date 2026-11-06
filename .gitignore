@@ -3,6 +3,19 @@
 *.env
 !.env.example
 
+# Node & Capacitor
+node_modules/
+package-lock.json
+
+# Android Build Outputs (Keep android/ source code, ignore build output artifacts)
+android/.gradle/
+android/app/build/
+android/build/
+android/.idea/
+android/local.properties
+*.apk
+*.aab
+
 # Python cache & virtual environment
 __pycache__/
 *.py[cod]

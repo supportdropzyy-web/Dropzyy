@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Dropzyy</string>
+    <string name="title_activity_main">Dropzyy</string>
+    <string name="package_name">com.dropzyy.app</string>
+    <string name="custom_url_scheme">com.dropzyy.app</string>
+</resources>
