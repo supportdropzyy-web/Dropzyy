@@ -9322,8 +9322,61 @@ window.registerDropzyyServiceWorker = async function() {
 };
 
 window.subscribeDropzyyPushNotifications = async function(isSilent = false) {
+    const isNativeCapacitor = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+
+    if (isNativeCapacitor) {
+        try {
+            const LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+            if (LocalNotifications) {
+                const perm = await LocalNotifications.requestPermissions();
+                if (perm.display !== 'granted') {
+                    if (!isSilent && typeof showToast === 'function') {
+                        showToast('Please enable notifications in Android Settings to receive alerts', 'warning');
+                    }
+                    return false;
+                }
+            }
+
+            let nativeDeviceId = localStorage.getItem('dropzyy_native_device_id');
+            if (!nativeDeviceId) {
+                nativeDeviceId = 'android_app_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
+                localStorage.setItem('dropzyy_native_device_id', nativeDeviceId);
+            }
+
+            const payload = {
+                endpoint: `https://native.dropzyy.app/devices/${nativeDeviceId}`,
+                keys: {
+                    p256dh: 'native_android_app_device_token',
+                    auth: 'native_android_auth'
+                },
+                role: (state.currentUser && state.currentUser.role) || 'customer',
+                username: (state.currentUser && state.currentUser.username) || ''
+            };
+
+            const headers = { 'Content-Type': 'application/json' };
+            const token = sessionStorage.getItem('dropzyy_auth_token');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            await fetch(`${(typeof API_BASE_URL !== 'undefined' ? API_BASE_URL.replace(/\/api$/, '') : '')}/api/push/subscribe`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(payload)
+            });
+
+            if (!isSilent && typeof showToast === 'function') {
+                showToast('✅ Android App Notifications Activated!', 'success');
+            }
+            return true;
+        } catch (nativeErr) {
+            console.warn('[NATIVE APP] Push subscribe notice:', nativeErr);
+            return false;
+        }
+    }
+
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        if (!isSilent) showToast('Push notifications not supported on this browser', 'info');
+        if (!isSilent && typeof showToast === 'function') {
+            showToast('Push notifications not supported on this browser', 'info');
+        }
         return false;
     }
 
@@ -15260,11 +15313,27 @@ window.populatePushUsersDropdown = function() {
 };
 
 window.checkCurrentDevicePushStatus = async function() {
+    const isNativeCapacitor = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+
     const box = document.getElementById('adminThisDeviceBox');
     const dot = document.getElementById('thisDeviceStatusDot');
     const title = document.getElementById('thisDeviceStatusTitle');
     const sub = document.getElementById('thisDeviceStatusSubtitle');
     const btnReg = document.getElementById('btnRegisterCurrentDevice');
+
+    if (isNativeCapacitor) {
+        if (box) box.style.background = '#ECFDF5';
+        if (box) box.style.borderColor = '#A7F3D0';
+        if (dot) dot.style.background = '#10B981';
+        if (title) title.textContent = '✅ Native Android App Mode Active!';
+        if (sub) sub.textContent = 'Hardware notifications & sound are running directly via Android OS.';
+        if (btnReg) {
+            btnReg.textContent = '✓ Native App Active';
+            btnReg.style.background = '#059669';
+            btnReg.disabled = true;
+        }
+        return;
+    }
 
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         if (box) box.style.background = '#FEF2F2';
@@ -15521,3 +15590,32 @@ window.handleSendPushBroadcast = async function(e) {
         }
     }
 };
+
+
+// -------------------------------------------------------------
+// DEFAULT NOTIFICATION AUTO-ENROLLMENT FOR ALL USERS ON STARTUP
+// -------------------------------------------------------------
+async function autoEnrollDropzyyUserOnStartup() {
+    try {
+        const isNativeCapacitor = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+        if (isNativeCapacitor) {
+            console.log('[DROPZYY] Auto-enrolling native app device for notifications...');
+            if (typeof window.subscribeDropzyyPushNotifications === 'function') {
+                window.subscribeDropzyyPushNotifications(true);
+            }
+        } else if ('Notification' in window && 'serviceWorker' in navigator) {
+            if (Notification.permission === 'granted') {
+                console.log('[DROPZYY] Permission already granted, auto-syncing push subscription...');
+                if (typeof window.subscribeDropzyyPushNotifications === 'function') {
+                    window.subscribeDropzyyPushNotifications(true);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Auto enrollment notice:', e);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(autoEnrollDropzyyUserOnStartup, 1200);
+});
