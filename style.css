@@ -5204,3 +5204,22 @@ input:checked + .slider-veg:before {
 .dropzyy-pull-indicator.ready-to-refresh .pull-icon {
     color: #059669;
 }
+
+
+/* Admin Push Notification Dispatcher Toolbar Button & Styles */
+.admin-push-btn {
+    border-color: #38BDF8 !important;
+    background: #F0F9FF !important;
+    color: #0369A1 !important;
+    font-weight: 700 !important;
+}
+.admin-push-btn:hover {
+    background: #E0F2FE !important;
+    border-color: #0284C7 !important;
+}
+.push-audience-card:has(input:checked) {
+    border-color: #0284C7 !important;
+    background: #F0F9FF !important;
+    color: #0369A1 !important;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}

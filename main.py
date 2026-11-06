@@ -5803,6 +5803,7 @@ if __name__ == "__main__":
 # ============================================================
 def get_vapid_config():
     keys_file = os.path.join(os.path.dirname(__file__), "vapid_keys.json")
+    pem_file = os.path.join(os.path.dirname(__file__), "vapid_private.pem")
     if not os.path.exists(keys_file):
         from py_vapid import Vapid
         from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -5822,9 +5823,15 @@ def get_vapid_config():
         }
         with open(keys_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
-        return data
-    with open(keys_file, "r", encoding="utf-8") as f:
-        return json.load(f)
+    else:
+        with open(keys_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+    if not os.path.exists(pem_file) and data.get("private_key"):
+        with open(pem_file, "w", encoding="utf-8") as f:
+            f.write(data["private_key"])
+    data["private_key_path"] = pem_file
+    return data
 
 @app.get("/api/push/vapid-public-key")
 def get_vapid_public_key():
@@ -5856,32 +5863,107 @@ def register_push_subscription(payload: schemas.PushSubscriptionCreate, request:
     )
     db.add(new_sub)
     db.commit()
-    return {"success": True, "message": "Push subscription created"}
+
+    # Also persist to MongoDB Atlas Cloud Database
+    if mongo_db.is_mongo_active():
+        mongo_db.mongo_save_push_subscription({
+            "endpoint": payload.endpoint,
+            "p256dh": payload.keys.p256dh,
+            "auth": payload.keys.auth,
+            "role": payload.role or "customer",
+            "username": payload.username or None,
+            "user_agent": user_agent
+        })
+
+    return {"success": True, "message": "Push subscription created and synced to cloud"}
+
+
+def get_all_active_push_subscriptions(db: Session) -> list:
+    """Retrieve all active push subscriptions, merging SQLite and MongoDB Atlas (deduplicated by endpoint)."""
+    sub_map = {}
+    # 1. SQLite
+    try:
+        sqlite_subs = db.query(models.PushSubscription).all()
+        for s in sqlite_subs:
+            sub_map[s.endpoint] = {
+                "endpoint": s.endpoint,
+                "p256dh": s.p256dh,
+                "auth": s.auth,
+                "role": s.role or "customer",
+                "username": s.username or None,
+                "source": "sqlite"
+            }
+    except Exception as e:
+        print("[GET SQLITE SUBS NOTICE]", e)
+
+    # 2. MongoDB Atlas
+    if mongo_db.is_mongo_active():
+        try:
+            mongo_subs = mongo_db.mongo_get_all_push_subscriptions()
+            for ms in mongo_subs:
+                ep = ms.get("endpoint")
+                if ep:
+                    if ep not in sub_map:
+                        sub_map[ep] = {
+                            "endpoint": ep,
+                            "p256dh": ms.get("p256dh", ""),
+                            "auth": ms.get("auth", ""),
+                            "role": ms.get("role", "customer"),
+                            "username": ms.get("username") or None,
+                            "source": "mongodb"
+                        }
+                    else:
+                        # Ensure username and role are updated if Mongo has more info
+                        if ms.get("username") and not sub_map[ep]["username"]:
+                            sub_map[ep]["username"] = ms.get("username")
+                        if ms.get("role") and sub_map[ep]["role"] == "customer":
+                            sub_map[ep]["role"] = ms.get("role")
+        except Exception as me:
+            print("[GET MONGO SUBS NOTICE]", me)
+
+    return list(sub_map.values())
+
+@app.get("/api/push/subscribers-count")
+def get_push_subscribers_count(db: Session = Depends(get_db)):
+    subs = get_all_active_push_subscriptions(db)
+    customers = sum(1 for s in subs if s.get("role") == "customer")
+    suppliers = sum(1 for s in subs if s.get("role") == "supplier")
+    admins = sum(1 for s in subs if s.get("role") in ("admin", "sub_admin"))
+    return {
+        "total": len(subs),
+        "customers": customers,
+        "suppliers": suppliers,
+        "admins": admins,
+        "subscribers": [{
+            "role": s.get("role", "customer"),
+            "username": s.get("username") or "Anonymous Device"
+        } for s in subs[:20]]
+    }
 
 @app.post("/api/push/test")
 def test_push_notification(request: Request, db: Session = Depends(get_db)):
     from pywebpush import webpush, WebPushException
     config = get_vapid_config()
-    subs = db.query(models.PushSubscription).all()
+    subs = get_all_active_push_subscriptions(db)
     if not subs:
-        return {"success": False, "message": "No push subscriptions found on this server"}
+        return {"success": False, "message": "No push subscriptions found on server. Please click 'Enable Push on this Device' first."}
 
     # Target the most recent subscription
     target_sub = subs[-1]
     sub_info = {
-        "endpoint": target_sub.endpoint,
+        "endpoint": target_sub["endpoint"],
         "keys": {
-            "p256dh": target_sub.p256dh,
-            "auth": target_sub.auth
+            "p256dh": target_sub["p256dh"],
+            "auth": target_sub["auth"]
         }
     }
 
     test_payload = json.dumps({
-        "title": "🔔 Dropzyy Alert Test (Screen-Off Mode)",
-        "body": "Hardware vibration & lock-screen push working! Your phone will wake up when real orders arrive.",
+        "title": "🔔 Dropzyy Alert Test (Lock Screen Mode)",
+        "body": "Hardware vibration & lock-screen push working! Your device is verified.",
         "icon": "/dropzyy-logo.png",
         "badge": "/dropzyy-logo.png",
-        "orderId": "TEST-101",
+        "orderId": f"TEST-{int(time.time())}",
         "url": "/"
     })
 
@@ -5889,11 +5971,11 @@ def test_push_notification(request: Request, db: Session = Depends(get_db)):
         webpush(
             subscription_info=sub_info,
             data=test_payload,
-            vapid_private_key=config["private_key"],
+            vapid_private_key=config.get("private_key_path") or config["private_key"],
             vapid_claims=config["claims"],
             headers={"Urgency": "high", "TTL": "86400"}
         )
-        return {"success": True, "message": "Test push delivered to device!"}
+        return {"success": True, "message": "Test push delivered to your device!"}
     except WebPushException as ex:
         print("[TEST PUSH ERROR]", ex)
         return {"success": False, "message": f"Push delivery error: {str(ex)}"}
@@ -5901,53 +5983,42 @@ def test_push_notification(request: Request, db: Session = Depends(get_db)):
         print("[TEST PUSH GENERAL ERROR]", e)
         return {"success": False, "message": str(e)}
 
-
-@app.get("/api/push/subscribers-count")
-def get_push_subscribers_count(db: Session = Depends(get_db)):
-    subs = db.query(models.PushSubscription).all()
-    customers = sum(1 for s in subs if s.role == "customer")
-    suppliers = sum(1 for s in subs if s.role == "supplier")
-    admins = sum(1 for s in subs if s.role in ("admin", "sub_admin"))
-    return {
-        "total": len(subs),
-        "customers": customers,
-        "suppliers": suppliers,
-        "admins": admins
-    }
-
 @app.post("/api/push/broadcast")
 def broadcast_push_notification(payload: schemas.PushBroadcastPayload, request: Request, db: Session = Depends(get_db)):
     from pywebpush import webpush, WebPushException
     config = get_vapid_config()
-    subs = db.query(models.PushSubscription).all()
+    subs = get_all_active_push_subscriptions(db)
     if not subs:
-        return {"success": False, "message": "No active registered devices found to receive push notification.", "delivered_count": 0}
+        return {"success": False, "message": "No active registered devices found. Please enable push notifications on your phone first.", "delivered_count": 0}
 
     targets = []
     target_role = (payload.target_role or "all").lower().strip()
     target_username = (payload.target_username or "").lower().strip()
 
     for s in subs:
+        s_role = (s.get("role") or "customer").lower()
+        s_user = (s.get("username") or "").lower()
+
         if target_role == "all":
             targets.append(s)
         elif target_role == "specific_user":
-            if s.username and s.username.lower() == target_username:
+            if s_user and (s_user == target_username or target_username in s_user):
                 targets.append(s)
         elif target_role == "supplier":
-            if s.role == "supplier":
+            if s_role == "supplier":
                 targets.append(s)
         elif target_role == "customer":
-            if s.role == "customer" or not s.role:
+            if s_role == "customer" or not s_role:
                 targets.append(s)
         elif target_role in ("admin", "sub_admin"):
-            if s.role in ("admin", "sub_admin"):
+            if s_role in ("admin", "sub_admin"):
                 targets.append(s)
 
     if not targets:
-        return {"success": False, "message": f"No active device found for target '{target_role}'.", "delivered_count": 0}
+        return {"success": False, "message": f"No active device found for target '{target_role}' (username: {target_username or 'none'}). Please ensure the recipient has enabled push.", "delivered_count": 0}
 
     delivered_count = 0
-    stale_subs = []
+    stale_endpoints = []
 
     notification_body = json.dumps({
         "title": payload.title or "📢 Dropzyy Alert",
@@ -5960,33 +6031,39 @@ def broadcast_push_notification(payload: schemas.PushBroadcastPayload, request: 
 
     for s in targets:
         sub_info = {
-            "endpoint": s.endpoint,
+            "endpoint": s["endpoint"],
             "keys": {
-                "p256dh": s.p256dh,
-                "auth": s.auth
+                "p256dh": s["p256dh"],
+                "auth": s["auth"]
             }
         }
         try:
             webpush(
                 subscription_info=sub_info,
                 data=notification_body,
-                vapid_private_key=config["private_key"],
+                vapid_private_key=config.get("private_key_path") or config["private_key"],
                 vapid_claims=config["claims"],
                 headers={"Urgency": "high", "TTL": "86400"}
             )
             delivered_count += 1
         except WebPushException as ex:
             if ex.response is not None and ex.response.status_code in (404, 410):
-                stale_subs.append(s)
+                stale_endpoints.append(s["endpoint"])
         except Exception as e:
             print("[BROADCAST PUSH ERROR]", e)
 
-    if stale_subs:
-        for stale in stale_subs:
+    # Delete stale subscriptions
+    if stale_endpoints:
+        for ep in stale_endpoints:
             try:
-                db.delete(stale)
+                db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == ep).delete()
             except Exception:
                 pass
+            if mongo_db.is_mongo_active():
+                try:
+                    mongo_db.mongo_delete_push_subscription(ep)
+                except Exception:
+                    pass
         try:
             db.commit()
         except Exception:
@@ -6051,7 +6128,7 @@ def send_order_web_push(order_id: str, customer_info: dict, items: list, total_a
                 webpush(
                     subscription_info=sub_info,
                     data=payload_json,
-                    vapid_private_key=config["private_key"],
+                    vapid_private_key=config.get("private_key_path") or config["private_key"],
                     vapid_claims=config["claims"],
                     headers={"Urgency": "high", "TTL": "86400"}
                 )

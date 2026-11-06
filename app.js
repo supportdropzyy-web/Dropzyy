@@ -15160,3 +15160,359 @@ function handleNotificationStartupParams() {
 
 // Check URL params on DOM load and window load
 document.addEventListener('DOMContentLoaded', handleNotificationStartupParams);
+
+
+// -------------------------------------------------------------
+// ADMIN PUSH NOTIFICATION BROADCAST DISPATCHER SYSTEM
+// -------------------------------------------------------------
+let selectedPushTargetRole = 'all';
+
+window.handlePushTargetChange = function(targetRole) {
+    selectedPushTargetRole = targetRole;
+    const userContainer = document.getElementById('adminPushSpecificUserContainer');
+    if (userContainer) {
+        userContainer.style.display = (targetRole === 'specific_user') ? 'block' : 'none';
+    }
+    updatePushPreview();
+};
+
+window.populatePushUsersDropdown = function() {
+    const select = document.getElementById('adminPushSpecificUserSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Click to Select User / Supplier --</option>';
+
+    // Group users by role
+    const suppliers = [];
+    const riders = [];
+    const customers = [];
+    const admins = [];
+
+    const usersList = Array.isArray(registeredUsers) ? registeredUsers : [];
+    usersList.forEach(u => {
+        const uName = u.username || '';
+        const cName = u.supplier_company_name || u.full_name || u.name || uName;
+        const role = (u.role || 'customer').toLowerCase();
+
+        if (role === 'supplier') {
+            suppliers.push({ username: uName, label: `🍳 ${cName} (@${uName})` });
+        } else if (role === 'rider' || role === 'delivery') {
+            riders.push({ username: uName, label: `🛵 ${cName} (@${uName})` });
+        } else if (role === 'admin' || role === 'sub_admin') {
+            admins.push({ username: uName, label: `👑 ${cName} (@${uName})` });
+        } else {
+            customers.push({ username: uName, label: `🛒 ${cName} (@${uName})` });
+        }
+    });
+
+    if (suppliers.length > 0) {
+        const grp = document.createElement('optgroup');
+        grp.label = '--- Restaurant Suppliers ---';
+        suppliers.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.username;
+            opt.textContent = s.label;
+            grp.appendChild(opt);
+        });
+        select.appendChild(grp);
+    }
+
+    if (riders.length > 0) {
+        const grp = document.createElement('optgroup');
+        grp.label = '--- Delivery Riders ---';
+        riders.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.username;
+            opt.textContent = r.label;
+            grp.appendChild(opt);
+        });
+        select.appendChild(grp);
+    }
+
+    if (admins.length > 0) {
+        const grp = document.createElement('optgroup');
+        grp.label = '--- Administrators ---';
+        admins.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.username;
+            opt.textContent = a.label;
+            grp.appendChild(opt);
+        });
+        select.appendChild(grp);
+    }
+
+    if (customers.length > 0) {
+        const grp = document.createElement('optgroup');
+        grp.label = '--- Registered Customers ---';
+        customers.slice(0, 30).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.username;
+            opt.textContent = c.label;
+            grp.appendChild(opt);
+        });
+        select.appendChild(grp);
+    }
+};
+
+window.checkCurrentDevicePushStatus = async function() {
+    const box = document.getElementById('adminThisDeviceBox');
+    const dot = document.getElementById('thisDeviceStatusDot');
+    const title = document.getElementById('thisDeviceStatusTitle');
+    const sub = document.getElementById('thisDeviceStatusSubtitle');
+    const btnReg = document.getElementById('btnRegisterCurrentDevice');
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        if (box) box.style.background = '#FEF2F2';
+        if (box) box.style.borderColor = '#FECACA';
+        if (dot) dot.style.background = '#EF4444';
+        if (title) title.textContent = '❌ Web Push not supported on this browser';
+        if (sub) sub.textContent = 'Please use Google Chrome, Edge, or the Dropzyy Android App';
+        if (btnReg) btnReg.style.display = 'none';
+        return;
+    }
+
+    if (Notification.permission === 'granted') {
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            const subObj = await reg.pushManager.getSubscription();
+            if (subObj) {
+                if (box) box.style.background = '#ECFDF5';
+                if (box) box.style.borderColor = '#A7F3D0';
+                if (dot) dot.style.background = '#10B981';
+                const curUser = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'admin';
+                if (title) title.textContent = '✅ This Phone/Browser is Subscribed & Active!';
+                if (sub) sub.textContent = `Registered as '@${curUser}' in MongoDB Atlas. Ready to receive push alerts.`;
+                if (btnReg) {
+                    btnReg.textContent = '✓ Already Subscribed';
+                    btnReg.style.background = '#059669';
+                    btnReg.disabled = true;
+                }
+                return;
+            }
+        } catch (e) {}
+    }
+
+    // Default: Not yet subscribed
+    if (box) box.style.background = '#FFFBEB';
+    if (box) box.style.borderColor = '#FDE68A';
+    if (dot) dot.style.background = '#F59E0B';
+    if (title) title.textContent = '⚠️ This Device is NOT Subscribed to Push Alerts Yet';
+    if (sub) sub.textContent = 'Click the button on the right to enable alerts on this phone right now.';
+    if (btnReg) {
+        btnReg.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> Enable Alerts on This Device';
+        btnReg.style.background = '#0284C7';
+        btnReg.disabled = false;
+        btnReg.style.display = 'inline-flex';
+    }
+};
+
+window.registerCurrentDeviceForPush = async function() {
+    const btnReg = document.getElementById('btnRegisterCurrentDevice');
+    if (btnReg) {
+        btnReg.disabled = true;
+        btnReg.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registering...';
+    }
+
+    if (typeof showToast === 'function') {
+        showToast('🔔 Requesting notification permission for this phone...', 'info');
+    }
+
+    try {
+        const success = await window.subscribeDropzyyPushNotifications(false);
+        if (success) {
+            if (typeof showToast === 'function') {
+                showToast('🎉 Success! This device is registered to receive push notifications.', 'success');
+            }
+            await window.checkCurrentDevicePushStatus();
+            await window.refreshPushSubscribersCount();
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('Permission notice: Please allow notifications in your browser/phone settings.', 'warning');
+            }
+            await window.checkCurrentDevicePushStatus();
+        }
+    } catch (err) {
+        console.warn('Register device error:', err);
+        if (typeof showToast === 'function') {
+            showToast('Registration notice: ' + err.message, 'error');
+        }
+    } finally {
+        if (btnReg && !btnReg.textContent.includes('Already')) {
+            btnReg.disabled = false;
+            btnReg.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> Enable Alerts on This Device';
+        }
+    }
+};
+
+window.refreshPushSubscribersCount = async function() {
+    const badge = document.getElementById('adminPushCountBadge');
+    if (badge) badge.textContent = 'Updating...';
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/push/subscribers-count`);
+        if (res && res.ok) {
+            const data = await res.json();
+            if (badge) {
+                badge.textContent = `${data.total || 0} Connected (${data.customers || 0} Customers, ${data.suppliers || 0} Suppliers, ${data.admins || 0} Admins)`;
+            }
+        } else {
+            if (badge) badge.textContent = 'Active & Ready';
+        }
+    } catch (e) {
+        if (badge) badge.textContent = 'Active & Ready';
+    }
+};
+
+window.openAdminPushModal = async function() {
+    const modal = document.getElementById('adminPushModal');
+    const overlay = document.getElementById('adminPushOverlay');
+    if (!modal || !overlay) return;
+
+    modal.classList.add('active');
+    overlay.classList.add('active');
+    document.body.classList.add('modal-open');
+
+    // 1. Populate specific user dropdown with all suppliers & users
+    window.populatePushUsersDropdown();
+
+    // 2. Check current device status
+    await window.checkCurrentDevicePushStatus();
+
+    // 3. Refresh live subscriber count
+    await window.refreshPushSubscribersCount();
+
+    // 4. Update preview
+    window.updatePushPreview();
+};
+
+window.closeAdminPushModal = function() {
+    const modal = document.getElementById('adminPushModal');
+    const overlay = document.getElementById('adminPushOverlay');
+    if (modal) modal.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+    document.body.classList.remove('modal-open');
+};
+
+window.updatePushPreview = function() {
+    const titleIn = document.getElementById('adminPushTitle');
+    const bodyIn = document.getElementById('adminPushBody');
+    const prevTitle = document.getElementById('adminPushPreviewTitle');
+    const prevBody = document.getElementById('adminPushPreviewBody');
+    const audTag = document.getElementById('adminPushPreviewAudienceTag');
+
+    if (prevTitle && titleIn) {
+        prevTitle.textContent = titleIn.value.trim() || '⚡ Notification Headline';
+    }
+    if (prevBody && bodyIn) {
+        prevBody.textContent = bodyIn.value.trim() || 'Notification body text will appear here...';
+    }
+    if (audTag) {
+        if (selectedPushTargetRole === 'all') {
+            audTag.textContent = 'Target: 📢 Everyone';
+        } else if (selectedPushTargetRole === 'supplier') {
+            audTag.textContent = 'Target: 🍳 All Suppliers';
+        } else if (selectedPushTargetRole === 'customer') {
+            audTag.textContent = 'Target: 🛒 All Customers';
+        } else if (selectedPushTargetRole === 'specific_user') {
+            const sel = document.getElementById('adminPushSpecificUserSelect');
+            const targetText = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : 'Choose Person';
+            audTag.textContent = `Target: 👤 ${targetText}`;
+        }
+    }
+};
+
+window.sendAdminTestPush = async function(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (typeof showToast === 'function') {
+        showToast('📡 Dispatching test push alert to verified devices...', 'info');
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/push/test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await (res ? res.json().catch(() => ({})) : {});
+        if (res && res.ok && data.success) {
+            if (typeof showToast === 'function') {
+                showToast('🔔 Test push delivered! Turn off phone screen to verify sound & vibration.', 'success');
+            }
+        } else {
+            if (typeof showToast === 'function') {
+                showToast(data.message || 'Push notice: Please click Enable Alerts on This Device first.', 'warning');
+            }
+        }
+    } catch (err) {
+        console.warn('Test push dispatch error:', err);
+        if (typeof showToast === 'function') {
+            showToast('Unable to reach push service. Please check network.', 'error');
+        }
+    }
+};
+
+window.handleSendPushBroadcast = async function(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const title = (document.getElementById('adminPushTitle') || {}).value || '';
+    const body = (document.getElementById('adminPushBody') || {}).value || '';
+    const targetUrl = (document.getElementById('adminPushTargetUrl') || {}).value || '/';
+
+    let targetUsername = null;
+    if (selectedPushTargetRole === 'specific_user') {
+        const userSelect = document.getElementById('adminPushSpecificUserSelect');
+        targetUsername = userSelect ? userSelect.value : '';
+        if (!targetUsername) {
+            if (typeof showToast === 'function') {
+                showToast('⚠️ Please select a specific user or supplier from the dropdown list.', 'warning');
+            }
+            return;
+        }
+    }
+
+    if (!title.trim() || !body.trim()) {
+        if (typeof showToast === 'function') showToast('Please enter both title and message body.', 'warning');
+        return;
+    }
+
+    const submitBtn = document.getElementById('adminPushSubmitBtn');
+    const origHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Broadcasting to devices...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/push/broadcast`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: title.trim(),
+                body: body.trim(),
+                target_role: selectedPushTargetRole,
+                target_username: targetUsername ? targetUsername.trim() : null,
+                url: targetUrl.trim() || '/'
+            })
+        });
+
+        const data = await (res ? res.json().catch(() => ({})) : {});
+        if (res && res.ok && data.success) {
+            if (typeof showToast === 'function') {
+                showToast(`🚀 ${data.message || 'Push alert broadcasted successfully!'}`, 'success');
+            }
+            closeAdminPushModal();
+        } else {
+            if (typeof showToast === 'function') {
+                showToast(data.message || 'Failed to dispatch broadcast. Ensure devices are subscribed.', 'warning');
+            }
+        }
+    } catch (err) {
+        console.warn('Push broadcast error:', err);
+        if (typeof showToast === 'function') {
+            showToast('Error broadcasting alert. Please check server connection.', 'error');
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origHtml;
+        }
+    }
+};

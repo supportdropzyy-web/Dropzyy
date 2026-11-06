@@ -1286,3 +1286,64 @@ def mongo_update_announcement(data: dict) -> bool:
     except Exception as e:
         print(f"[MONGODB UPDATE ANNOUNCEMENT ERR]: {e}")
         return False
+
+
+# ============================================================
+# PUSH SUBSCRIPTION PERSISTENCE IN MONGODB ATLAS
+# ============================================================
+def mongo_save_push_subscription(data: dict) -> bool:
+    """Upsert push subscription in MongoDB Atlas collection 'push_subscriptions'."""
+    db = get_mongo_db()
+    if db is None:
+        return False
+    try:
+        endpoint = data.get("endpoint")
+        if not endpoint:
+            return False
+        doc = {
+            "endpoint": endpoint,
+            "p256dh": data.get("p256dh", ""),
+            "auth": data.get("auth", ""),
+            "role": data.get("role", "customer"),
+            "username": (data.get("username") or "").lower().strip() or None,
+            "user_agent": data.get("user_agent", ""),
+            "updated_at": datetime.datetime.utcnow().isoformat()
+        }
+        db.push_subscriptions.update_one(
+            {"endpoint": endpoint},
+            {"$set": doc},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"[MONGODB SAVE PUSH SUB ERR]: {e}")
+        return False
+
+def mongo_get_all_push_subscriptions() -> list:
+    """Retrieve all active push subscriptions from MongoDB Atlas."""
+    db = get_mongo_db()
+    if db is None:
+        return []
+    try:
+        cursor = db.push_subscriptions.find({})
+        results = []
+        for doc in cursor:
+            if "_id" in doc:
+                doc["_id"] = str(doc["_id"])
+            results.append(doc)
+        return results
+    except Exception as e:
+        print(f"[MONGODB GET PUSH SUBS ERR]: {e}")
+        return []
+
+def mongo_delete_push_subscription(endpoint: str) -> bool:
+    """Delete an expired push subscription from MongoDB Atlas."""
+    db = get_mongo_db()
+    if db is None:
+        return False
+    try:
+        res = db.push_subscriptions.delete_one({"endpoint": endpoint})
+        return res.deleted_count > 0
+    except Exception as e:
+        print(f"[MONGODB DELETE PUSH SUB ERR]: {e}")
+        return False
