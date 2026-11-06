@@ -3302,6 +3302,7 @@ function updateUserAuthUI() {
             if (adminToolbarPosterBtn) adminToolbarPosterBtn.classList.remove('hidden');
             const adminToolbarNoticeBtn = document.getElementById('adminToolbarNoticeBtn');
             if (adminToolbarNoticeBtn) adminToolbarNoticeBtn.classList.remove('hidden');
+        const adminToolbarPushBtn = document.getElementById('adminToolbarPushBtn'); if (adminToolbarPushBtn) adminToolbarPushBtn.classList.remove('hidden');
             if (trackBookingsBtn) trackBookingsBtn.classList.remove('hidden');
             if (adminToolbarRow) adminToolbarRow.classList.remove('hidden');
             if (headerNotificationBtn) headerNotificationBtn.classList.remove('hidden');

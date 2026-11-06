@@ -397,6 +397,13 @@ class PushSubscriptionKeys(BaseModel):
     p256dh: str
     auth: str
 
+class PushBroadcastPayload(BaseModel):
+    title: str
+    body: str
+    target_role: Optional[str] = "all"
+    target_username: Optional[str] = None
+    url: Optional[str] = "/"
+
 class PushSubscriptionCreate(BaseModel):
     endpoint: str
     keys: PushSubscriptionKeys

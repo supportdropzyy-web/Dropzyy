@@ -424,6 +424,10 @@
                     <span>Manage Posters</span>
                 </button>
 
+                <button class="action-btn admin-push-btn hidden" id="adminToolbarPushBtn" onclick="openAdminPushModal()" title="Mobile Push Notification Dispatcher" style="border-color: #38BDF8; background: #F0F9FF; color: #0369A1; font-weight: 700;">
+                    <i class="fa-solid fa-bell text-primary"></i>
+                    <span>Push Alerts 🔔</span>
+                </button>
                 <button class="action-btn admin-notice-btn hidden" id="adminToolbarNoticeBtn" onclick="openAdminNoticeModal()" title="Website Announcement Notice" style="border-color: #6EE7B7; background: #ECFDF5; color: #065F46; font-weight: 700;">
                     <i class="fa-solid fa-bullhorn text-success"></i>
                     <span>Notice 📢</span>
@@ -1245,6 +1249,9 @@
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" id="adminManagePosterBtn" onclick="openAdminPosterModal()" style="border-color: #F59E0B; background: #FEF3C7; color: #92400E; font-weight: 700;">
                     <i class="fa-solid fa-image text-warning"></i> Banner Poster 🎨
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="adminManagePushBtn" onclick="openAdminPushModal()" style="border-color: #38BDF8; background: #F0F9FF; color: #0369A1; font-weight: 700;">
+                    <i class="fa-solid fa-bell text-primary"></i> Push Alerts 🔔
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" id="adminManageNoticeBtn" onclick="openAdminNoticeModal()" style="border-color: #6EE7B7; background: #ECFDF5; color: #065F46; font-weight: 700;">
                     <i class="fa-solid fa-bullhorn text-success"></i> Notice Broadcast 📢
@@ -3480,7 +3487,102 @@
 
 
     <!-- Admin Broadcast Announcement Notice Management Modal -->
-    <div class="modal-overlay" id="adminNoticeOverlay" onclick="closeAdminNoticeModal()"></div>
+    
+    <!-- Admin Mobile Push Notification Dispatcher Modal -->
+    <div class="modal-overlay" id="adminPushOverlay" onclick="closeAdminPushModal()"></div>
+    <div class="admin-modal" id="adminPushModal" style="max-width: 680px; width: 92%; max-height: 90vh; overflow-y: auto;">
+        <div class="admin-modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #F0F9FF; color: #0284C7; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                    <i class="fa-solid fa-bell"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">Mobile Push Notification Center</h3>
+                    <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: var(--text-secondary);">Direct lock-screen alerts to Android app & mobile web users (Zero Firebase)</p>
+                </div>
+            </div>
+            <button type="button" class="close-modal-btn" onclick="closeAdminPushModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+
+        <!-- Subscriber Stats Pill Bar -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #10B981;"></span>
+                <span style="font-size: 0.82rem; font-weight: 700; color: #1E293B;">Active Devices Connected:</span>
+                <span id="adminPushCountBadge" style="background: #ECFDF5; color: #065F46; font-size: 0.78rem; font-weight: 800; padding: 2px 10px; border-radius: 20px; border: 1px solid #A7F3D0;">Loading...</span>
+            </div>
+            <button type="button" onclick="sendAdminTestPush(event)" class="btn btn-secondary btn-sm" style="font-size: 0.76rem; padding: 5px 12px; border-radius: 8px; border-color: #38BDF8; background: #FFFFFF; color: #0284C7; font-weight: 700;">
+                <i class="fa-solid fa-mobile-screen-button"></i> Send Quick Test Push
+            </button>
+        </div>
+
+        <form class="admin-form" id="adminPushBroadcastForm" onsubmit="handleSendPushBroadcast(event)" style="background: var(--bg-secondary); padding: 18px; border-radius: var(--radius-md);">
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label for="adminPushTitle" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                    <i class="fa-solid fa-heading text-primary"></i> Notification Headline / Title *
+                </label>
+                <input type="text" id="adminPushTitle" required placeholder="e.g. ⚡ Flash Sale: 20% OFF Biryani & Food Orders!" oninput="updatePushPreview()" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--border-color); border-radius: 8px; font-size: 0.9rem; font-weight: 600; background: var(--bg-primary); color: var(--text-primary);">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label for="adminPushBody" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                    <i class="fa-solid fa-align-left text-primary"></i> Message Body *
+                </label>
+                <textarea id="adminPushBody" required rows="3" placeholder="e.g. Special weekend offer! Order delicious food from your favorite restaurants with fast home delivery. Use code: DROPZYY20." oninput="updatePushPreview()" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--border-color); border-radius: 8px; font-size: 0.88rem; background: var(--bg-primary); color: var(--text-primary); resize: vertical;"></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div class="form-group">
+                    <label for="adminPushTargetRole" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                        <i class="fa-solid fa-users text-primary"></i> Target Audience
+                    </label>
+                    <select id="adminPushTargetRole" onchange="togglePushTargetInput(this.value)" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--border-color); border-radius: 8px; font-size: 0.88rem; font-weight: 600; background: var(--bg-primary); color: var(--text-primary);">
+                        <option value="all">📱 All Registered Devices (Broadcast)</option>
+                        <option value="customer">🛒 Customers Only</option>
+                        <option value="supplier">🍳 Restaurant Suppliers Only</option>
+                        <option value="specific_user">👤 Specific Username</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="adminPushSpecificUserGroup" style="display: none;">
+                    <label for="adminPushTargetUsername" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                        <i class="fa-solid fa-user text-primary"></i> Specific Username
+                    </label>
+                    <input type="text" id="adminPushTargetUsername" placeholder="e.g. urbantadka / kalyani" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--border-color); border-radius: 8px; font-size: 0.88rem; background: var(--bg-primary); color: var(--text-primary);">
+                </div>
+
+                <div class="form-group">
+                    <label for="adminPushTargetUrl" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                        <i class="fa-solid fa-link text-primary"></i> Action Link / Path
+                    </label>
+                    <input type="text" id="adminPushTargetUrl" value="/" placeholder="e.g. / or /?category=biryani" style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--border-color); border-radius: 8px; font-size: 0.88rem; background: var(--bg-primary); color: var(--text-primary);">
+                </div>
+            </div>
+
+            <!-- Preview Card -->
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-eye text-primary"></i> Live Notification Preview (Phone Lock Screen)
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <img src="dropzyy-logo.png" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 6px; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 2px;">
+                    <div style="flex: 1;">
+                        <div id="adminPushPreviewTitle" style="font-size: 0.85rem; font-weight: 800; color: #0F172A;">⚡ Flash Sale: 20% OFF Biryani & Food Orders!</div>
+                        <div id="adminPushPreviewBody" style="font-size: 0.78rem; color: #475569; margin-top: 2px;">Special weekend offer! Order delicious food from your favorite restaurants...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeAdminPushModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="adminPushSubmitBtn" style="background: linear-gradient(135deg, #0284C7, #0369A1); border: none; padding: 9px 20px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-paper-plane"></i> Send Live Push Alert
+                </button>
+            </div>
+        </form>
+    </div>
+
+<div class="modal-overlay" id="adminNoticeOverlay" onclick="closeAdminNoticeModal()"></div>
     <div class="admin-modal" id="adminNoticeModal" style="max-width: 680px; width: 92%; max-height: 90vh; overflow-y: auto;">
         <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
             <button type="button" class="btn btn-secondary btn-sm" onclick="openAdminControlCenter()">

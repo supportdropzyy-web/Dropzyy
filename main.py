@@ -5901,6 +5901,105 @@ def test_push_notification(request: Request, db: Session = Depends(get_db)):
         print("[TEST PUSH GENERAL ERROR]", e)
         return {"success": False, "message": str(e)}
 
+
+@app.get("/api/push/subscribers-count")
+def get_push_subscribers_count(db: Session = Depends(get_db)):
+    subs = db.query(models.PushSubscription).all()
+    customers = sum(1 for s in subs if s.role == "customer")
+    suppliers = sum(1 for s in subs if s.role == "supplier")
+    admins = sum(1 for s in subs if s.role in ("admin", "sub_admin"))
+    return {
+        "total": len(subs),
+        "customers": customers,
+        "suppliers": suppliers,
+        "admins": admins
+    }
+
+@app.post("/api/push/broadcast")
+def broadcast_push_notification(payload: schemas.PushBroadcastPayload, request: Request, db: Session = Depends(get_db)):
+    from pywebpush import webpush, WebPushException
+    config = get_vapid_config()
+    subs = db.query(models.PushSubscription).all()
+    if not subs:
+        return {"success": False, "message": "No active registered devices found to receive push notification.", "delivered_count": 0}
+
+    targets = []
+    target_role = (payload.target_role or "all").lower().strip()
+    target_username = (payload.target_username or "").lower().strip()
+
+    for s in subs:
+        if target_role == "all":
+            targets.append(s)
+        elif target_role == "specific_user":
+            if s.username and s.username.lower() == target_username:
+                targets.append(s)
+        elif target_role == "supplier":
+            if s.role == "supplier":
+                targets.append(s)
+        elif target_role == "customer":
+            if s.role == "customer" or not s.role:
+                targets.append(s)
+        elif target_role in ("admin", "sub_admin"):
+            if s.role in ("admin", "sub_admin"):
+                targets.append(s)
+
+    if not targets:
+        return {"success": False, "message": f"No active device found for target '{target_role}'.", "delivered_count": 0}
+
+    delivered_count = 0
+    stale_subs = []
+
+    notification_body = json.dumps({
+        "title": payload.title or "📢 Dropzyy Alert",
+        "body": payload.body or "New update from Dropzyy!",
+        "icon": "/dropzyy-logo.png",
+        "badge": "/dropzyy-logo.png",
+        "url": payload.url or "/",
+        "orderId": f"ADMIN-ALERT-{int(time.time())}"
+    })
+
+    for s in targets:
+        sub_info = {
+            "endpoint": s.endpoint,
+            "keys": {
+                "p256dh": s.p256dh,
+                "auth": s.auth
+            }
+        }
+        try:
+            webpush(
+                subscription_info=sub_info,
+                data=notification_body,
+                vapid_private_key=config["private_key"],
+                vapid_claims=config["claims"],
+                headers={"Urgency": "high", "TTL": "86400"}
+            )
+            delivered_count += 1
+        except WebPushException as ex:
+            if ex.response is not None and ex.response.status_code in (404, 410):
+                stale_subs.append(s)
+        except Exception as e:
+            print("[BROADCAST PUSH ERROR]", e)
+
+    if stale_subs:
+        for stale in stale_subs:
+            try:
+                db.delete(stale)
+            except Exception:
+                pass
+        try:
+            db.commit()
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "message": f"Push alert delivered successfully to {delivered_count} of {len(targets)} active device(s).",
+        "delivered_count": delivered_count,
+        "total_targets": len(targets)
+    }
+
+
 def send_order_web_push(order_id: str, customer_info: dict, items: list, total_amount: float, db: Session):
     try:
         from pywebpush import webpush, WebPushException
