@@ -2219,6 +2219,7 @@ window.openRestaurantMenuModal = function(idOrUsernameOrIdx) {
 
     state.activeModalRestaurant = target;
     state.restaurantModalActiveCategory = 'all';
+    window._resetModalScrollOnNextRender = true;
 
     try {
         renderRestaurantMenuModalContent(target);
@@ -2235,6 +2236,16 @@ window.openRestaurantMenuModal = function(idOrUsernameOrIdx) {
 window.renderRestaurantMenuModalContent = function(target) {
     const container = document.getElementById('restaurantMenuModalContent');
     if (!container || !target) return;
+
+    // 0. Preserve all scroll positions before replacing innerHTML
+    const modalBody = container.querySelector('.restaurant-modal-body');
+    const prevScrollTop = modalBody ? modalBody.scrollTop : 0;
+    const catBar = container.querySelector('.restaurant-category-tabs-bar');
+    const prevCatScrollLeft = catBar ? catBar.scrollLeft : 0;
+    const modalEl = document.getElementById('restaurantMenuModal');
+    const prevModalScrollTop = modalEl ? modalEl.scrollTop : 0;
+    const shouldResetScroll = window._resetModalScrollOnNextRender === true;
+    window._resetModalScrollOnNextRender = false;
 
     const name = target.supplier_company_name || target.full_name || target.username || 'Partner Store';
     const owner = target.username ? `@${target.username}` : (target.full_name || 'Partner');
@@ -2485,6 +2496,25 @@ window.renderRestaurantMenuModalContent = function(target) {
             </div>
         </div>
     `;
+
+    // Immediately restore preserved scroll positions (prevent jumping to top when choosing options/items)
+    const newModalBody = container.querySelector('.restaurant-modal-body');
+    const newCatBar = container.querySelector('.restaurant-category-tabs-bar');
+
+    if (!shouldResetScroll) {
+        if (newModalBody && prevScrollTop > 0) newModalBody.scrollTop = prevScrollTop;
+        if (newCatBar && prevCatScrollLeft > 0) newCatBar.scrollLeft = prevCatScrollLeft;
+        if (modalEl && prevModalScrollTop > 0) modalEl.scrollTop = prevModalScrollTop;
+
+        requestAnimationFrame(() => {
+            if (newModalBody && prevScrollTop > 0) newModalBody.scrollTop = prevScrollTop;
+            if (newCatBar && prevCatScrollLeft > 0) newCatBar.scrollLeft = prevCatScrollLeft;
+            if (modalEl && prevModalScrollTop > 0) modalEl.scrollTop = prevModalScrollTop;
+        });
+    } else {
+        if (newModalBody) newModalBody.scrollTop = 0;
+        if (modalEl) modalEl.scrollTop = 0;
+    }
 };
 
 window.renderFoodTypeBadge = function(foodType) {
@@ -2500,15 +2530,51 @@ window.renderFoodTypeBadge = function(foodType) {
     return '';
 };
 
+window.refreshModalDishCard = function(productId) {
+    if (!productId || typeof document === 'undefined') return false;
+    const dishCard = document.getElementById(`modal-dish-${productId}`);
+    const modal = document.getElementById('restaurantMenuModal');
+    if (dishCard && modal && modal.classList.contains('active') && state.activeModalRestaurant) {
+        const p = state.products.find(item => String(item.id) === String(productId));
+        if (p && typeof window.renderRestaurantMenuItemCard === 'function') {
+            const status = evaluateUserStoreHours(state.activeModalRestaurant);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = window.renderRestaurantMenuItemCard(p, status.isOpen);
+            const newCard = tempDiv.firstElementChild;
+            if (newCard) {
+                dishCard.replaceWith(newCard);
+                return true;
+            }
+        }
+    }
+    return false;
+};
+
 window.selectProductVariant = function(productId, variantIndex, context = 'grid') {
     const p = state.products.find(item => String(item.id) === String(productId));
     if (!p || !p.variants || !p.variants[variantIndex]) return;
     p._selectedVariantIndex = variantIndex;
-    if (context === 'modal' && state.activeModalRestaurant) {
-        renderRestaurantMenuModalContent(state.activeModalRestaurant);
+
+    const modal = document.getElementById('restaurantMenuModal');
+    const isModalActive = modal && modal.classList.contains('active');
+
+    // 1. Instant surgical in-place update if card is inside active restaurant modal
+    let updatedInModal = false;
+    if (isModalActive) {
+        updatedInModal = window.refreshModalDishCard(productId);
+    }
+
+    if (context === 'modal') {
+        if (!updatedInModal && isModalActive && state.activeModalRestaurant) {
+            renderRestaurantMenuModalContent(state.activeModalRestaurant);
+        }
     } else {
+        const prevY = window.scrollY || window.pageYOffset || 0;
         renderProducts();
-        if (state.activeModalRestaurant) {
+        if (prevY > 0) {
+            window.scrollTo({ top: prevY, behavior: 'instant' });
+        }
+        if (isModalActive && state.activeModalRestaurant && !updatedInModal) {
             renderRestaurantMenuModalContent(state.activeModalRestaurant);
         }
     }
@@ -2533,7 +2599,7 @@ window.renderRestaurantMenuItemCard = function(p, isOpen) {
     const canOrder = isOpen && isOnline && inStock;
 
     return `
-        <div class="restaurant-dish-card" style="${!inStock ? 'border-color: #FECACA; background: #FFFBFB;' : ''}">
+        <div class="restaurant-dish-card" id="modal-dish-${p.id}" data-product-id="${p.id}" style="${!inStock ? 'border-color: #FECACA; background: #FFFBFB;' : ''}">
             <div class="restaurant-menu-card-img-wrap" style="position: relative;">
                 <img src="${p.image}" alt="${p.title}" style="width: 100%; height: 100%; object-fit: cover; ${!inStock ? 'filter: grayscale(35%);' : ''}" loading="lazy">
                 ${p.badge ? `<span style="position: absolute; top: 8px; left: 8px; background: #10B981; color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; z-index: 2;">${p.badge}</span>` : ''}
@@ -2586,7 +2652,7 @@ window.renderRestaurantMenuItemCard = function(p, isOpen) {
                 ${hasVariants ? `
                     <div class="product-variant-selector">
                         ${p.variants.map((v, idx) => `
-                            <button type="button" class="btn-variant-pill ${idx === selectedIdx ? 'active' : ''}" onclick="event.stopPropagation(); selectProductVariant('${p.id}', ${idx}, 'modal');" title="${v.name}: ₹${v.price}">
+                            <button type="button" class="btn-variant-pill ${idx === selectedIdx ? 'active' : ''}" onclick="event.preventDefault(); event.stopPropagation(); selectProductVariant('${p.id}', ${idx}, 'modal');" title="${v.name}: ₹${v.price}">
                                 ${v.name} ₹${v.price}
                             </button>
                         `).join('')}
@@ -2605,12 +2671,12 @@ window.renderRestaurantMenuItemCard = function(p, isOpen) {
                         </button>
                     ` : cartQty > 0 ? `
                         <div style="display: flex; align-items: center; gap: 3px; background: #ECFDF5; border: 1.5px solid #10B981; border-radius: 8px; padding: 2px 4px;">
-                            <button type="button" class="btn btn-sm" onclick="event.stopPropagation(); updateCartQuantity('${cartItemId}', -1); setTimeout(() => renderRestaurantMenuModalContent(state.activeModalRestaurant), 10);" style="background: transparent; border: none; color: #047857; font-weight: 800; padding: 2px 6px; cursor: pointer; font-size: 0.82rem;" title="Decrease quantity">-</button>
+                            <button type="button" class="btn btn-sm" onclick="event.preventDefault(); event.stopPropagation(); updateCartQuantity('${cartItemId}', -1); window.refreshModalDishCard('${p.id}') || setTimeout(() => renderRestaurantMenuModalContent(state.activeModalRestaurant), 10);" style="background: transparent; border: none; color: #047857; font-weight: 800; padding: 2px 6px; cursor: pointer; font-size: 0.82rem;" title="Decrease quantity">-</button>
                             <span style="font-weight: 800; font-size: 0.8rem; color: #065F46; min-width: 14px; text-align: center;">${cartQty}</span>
-                            <button type="button" class="btn btn-sm" onclick="event.stopPropagation(); addToCart('${p.id}', 1, ${selectedIdx}); setTimeout(() => renderRestaurantMenuModalContent(state.activeModalRestaurant), 10);" style="background: transparent; border: none; color: #047857; font-weight: 800; padding: 2px 6px; cursor: pointer; font-size: 0.82rem;" title="Increase quantity">+</button>
+                            <button type="button" class="btn btn-sm" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${p.id}', 1, ${selectedIdx}); window.refreshModalDishCard('${p.id}') || setTimeout(() => renderRestaurantMenuModalContent(state.activeModalRestaurant), 10);" style="background: transparent; border: none; color: #047857; font-weight: 800; padding: 2px 6px; cursor: pointer; font-size: 0.82rem;" title="Increase quantity">+</button>
                         </div>
                     ` : `
-                        <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation(); addToCart('${p.id}', 1, ${selectedIdx}); setTimeout(() => renderRestaurantMenuModalContent(state.activeModalRestaurant), 10);" style="border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.76rem; display: flex; align-items: center; gap: 4px;">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="event.preventDefault(); event.stopPropagation(); addToCart('${p.id}', 1, ${selectedIdx}); window.refreshModalDishCard('${p.id}') || setTimeout(() => renderRestaurantMenuModalContent(state.activeModalRestaurant), 10);" style="border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.76rem; display: flex; align-items: center; gap: 4px;">
                             <i class="fa-solid fa-plus"></i> Add
                         </button>
                     `}
@@ -2622,6 +2688,7 @@ window.renderRestaurantMenuItemCard = function(p, isOpen) {
 
 window.setRestaurantModalCategory = function(catId) {
     state.restaurantModalActiveCategory = catId;
+    window._resetModalScrollOnNextRender = true;
     if (state.activeModalRestaurant) {
         renderRestaurantMenuModalContent(state.activeModalRestaurant);
     }
