@@ -614,7 +614,8 @@ const DEFAULT_REGISTERED_USERS = [
     { id: 35, username: 'yash', email: 'yash@dropzyy.com', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
     { id: 1, username: 'yashpatil', email: 'yashpatil@dropzyy.com', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
     { id: 2, username: 'admin', email: 'admin@dropzyy.com', full_name: 'System Administrator', role: 'admin', city: 'Savda' },
-    { id: 22, username: 'banjos', email: 'banjos@dropzyy.com', full_name: 'Banjos Cafe', role: 'supplier', supplier_company_name: 'Banjos Cafe', city: 'Savda-Faizpur', store_open: true, open_time: '08:00 AM', close_time: '10:00 PM', menu_card_image: 'uploads/banjos_menu_card_page_1.jpg' }
+    { id: 22, username: 'banjos', email: 'banjos@dropzyy.com', full_name: 'Banjos Cafe', role: 'supplier', supplier_company_name: 'Banjos Cafe', city: 'Savda-Faizpur', store_open: true, open_time: '08:00 AM', close_time: '10:00 PM', menu_card_image: 'uploads/banjos_menu_card_page_1.jpg' },
+    { id: 54, username: 'ketan', email: 'ketan@hotelamrai.com', full_name: 'Ketan Patil (Hotel Amrai)', role: 'supplier', supplier_company_name: 'Hotel Amrai', restaurant_name: 'Hotel Amrai', city: 'Dropzyy City', location: 'Amrai Garden', tagline: 'Authentic Pure Veg Multi-Cuisine Family Restaurant', store_open: true, open_time: '10:00 AM', close_time: '11:30 PM', banner_image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80' }
 ];
 
 let registeredUsers = [...DEFAULT_REGISTERED_USERS];
@@ -1511,9 +1512,11 @@ window.formatTime12Hour = function(timeStr) {
 window.evaluateUserStoreHours = function(user) {
     if (!user) return { isOpen: true, reason: 'Store is Open' };
 
-    // Find live supplier record in registeredUsers if available to ensure live timings and store_open
+    // Find live supplier record in state.currentUser or registeredUsers to ensure live store_open
     let liveUser = user;
-    if (Array.isArray(registeredUsers)) {
+    if (state.currentUser && typeof window.isSameSupplierEntity === 'function' && window.isSameSupplierEntity(user, state.currentUser)) {
+        liveUser = Object.assign({}, user, state.currentUser);
+    } else if (Array.isArray(registeredUsers)) {
         const uName = String(user.username || '').toLowerCase();
         const cName = String(user.supplier_company_name || user.full_name || '').toLowerCase();
         const matched = registeredUsers.find(u => {
@@ -1525,6 +1528,9 @@ window.evaluateUserStoreHours = function(user) {
             if (uName && cName && (regU === cName || regC === uName)) return true;
             if ((uName && uName.includes('banjo')) || (cName && cName.includes('banjo'))) {
                 if (regU.includes('banjo') || regC.includes('banjo')) return true;
+            }
+            if ((uName && uName.includes('amrai')) || (cName && cName.includes('amrai'))) {
+                if (regU.includes('amrai') || regC.includes('amrai') || regU.includes('ketan')) return true;
             }
             return false;
         });
@@ -1806,13 +1812,15 @@ window.renderRestaurants = function() {
     function isPlatformSupplier(name) {
         if (!name) return true;
         const clean = String(name).trim().toLowerCase();
+        if (clean.length <= 2) return true; // Suppress dummy/test entries like 'y', 'd', 'ya'
         const systemKeywords = [
             'dropzyy direct mandi', 'dropzyy direct', 'dropzyy mandi', 
             'freshkart mandi', 'direct mandi', 'itc agro',
             'fresh farm', 'test devices', 'mongo store', 'fresh_sup', 'sup_dev', 'mongo_sup',
-            'ramesh kirana', 'amul anand dairy', 'amul dairy', 'maharashtra farmers', 'desi kirana', 'supplier'
+            'ramesh kirana', 'amul anand dairy', 'amul dairy', 'maharashtra farmers', 'desi kirana', 'supplier',
+            'yashika rangoli', 'test'
         ];
-        return systemKeywords.some(sys => clean.includes(sys));
+        return systemKeywords.some(sys => clean === sys || clean.includes(sys));
     }
 
     let deletedRest = [];
@@ -1855,15 +1863,24 @@ window.renderRestaurants = function() {
                 seenKeys.add(key);
                 let menuCard = null;
                 if (key.includes('banjo')) menuCard = 'uploads/banjos_menu_card_page_1.jpg';
+                let isStoreOpen = p.store_open !== false && p.is_online !== false;
+                const matchedReg = registeredUsers.find(u => u && window.isSameSupplierEntity(u, { username: key, supplier_company_name: sName }));
+                if (matchedReg && matchedReg.store_open !== undefined) {
+                    isStoreOpen = matchedReg.store_open !== false;
+                }
+                if (state.currentUser && window.isSameSupplierEntity(state.currentUser, { username: key, supplier_company_name: sName })) {
+                    isStoreOpen = state.currentUser.store_open !== false;
+                }
+
                 suppliers.push({
                     id: p.supplier_user_id || `sup_${key.replace(/[^a-z0-9]/g, '_')}`,
-                    username: key.replace(/[^a-z0-9]/g, ''),
+                    username: (matchedReg && matchedReg.username) || key.replace(/[^a-z0-9]/g, ''),
                     supplier_company_name: sName,
                     full_name: sName,
                     role: 'supplier',
-                    open_time: '08:00 AM',
-                    close_time: '10:00 PM',
-                    store_open: true,
+                    open_time: (matchedReg && matchedReg.open_time) || '10:00 AM',
+                    close_time: (matchedReg && matchedReg.close_time) || '11:00 PM',
+                    store_open: isStoreOpen,
                     menu_card_image: menuCard
                 });
             }
@@ -2686,8 +2703,8 @@ function renderProducts() {
         const isOnline = isProductOnline(p);
         const canEdit = canUserEditProduct(p);
         
-        // Hide offline products from the general store catalog; when viewing a specific restaurant, show their full menu catalog
-        if (!state.activeSupplierFilter && !isOnline && !canEdit) {
+        // Hide offline products from customers browsing the store
+        if (!isOnline && !canEdit) {
             return false;
         }
 
@@ -6427,6 +6444,7 @@ window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsern
             (cleanTarget.includes('urban') && (curComp.includes('urban') || curUname.includes('arnav'))) ||
             (cleanTarget.includes('katta') && (curComp.includes('katta') || curUname.includes('pranav'))) ||
             (cleanTarget.includes('banjo') && (curComp.includes('banjo') || curUname.includes('banjo'))) ||
+            (cleanTarget.includes('amrai') && (curComp.includes('amrai') || curUname.includes('ketan'))) ||
             (typeof window.isSameSupplierEntity === 'function' && window.isSameSupplierEntity({ username: cleanTarget, supplier_company_name: cleanTarget, id: cleanTarget }, state.currentUser))
         )
     );
