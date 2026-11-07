@@ -15619,3 +15619,391 @@ async function autoEnrollDropzyyUserOnStartup() {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(autoEnrollDropzyyUserOnStartup, 1200);
 });
+
+
+// ==============================================================================
+// 🤖 DROPZYY CONVERSATIONAL AI FOOD AGENT CLIENT ENGINE
+// ==============================================================================
+(function() {
+    const aiState = {
+        isOpen: false,
+        lang: 'en',
+        isListening: false,
+        recognition: null,
+        messageHistory: []
+    };
+
+    // Initialize Web Speech Recognition
+    function initSpeechRecognition() {
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRec) {
+            console.log('[DROPZYY AI] Web Speech API not supported on this browser.');
+            return null;
+        }
+        try {
+            const rec = new SpeechRec();
+            rec.continuous = false;
+            rec.interimResults = true;
+            rec.maxAlternatives = 1;
+
+            rec.onstart = () => {
+                aiState.isListening = true;
+                const micBtn = document.getElementById('aiMicBtn');
+                const indicator = document.getElementById('aiListeningIndicator');
+                const label = document.getElementById('aiListeningText');
+                if (micBtn) micBtn.classList.add('listening');
+                if (indicator) indicator.style.display = 'flex';
+                if (label) {
+                    if (aiState.lang === 'mr') label.textContent = 'ऐकत आहे... बोला (मराठीत बोला)';
+                    else if (aiState.lang === 'hi') label.textContent = 'सुन रहा हूँ... बोलिए (हिंदी में बोलिए)';
+                    else label.textContent = 'Listening... Speak now';
+                }
+            };
+
+            rec.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                const input = document.getElementById('aiTextInput');
+                if (input) {
+                    input.value = finalTranscript || interimTranscript;
+                }
+                if (finalTranscript.trim()) {
+                    window.submitAiQuery(finalTranscript.trim(), true);
+                }
+            };
+
+            rec.onerror = (event) => {
+                console.warn('[DROPZYY AI] Speech recognition error:', event.error);
+                stopListeningUI();
+                if (event.error === 'not-allowed') {
+                    if (typeof showToast === 'function') {
+                        showToast('Microphone access denied. You can type your request directly!', 'info');
+                    }
+                }
+            };
+
+            rec.onend = () => {
+                stopListeningUI();
+            };
+
+            return rec;
+        } catch (e) {
+            console.warn('[DROPZYY AI] Speech recognition initialization failed:', e);
+            return null;
+        }
+    }
+
+    function stopListeningUI() {
+        aiState.isListening = false;
+        const micBtn = document.getElementById('aiMicBtn');
+        const indicator = document.getElementById('aiListeningIndicator');
+        if (micBtn) micBtn.classList.remove('listening');
+        if (indicator) indicator.style.display = 'none';
+    }
+
+    // Open AI Assistant
+    window.openDropzyyAiAssistant = function(startVoice = false) {
+        aiState.isOpen = true;
+        const overlay = document.getElementById('dropzyyAiOverlay');
+        const drawer = document.getElementById('dropzyyAiDrawer');
+        if (overlay) overlay.classList.add('active');
+        if (drawer) drawer.classList.add('active');
+
+        const input = document.getElementById('aiTextInput');
+        if (input) {
+            setTimeout(() => input.focus(), 350);
+        }
+
+        if (startVoice) {
+            setTimeout(() => {
+                window.toggleAiVoiceRecording();
+            }, 400);
+        }
+    };
+
+    // Close AI Assistant
+    window.closeDropzyyAiAssistant = function() {
+        aiState.isOpen = false;
+        const overlay = document.getElementById('dropzyyAiOverlay');
+        const drawer = document.getElementById('dropzyyAiDrawer');
+        if (overlay) overlay.classList.remove('active');
+        if (drawer) drawer.classList.remove('active');
+        if (aiState.recognition && aiState.isListening) {
+            try { aiState.recognition.stop(); } catch(e) {}
+        }
+        stopListeningUI();
+    };
+
+    // Toggle Voice Recording
+    window.toggleAiVoiceRecording = function() {
+        if (!aiState.recognition) {
+            aiState.recognition = initSpeechRecognition();
+        }
+        if (!aiState.recognition) {
+            if (typeof showToast === 'function') {
+                showToast('Voice input is not supported in this browser. Please type your dish!', 'info');
+            }
+            const input = document.getElementById('aiTextInput');
+            if (input) input.focus();
+            return;
+        }
+
+        if (aiState.isListening) {
+            try { aiState.recognition.stop(); } catch(e) {}
+            stopListeningUI();
+        } else {
+            // Set language locale
+            if (aiState.lang === 'mr') aiState.recognition.lang = 'mr-IN';
+            else if (aiState.lang === 'hi') aiState.recognition.lang = 'hi-IN';
+            else aiState.recognition.lang = 'en-IN';
+
+            try {
+                aiState.recognition.start();
+            } catch (e) {
+                console.warn('Recognition start error:', e);
+                try { aiState.recognition.stop(); } catch(ex) {}
+            }
+        }
+    };
+
+    // Language Selector
+    window.setAiLanguage = function(lang) {
+        aiState.lang = lang;
+        ['en', 'mr', 'hi'].forEach(l => {
+            const btn = document.getElementById('aiLang' + l.charAt(0).toUpperCase() + l.slice(1));
+            if (btn) {
+                if (l === lang) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+        });
+
+        const status = document.getElementById('aiDrawerStatus');
+        if (status) {
+            if (lang === 'mr') status.innerHTML = '● तयार आहे • मराठीत बोला किंवा टाइप करा';
+            else if (lang === 'hi') status.innerHTML = '● तैयार है • हिंदी में बोलें या टाइप करें';
+            else status.innerHTML = '● Ready • Ask in English, मराठी or हिंदी';
+        }
+    };
+
+    // Keyboard enter handler
+    window.handleAiInputKey = function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            window.submitAiQuery();
+        }
+    };
+
+    // Quick queries
+    window.sendQuickAiQuery = function(query) {
+        const input = document.getElementById('aiTextInput');
+        if (input) input.value = query;
+        window.submitAiQuery(query, false);
+    };
+
+    // Submit Query to Backend API
+    window.submitAiQuery = async function(manualQuery = null, isVoice = false) {
+        const input = document.getElementById('aiTextInput');
+        const query = (manualQuery || (input ? input.value : '')).trim();
+        if (!query) return;
+
+        if (input) input.value = '';
+        if (aiState.recognition && aiState.isListening) {
+            try { aiState.recognition.stop(); } catch(e) {}
+            stopListeningUI();
+        }
+
+        const chatBody = document.getElementById('aiChatBody');
+        if (!chatBody) return;
+
+        // Render User Bubble
+        const userBubble = document.createElement('div');
+        userBubble.className = 'ai-bubble ai-user-bubble';
+        userBubble.innerHTML = `
+            <div class="ai-bubble-content">
+                <span>${isVoice ? '🎙️' : '💬'}</span>
+                <span>"${escapeHtml(query)}"</span>
+            </div>
+        `;
+        chatBody.appendChild(userBubble);
+
+        // Render Loading Indicator Bubble
+        const loadingBubble = document.createElement('div');
+        loadingBubble.className = 'ai-bubble ai-bot-bubble';
+        loadingBubble.id = 'aiTempLoadingBubble';
+        loadingBubble.innerHTML = `
+            <div class="ai-bubble-content" style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 14px; height: 14px; border: 2px solid rgba(16,185,129,0.3); border-top-color: #10B981; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                <span style="color: #6EE7B7; font-size: 0.8rem; font-weight: 600;">Scanning live kitchen inventory in Chopda...</span>
+            </div>
+        `;
+        chatBody.appendChild(loadingBubble);
+        chatBody.scrollTop = chatBody.scrollHeight;
+
+        try {
+            // Determine API URL
+            const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL.replace(/\/api$/, '') : '');
+            const targetUrl = `${base}/api/ai/chat`;
+
+            const res = await fetch(targetUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: query,
+                    language: aiState.lang,
+                    user_id: (typeof state !== 'undefined' && state.currentUser) ? state.currentUser.id : null
+                })
+            });
+
+            // Remove loading indicator
+            const curLoading = document.getElementById('aiTempLoadingBubble');
+            if (curLoading) curLoading.remove();
+
+            if (!res.ok) {
+                throw new Error(`Server returned HTTP ${res.status}`);
+            }
+
+            const data = await res.json();
+            renderAiBotResponse(data, query);
+
+        } catch (err) {
+            console.warn('[DROPZYY AI] Request error:', err);
+            const curLoading = document.getElementById('aiTempLoadingBubble');
+            if (curLoading) curLoading.remove();
+
+            // Fallback response directly in client
+            renderAiBotResponse({
+                success: true,
+                language: aiState.lang,
+                reply: (aiState.lang === 'mr') 
+                    ? "तुमच्या विनंतीनुसार आम्ही चॉपड्यातील उपलब्ध पदार्थ शोधत आहोत! 🍲" 
+                    : "Here are some of Chopda's best dishes available right now! 🍲",
+                action: "SHOW_DISHES",
+                dishes: (typeof state !== 'undefined' && state.products) ? state.products.slice(0, 4) : []
+            }, query);
+        }
+    };
+
+    // Render Bot Response & Dish Carousel
+    function renderAiBotResponse(data, originalQuery) {
+        const chatBody = document.getElementById('aiChatBody');
+        if (!chatBody) return;
+
+        const botBubble = document.createElement('div');
+        botBubble.className = 'ai-bubble ai-bot-bubble';
+
+        // Format markdown bold
+        let formattedReply = (data.reply || "Here are delicious options for you!")
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        let carouselHtml = '';
+        if (data.dishes && data.dishes.length > 0) {
+            carouselHtml = `<div class="ai-dishes-carousel">`;
+            data.dishes.forEach(dish => {
+                const imgUrl = dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80';
+                const isVeg = dish.is_veg !== false;
+                const price = Number(dish.price || 0);
+                const title = dish.title || 'Special Dish';
+                const rating = dish.rating || '4.8';
+                const rest = dish.restaurant || (dish.category ? dish.category.toUpperCase() : 'Chopda');
+
+                carouselHtml += `
+                    <div class="ai-dish-card" id="aiDishCard_${dish.id}">
+                        <div class="ai-dish-img-box">
+                            <img src="${imgUrl}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80'">
+                            <div class="ai-veg-badge">
+                                <div class="ai-veg-dot ${isVeg ? 'veg' : 'non-veg'}"></div>
+                            </div>
+                            <div class="ai-dish-rating">★ ${rating}</div>
+                        </div>
+                        <div class="ai-dish-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
+                        <div class="ai-dish-category">${escapeHtml(rest)}</div>
+                        <div class="ai-dish-bottom">
+                            <span class="ai-dish-price">₹${price}</span>
+                            <button type="button" class="ai-add-btn" id="aiAddBtn_${dish.id}" onclick="handleAiAddToCart('${dish.id}', '${escapeHtml(title)}', ${price})">
+                                + Add
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            carouselHtml += `</div>`;
+        }
+
+        botBubble.innerHTML = `
+            <div class="ai-bubble-content">
+                <div>${formattedReply}</div>
+                ${carouselHtml}
+            </div>
+        `;
+        chatBody.appendChild(botBubble);
+        chatBody.scrollTop = chatBody.scrollHeight;
+
+        // Auto Add & Checkout Action if requested
+        if (data.action === 'ADD_AND_CHECKOUT' && data.dishes && data.dishes.length > 0) {
+            const firstDish = data.dishes[0];
+            window.handleAiAddToCart(firstDish.id, firstDish.title, firstDish.price);
+            setTimeout(() => {
+                window.closeDropzyyAiAssistant();
+                if (typeof window.openCart === 'function') {
+                    window.openCart();
+                }
+            }, 800);
+        }
+    }
+
+    // Handle adding dish to cart from AI recommendations
+    window.handleAiAddToCart = async function(dishId, title, price) {
+        const btn = document.getElementById(`aiAddBtn_${dishId}`);
+        if (btn) {
+            btn.innerHTML = '✓ Added';
+            btn.style.background = '#34D399';
+            setTimeout(() => {
+                btn.innerHTML = '+ Add';
+                btn.style.background = '#10B981';
+            }, 1200);
+        }
+
+        // Call global addToCart
+        if (typeof addToCart === 'function') {
+            await addToCart(dishId, 1);
+        } else {
+            console.log('[DROPZYY AI] Cart function not ready, queuing item:', dishId);
+        }
+
+        // Add visual confirmation bubble in chat
+        const chatBody = document.getElementById('aiChatBody');
+        if (chatBody) {
+            const confirmBubble = document.createElement('div');
+            confirmBubble.className = 'ai-bubble ai-bot-bubble';
+            confirmBubble.style.maxWidth = '75%';
+            confirmBubble.innerHTML = `
+                <div class="ai-bubble-content" style="background: rgba(16,185,129,0.15); border: 1px solid #10B981; padding: 8px 12px; font-size: 0.8rem;">
+                    ✅ Added <b>${title}</b> (₹${price}) to your bag! 🛒
+                </div>
+            `;
+            chatBody.appendChild(confirmBubble);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        if (typeof showToast === 'function') {
+            showToast(`Added ${title} to Cart!`, 'success');
+        }
+    };
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+})();

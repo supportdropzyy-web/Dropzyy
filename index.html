@@ -239,6 +239,7 @@
                         <i class="fa-solid fa-magnifying-glass search-icon"></i>
                         <input type="text" id="searchInput" placeholder='Search "comfort food", groceries, biryani, milk...' autocomplete="off">
                         <button class="clear-search-btn hidden" id="clearSearchBtn"><i class="fa-solid fa-xmark"></i></button>
+                        <button type="button" class="search-ai-mic-btn" onclick="openDropzyyAiAssistant(true)" title="Speak with AI Chef"><i class="fa-solid fa-microphone"></i></button>
                         <div class="search-suggestions hidden" id="searchSuggestions"></div>
                     </div>
 
@@ -357,6 +358,7 @@
                 <div class="search-box mobile-search-box" style="position: relative; flex: 1;">
                     <i class="fa-solid fa-magnifying-glass search-icon"></i>
                     <input type="text" id="mobileSearchInput" placeholder='Search Pizza, Biryani, Atta, Groceries, Snacks...' autocomplete="off">
+                    <button type="button" class="search-ai-mic-btn" onclick="openDropzyyAiAssistant(true)" title="Speak with AI Chef" style="right: 12px;"><i class="fa-solid fa-microphone"></i></button>
                     <div class="search-suggestions hidden" id="mobileSearchSuggestions"></div>
                 </div>
 
@@ -3148,6 +3150,97 @@
             <button type="button" class="m-cart-bar-close" onclick="event.stopPropagation(); if(window.dismissMobileCartBar) window.dismissMobileCartBar();" title="Close Cart Preview" aria-label="Close Cart Preview">
                 <i class="fa-solid fa-xmark"></i>
             </button>
+        </div>
+    </div>
+
+    
+    <!-- ============================================================================== -->
+    <!-- 🤖 DROPZYY CONVERSATIONAL AI FOOD AGENT FLOATING BUTTON & DRAWER -->
+    <!-- ============================================================================== -->
+    <button id="dropzyyAiTriggerBtn" class="dropzyy-ai-fab" onclick="openDropzyyAiAssistant()" title="Ask Dropzyy AI Chef (Voice & Chat)">
+        <div class="ai-fab-badge">
+            <span>👨‍🍳</span>
+            <span class="ai-fab-pulse-dot"></span>
+        </div>
+        <div class="ai-fab-label">
+            <span class="ai-fab-text-main">AI Chef</span>
+            <span class="ai-fab-text-sub">🎙️ Voice Order</span>
+        </div>
+    </button>
+
+    <!-- Dropzyy AI Overlay & Drawer Modal -->
+    <div class="ai-drawer-overlay" id="dropzyyAiOverlay" onclick="closeDropzyyAiAssistant()"></div>
+    <div class="dropzyy-ai-drawer" id="dropzyyAiDrawer" role="dialog" aria-modal="true" aria-label="Dropzyy AI Food Assistant">
+        <div class="ai-drag-handle"></div>
+
+        <!-- Header -->
+        <div class="ai-drawer-header">
+            <div class="ai-header-left">
+                <div class="ai-avatar-badge">
+                    <span>👨‍🍳</span>
+                    <span class="ai-online-beacon"></span>
+                </div>
+                <div>
+                    <div class="ai-drawer-title">Dropzyy AI Chef <span class="ai-live-tag">LIVE</span></div>
+                    <div class="ai-drawer-status" id="aiDrawerStatus">● Scanning Urban Tadka, Banjo's, Katta...</div>
+                </div>
+            </div>
+
+            <div class="ai-header-right">
+                <div class="ai-lang-pill">
+                    <button type="button" class="ai-lang-btn active" id="aiLangEn" onclick="setAiLanguage('en')">EN</button>
+                    <button type="button" class="ai-lang-btn" id="aiLangMr" onclick="setAiLanguage('mr')">मराठी</button>
+                    <button type="button" class="ai-lang-btn" id="aiLangHi" onclick="setAiLanguage('hi')">हिंदी</button>
+                </div>
+                <button type="button" class="ai-close-btn" onclick="closeDropzyyAiAssistant()" title="Close AI Assistant">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Body Scroll Area -->
+        <div class="ai-chat-body" id="aiChatBody">
+            <div class="ai-bubble ai-bot-bubble">
+                <div class="ai-bubble-content">
+                    👋 Namaste! I am your <b>Dropzyy AI Chef</b>.<br>
+                    Speak or type what you're craving today. I'll scan live kitchen menus for you! 🍲
+                    <div class="ai-welcome-examples">
+                        <span onclick="sendQuickAiQuery('Show me spicy biryani under 200')">🔥 "Spicy biryani under ₹200"</span>
+                        <span onclick="sendQuickAiQuery('Pure veg paneer pizza under 250')">🥦 "Pure veg paneer pizza"</span>
+                        <span onclick="sendQuickAiQuery('मला १ चिकन दम बिर्याणी पाहिजे')">🗣️ "मला १ चिकन दम बिर्याणी पाहिजे"</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Suggestion Chips -->
+        <div class="ai-chips-scroll">
+            <button type="button" class="ai-chip" onclick="sendQuickAiQuery('Spicy biryani under 200')">🔥 Biryani under ₹200</button>
+            <button type="button" class="ai-chip" onclick="sendQuickAiQuery('Pure veg paneer pizza under 250')">🥦 Pure Veg Paneer</button>
+            <button type="button" class="ai-chip" onclick="sendQuickAiQuery('Banjo cheese pizza')">🍕 Banjo's Pizza</button>
+            <button type="button" class="ai-chip" onclick="sendQuickAiQuery('Chicken burger under 150')">🍔 Chicken Burger</button>
+            <button type="button" class="ai-chip" onclick="sendQuickAiQuery('Fresh Alphonso Mangoes')">🥭 Fresh Mangoes</button>
+        </div>
+
+        <!-- Voice & Text Console -->
+        <div class="ai-input-console">
+            <input type="text" id="aiTextInput" class="ai-text-input" placeholder="Ask AI Chef or tap mic to speak..." onkeydown="handleAiInputKey(event)">
+            <button type="button" id="aiMicBtn" class="ai-mic-btn" onclick="toggleAiVoiceRecording()" title="Speak with AI Chef">
+                <i class="fa-solid fa-microphone" id="aiMicIcon"></i>
+            </button>
+            <button type="button" class="ai-send-btn" onclick="submitAiQuery()" title="Send">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+
+        <!-- Voice Listening Waveform -->
+        <div class="ai-listening-indicator" id="aiListeningIndicator" style="display: none;">
+            <span class="ai-wave-bar"></span>
+            <span class="ai-wave-bar"></span>
+            <span class="ai-wave-bar"></span>
+            <span class="ai-wave-bar"></span>
+            <span class="ai-wave-bar"></span>
+            <span class="ai-listening-label" id="aiListeningText">Listening... Speak now</span>
         </div>
     </div>
 

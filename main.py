@@ -40,6 +40,7 @@ from sqlalchemy import text, or_
 import schemas
 import auth
 import mongo_db
+import ai_engine
 from database import engine, Base, get_db
 
 # ==============================================================================
@@ -52,7 +53,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=(self)"
         
         # Zero-cache headers for all dynamic API routes & core SPA assets across all mobile & desktop browsers
         path = request.url.path.lower()
@@ -6180,3 +6181,97 @@ def send_order_web_push(order_id: str, customer_info: dict, items: list, total_a
                 print(f"[PUSH SEND NOTICE] Error sending to {sub.endpoint[:40]}...: {e}")
     except Exception as overall_e:
         print("[WEB PUSH ENGINE NOTICE]", overall_e)
+
+
+# ==============================================================================
+# 🤖 DROPZYY CONVERSATIONAL AI FOOD AGENT REST API
+# ==============================================================================
+@app.post("/api/ai/chat")
+@app.post("/api/api/ai/chat")
+def ai_food_agent_chat(
+    payload: ai_engine.AIChatRequest,
+    response: Response,
+    db: Session = Depends(get_db)
+):
+    """
+    Autonomous conversational food assistant:
+    - Scans live MongoDB Atlas / SQLite dishes
+    - Understands English, Marathi and Hindi
+    - Filters by budget, dietary preference, and restaurant
+    - Returns structured recommendations with 1-tap cart & checkout actions
+    """
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    query = (payload.query or "").strip()
+    if not query:
+        return {"success": False, "reply": "Please say or type what you would like to eat!", "dishes": []}
+        
+    # Detect language, budget, dietary, checkout intent
+    lang = ai_engine.detect_language(query, payload.language or "auto")
+    budget = ai_engine.extract_budget(query)
+    dietary = ai_engine.extract_dietary(query)
+    is_checkout = ai_engine.check_checkout_intent(query)
+    
+    # 1. Fetch live products from MongoDB Atlas or SQLite
+    raw_products = []
+    if mongo_db.is_mongo_active():
+        try:
+            m_db = mongo_db.get_mongo_db()
+            raw_products = list(m_db.products.find({"in_stock": {"$ne": False}}))
+        except Exception as me:
+            print("[AI ENGINE] Mongo fetch error:", me)
+            
+    if not raw_products:
+        try:
+            sql_prods = db.query(models.Product).filter(models.Product.in_stock != False).all()
+            for p in sql_prods:
+                raw_products.append({
+                    "id": str(p.id),
+                    "title": p.title,
+                    "category": p.category,
+                    "price": p.price,
+                    "original_price": p.original_price,
+                    "image": p.image,
+                    "rating": p.rating,
+                    "in_stock": p.in_stock,
+                    "description": p.description
+                })
+        except Exception as se:
+            print("[AI ENGINE] SQLite fetch error:", se)
+            
+    # 2. Score and rank dishes
+    matched_dishes = ai_engine.scan_and_rank_dishes(query, raw_products, budget=budget, dietary=dietary)
+    
+    # Fallback to top rated items if no direct match
+    if not matched_dishes:
+        top_fallback = sorted(raw_products, key=lambda x: float(x.get("rating", 4.0)), reverse=True)[:4]
+        for p in top_fallback:
+            matched_dishes.append({
+                "id": str(p.get("id", p.get("_id", ""))),
+                "title": p.get("title", ""),
+                "category": p.get("category", ""),
+                "price": float(p.get("price", 0.0)),
+                "original_price": float(p.get("original_price") or p.get("price", 0.0)),
+                "image": p.get("image", ""),
+                "rating": float(p.get("rating", 4.8)),
+                "is_veg": not any(nv in (str(p.get("title")) + " " + str(p.get("category"))).lower() for nv in ["chicken", "egg", "non-veg", "mutton"]),
+                "restaurant": str(p.get("category", "Dropzyy")).capitalize(),
+                "score": 1.0
+            })
+            
+    # 3. Formulate conversational reply
+    reply = ai_engine.generate_multilingual_reply(lang, matched_dishes[:5], query, budget, is_checkout)
+    
+    action = "SHOW_DISHES"
+    if is_checkout and matched_dishes:
+        action = "ADD_AND_CHECKOUT"
+        
+    return {
+        "success": True,
+        "query": query,
+        "language": lang,
+        "reply": reply,
+        "action": action,
+        "budget_limit": budget,
+        "dietary": dietary,
+        "dishes": matched_dishes[:6]
+    }
