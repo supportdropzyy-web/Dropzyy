@@ -6254,7 +6254,7 @@ def ai_food_agent_chat(
                 "image": p.get("image", ""),
                 "rating": float(p.get("rating", 4.8)),
                 "is_veg": not any(nv in (str(p.get("title")) + " " + str(p.get("category"))).lower() for nv in ["chicken", "egg", "non-veg", "mutton"]),
-                "restaurant": str(p.get("category", "Dropzyy")).capitalize(),
+                "restaurant": ai_engine.resolve_restaurant_name(p),
                 "score": 1.0
             })
             

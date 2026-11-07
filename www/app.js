@@ -15840,7 +15840,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingBubble.innerHTML = `
             <div class="ai-bubble-content" style="display: flex; align-items: center; gap: 8px;">
                 <div style="width: 14px; height: 14px; border: 2px solid rgba(16,185,129,0.3); border-top-color: #10B981; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-                <span style="color: #6EE7B7; font-size: 0.8rem; font-weight: 600;">Scanning live kitchen inventory in Chopda...</span>
+                <span style="color: #6EE7B7; font-size: 0.8rem; font-weight: 600;">Scanning live restaurant kitchens...</span>
             </div>
         `;
         chatBody.appendChild(loadingBubble);
@@ -15883,7 +15883,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 language: aiState.lang,
                 reply: (aiState.lang === 'mr') 
                     ? "तुमच्या विनंतीनुसार आम्ही चॉपड्यातील उपलब्ध पदार्थ शोधत आहोत! 🍲" 
-                    : "Here are some of Chopda's best dishes available right now! 🍲",
+                    : "Here are some of our best dishes available right now! 🍲",
                 action: "SHOW_DISHES",
                 dishes: (typeof state !== 'undefined' && state.products) ? state.products.slice(0, 4) : []
             }, query);
@@ -15911,7 +15911,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const price = Number(dish.price || 0);
                 const title = dish.title || 'Special Dish';
                 const rating = dish.rating || '4.8';
-                const rest = dish.restaurant || (dish.category ? dish.category.toUpperCase() : 'Chopda');
+                const rest = dish.restaurant || (dish.supplier_company_name || dish.supplier_name || 'Banjos Cafe');
 
                 carouselHtml += `
                     <div class="ai-dish-card" id="aiDishCard_${dish.id}">
@@ -15923,7 +15923,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="ai-dish-rating">★ ${rating}</div>
                         </div>
                         <div class="ai-dish-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
-                        <div class="ai-dish-category">${escapeHtml(rest)}</div>
+                        <div class="ai-dish-category" style="font-weight: 700; color: #34D399; font-size: 0.72rem; display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-store" style="font-size: 0.65rem; opacity: 0.9;"></i><span>${escapeHtml(rest)}</span></div>
                         <div class="ai-dish-bottom">
                             <span class="ai-dish-price">₹${price}</span>
                             <button type="button" class="ai-add-btn" id="aiAddBtn_${dish.id}" onclick="handleAiAddToCart('${dish.id}', '${escapeHtml(title)}', ${price})">

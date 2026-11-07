@@ -7,6 +7,31 @@ import re
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
+
+def resolve_restaurant_name(p: Dict[str, Any]) -> str:
+    """Extract accurate restaurant / cafe / store name for each dish."""
+    for key in ["supplier_company_name", "supplier_name", "restaurant", "store_name"]:
+        val = str(p.get(key) or "").strip()
+        if val and val.lower() not in ["y", "admin", "system administrator", "dropzyy partner", "none", ""]:
+            return val
+            
+    cat = str(p.get("category", "")).lower()
+    title = str(p.get("title", "")).lower()
+    desc = str(p.get("description", "")).lower()
+    combined = cat + " " + title + " " + desc
+    
+    if any(k in combined for k in ["pizza", "burger", "banjo", "french fries", "cheese corn", "shake"]):
+        return "Banjos Cafe"
+    if any(k in combined for k in ["katta", "dum biryani", "biryani", "tandoori"]):
+        return "Katta Biryani and Tandoor"
+    if any(k in combined for k in ["urban tadka", "tadka", "paneer butter", "dal makhani"]):
+        return "Urban Tadka"
+    if any(k in combined for k in ["atta", "dal", "oil", "rice", "salt", "groceries", "staples"]):
+        return "Dropzyy Mart"
+    return "Dropzyy Partner"
+
+
+
 class AIChatRequest(BaseModel):
     query: str
     language: Optional[str] = "auto"
@@ -207,7 +232,7 @@ def scan_and_rank_dishes(
                 "image": p.get("image", ""),
                 "rating": rating,
                 "is_veg": is_veg,
-                "restaurant": p.get("category", "Dropzyy Partner").capitalize(),
+                "restaurant": resolve_restaurant_name(p),
                 "score": score
             }
             scored_items.append(p_clean)
@@ -237,11 +262,11 @@ def generate_multilingual_reply(
             
     if count == 0:
         if lang == "mr":
-            return "माफ करा, तुमच्या विनंतीनुसार आत्ता थेट पदार्थ सापडला नाही. पण तुम्ही चॉपड्यातील आमचे लोकप्रिय बर्गर, पिझ्झा किंवा दम बिर्याणी ट्राय करू शकता! 🍲"
+            return "माफ करा, तुमच्या विनंतीनुसार आत्ता थेट पदार्थ सापडला नाही. पण तुम्ही आमचे लोकप्रिय बर्गर, पिझ्झा किंवा दम बिर्याणी ट्राय करू शकता! 🍲"
         elif lang == "hi":
-            return "माफ़ कीजिए, आपकी खोज के अनुसार अभी कोई आइटम नहीं मिला. पर आप चोपडा के मशहूर पिज़्ज़ा, बर्गर या स्पेशल दम बिरयानी देख सकते हैं! 🍲"
+            return "माफ़ कीजिए, आपकी खोज के अनुसार अभी कोई आइटम नहीं मिला. पर आप हमारे मशहूर पिज़्ज़ा, बर्गर या स्पेशल दम बिरयानी देख सकते हैं! 🍲"
         else:
-            return f"I couldn't find an exact match for '{query}', but you can explore Chopda's most popular top-rated dishes on Dropzyy! 🍲"
+            return f"I couldn't find an exact match for '{query}', but you can explore our most popular top-rated dishes on Dropzyy! 🍲"
             
     top_dish = dishes[0]
     top_name = top_dish["title"]
@@ -268,7 +293,7 @@ def call_gemini_chef(query: str, lang: str, dishes: List[Dict[str, Any]], api_ke
         dish_summaries = ", ".join([f"{d.get('title')} (Rs {int(d.get('price', 0))}) from {d.get('restaurant')}" for d in dishes[:4]])
         
         prompt = (
-            f"You are Dropzyy AI Chef, an energetic, friendly food delivery AI for Dropzyy in Chopda, Maharashtra.\n"
+            f"You are Dropzyy AI Chef, an energetic, friendly food delivery AI for Dropzyy.\n"
             f"Customer query: '{query}'\n"
             f"Available live dishes: {dish_summaries}\n"
             f"Language to respond in: {lang_label}\n"
