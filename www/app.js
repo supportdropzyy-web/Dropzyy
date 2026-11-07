@@ -1286,8 +1286,8 @@ async function fetchProductsFromAPI() {
                         supplier_company_name: p.supplier_company_name || null,
                         supplier_user_id: p.supplier_user_id || null,
                         supplier_id: p.supplier_id || null,
-                        isOnline: isProductOnline(p),
-                        is_online: isProductOnline(p),
+                        isOnline: (p.is_online !== undefined) ? Boolean(p.is_online) : true,
+                        is_online: (p.is_online !== undefined) ? Boolean(p.is_online) : true,
                         in_stock: p.in_stock !== false,
                         stock_quantity: (p.stock_quantity !== undefined && p.stock_quantity !== null) ? p.stock_quantity : 50,
                         show_stock_to_customer: p.show_stock_to_customer !== false,
@@ -1652,6 +1652,11 @@ window.doesProductBelongToSupplier = function(product, supplierUser) {
         const isProdBanjo = pSupplier.includes('banjo');
         const isSupBanjo = sCompany.includes('banjo') || sUser.includes('banjo');
         if (isProdBanjo !== isSupBanjo && (isProdBanjo || isSupBanjo)) return false;
+
+        const isProdAmrai = pSupplier.includes('amrai');
+        const isSupAmrai = sCompany.includes('amrai') || sUser.includes('ketan');
+        if (isProdAmrai !== isSupAmrai && (isProdAmrai || isSupAmrai)) return false;
+        if (isProdAmrai && isSupAmrai) return true;
     }
 
     // 1. Direct ID match
@@ -1718,6 +1723,8 @@ window.isSameSupplierEntity = function(supA, supB) {
     if ((tagB.includes('katta') || tagB.includes('pranav')) && (tagA.includes('urban') || tagA.includes('arnav'))) return false;
     if (tagA.includes('banjo') && (tagB.includes('urban') || tagB.includes('katta'))) return false;
     if (tagB.includes('banjo') && (tagA.includes('urban') || tagA.includes('katta'))) return false;
+    if (tagA.includes('amrai') && (tagB.includes('urban') || tagB.includes('katta') || tagB.includes('banjo'))) return false;
+    if (tagB.includes('amrai') && (tagA.includes('urban') || tagA.includes('katta') || tagA.includes('banjo'))) return false;
 
     if (supA.id && supB.id && String(supA.id) === String(supB.id)) return true;
 
@@ -1952,14 +1959,14 @@ window.renderRestaurants = function() {
     } else {
         // Customer / Visitor view: ONLY show partner stores that have active products added by that supplier!
         displaySuppliers = suppliers.filter(sup => {
-            const count = state.products.filter(p => doesProductBelongToSupplier(p, sup) && isProductOnline(p)).length;
+            const count = state.products.filter(p => doesProductBelongToSupplier(p, sup)).length;
             return count > 0;
         });
 
         // Sort so stores with more items appear first
         displaySuppliers.sort((a, b) => {
-            const countA = state.products.filter(p => doesProductBelongToSupplier(p, a) && isProductOnline(p)).length;
-            const countB = state.products.filter(p => doesProductBelongToSupplier(p, b) && isProductOnline(p)).length;
+            const countA = state.products.filter(p => doesProductBelongToSupplier(p, a)).length;
+            const countB = state.products.filter(p => doesProductBelongToSupplier(p, b)).length;
             return countB - countA;
         });
     }
@@ -1999,8 +2006,8 @@ window.renderRestaurants = function() {
         const closeTime = formatTime12Hour(sup.close_time || '10:00 PM');
         const city = sup.city || (sup.address && sup.address.city) || 'Savda';
         
-        // Count products belonging strictly to this supplier (online only for customers)
-        const items = state.products.filter(p => doesProductBelongToSupplier(p, sup) && (isSupplierUser ? true : isProductOnline(p)));
+        // Count products belonging strictly to this supplier (full menu dishes)
+        const items = state.products.filter(p => doesProductBelongToSupplier(p, sup));
         const count = items.length;
         const inStockCount = items.filter(p => p.in_stock !== false && (p.stock_quantity === undefined || p.stock_quantity === null || Number(p.stock_quantity) > 0)).length;
 
@@ -2193,7 +2200,7 @@ window.renderRestaurantMenuModalContent = function(target) {
     const openTime = formatTime12Hour(target.open_time || '08:00 AM');
     const closeTime = formatTime12Hour(target.close_time || '10:00 PM');
     const city = target.city || (target.address && target.address.city) || 'Savda';
-    const items = state.products.filter(p => doesProductBelongToSupplier(p, target) && isProductOnline(p));
+    const items = state.products.filter(p => doesProductBelongToSupplier(p, target));
     
     // Thematic avatar
     const raw = `${name} ${owner}`.toLowerCase();
@@ -2646,6 +2653,16 @@ window.filterByRestaurant = function(idOrUsername) {
         state.activeCategory = 'all';
     }
 
+    // Auto-refresh from backend if no matching items currently in memory
+    const existingFilteredCount = state.products.filter(p => doesProductBelongToSupplier(p, target)).length;
+    if (existingFilteredCount === 0 && typeof fetchProductsFromAPI === 'function') {
+        fetchProductsFromAPI().then(() => {
+            renderRestaurants();
+            renderProducts();
+            renderCategoryPills();
+        });
+    }
+
     renderRestaurants();
     renderProducts();
     renderCategoryPills();
@@ -2669,8 +2686,8 @@ function renderProducts() {
         const isOnline = isProductOnline(p);
         const canEdit = canUserEditProduct(p);
         
-        // Hide offline products from the main store catalog
-        if (!isOnline) {
+        // Hide offline products from the general store catalog; when viewing a specific restaurant, show their full menu catalog
+        if (!state.activeSupplierFilter && !isOnline && !canEdit) {
             return false;
         }
 
@@ -3586,6 +3603,9 @@ async function loginUser(username, password) {
                     state.activeSupplierFilter = state.currentUser;
                 }
                 saveUserSession(state.currentUser);
+                if (typeof fetchProductsFromAPI === 'function') {
+                    await fetchProductsFromAPI();
+                }
                 if (typeof window.renderSupplierTelegramStatus === 'function') {
                     setTimeout(() => window.renderSupplierTelegramStatus(), 200);
                 }
