@@ -1981,21 +1981,22 @@ window.renderRestaurants = function() {
             return count > 0;
         });
     } else {
-        // Customer / Visitor view: ONLY show partner stores that are ONLINE and open on the website!
-        // When a store is Emergency Offline, it is completely removed from customer view
+        // Customer / Visitor view: ONLY hide stores that are in EMERGENCY OFFLINE mode!
+        // Stores that are Online remain visible on the website with live operating hours/timings (even if closed for the night/afternoon)
         displaySuppliers = suppliers.filter(sup => {
             const status = evaluateUserStoreHours(sup);
-            if (!status.isOpen || status.isManuallyClosed || sup.store_open === false) {
-                return false; // Store is offline: hide from website
+            // ONLY exclude if store is emergency offline (manually closed)
+            if (status.isManuallyClosed || sup.store_open === false || sup.store_open === 0 || sup.store_open === 'false') {
+                return false; // Emergency offline: hide completely from customer website
             }
-            const onlineCount = state.products.filter(p => doesProductBelongToSupplier(p, sup) && isProductOnline(p)).length;
-            return onlineCount > 0;
+            const count = state.products.filter(p => doesProductBelongToSupplier(p, sup)).length;
+            return count > 0;
         });
 
         // Sort so stores with more items appear first
         displaySuppliers.sort((a, b) => {
-            const countA = state.products.filter(p => doesProductBelongToSupplier(p, a) && isProductOnline(p)).length;
-            const countB = state.products.filter(p => doesProductBelongToSupplier(p, b) && isProductOnline(p)).length;
+            const countA = state.products.filter(p => doesProductBelongToSupplier(p, a)).length;
+            const countB = state.products.filter(p => doesProductBelongToSupplier(p, b)).length;
             return countB - countA;
         });
     }
@@ -2210,7 +2211,8 @@ window.openRestaurantMenuModal = function(idOrUsernameOrIdx) {
         (typeof isSameSupplierEntity === 'function' && isSameSupplierEntity(state.currentUser, target))
     );
 
-    if (!isOwnerOrAdmin && (!targetStatus.isOpen || targetStatus.isManuallyClosed || target.store_open === false)) {
+    // ONLY block if in Emergency Offline mode! If just closed due to timing, customer can still browse the menu & timings.
+    if (!isOwnerOrAdmin && (targetStatus.isManuallyClosed || target.store_open === false || target.store_open === 0 || target.store_open === 'false')) {
         showToast(`"${target.supplier_company_name || target.username}" is currently offline and not available on the website.`, 'info');
         return;
     }
@@ -2690,7 +2692,8 @@ window.filterByRestaurant = function(idOrUsername) {
         (typeof isSameSupplierEntity === 'function' && isSameSupplierEntity(state.currentUser, target))
     );
 
-    if (!isOwnerOrAdmin && (!targetStatus.isOpen || targetStatus.isManuallyClosed || target.store_open === false)) {
+    // ONLY block if in Emergency Offline mode!
+    if (!isOwnerOrAdmin && (targetStatus.isManuallyClosed || target.store_open === false || target.store_open === 0 || target.store_open === 'false')) {
         showToast(`This store is currently offline and not available on the website.`, 'info');
         state.activeSupplierFilter = null;
         renderRestaurants();
