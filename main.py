@@ -6259,7 +6259,10 @@ def ai_food_agent_chat(
             })
             
     # 3. Formulate conversational reply
-    reply = ai_engine.generate_multilingual_reply(lang, matched_dishes[:5], query, budget, is_checkout)
+    gemini_reply = None
+    if matched_dishes and not is_checkout:
+        gemini_reply = ai_engine.call_gemini_chef(query, lang, matched_dishes)
+    reply = gemini_reply or ai_engine.generate_multilingual_reply(lang, matched_dishes[:5], query, budget, is_checkout)
     
     action = "SHOW_DISHES"
     if is_checkout and matched_dishes:

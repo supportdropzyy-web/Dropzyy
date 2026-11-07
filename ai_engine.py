@@ -254,3 +254,44 @@ def generate_multilingual_reply(
         return f"हमने आपके लिए {rest} से {count} स्वादिष्ट विकल्प ढूंढे हैं! (जैसे {top_name} मात्र Rs {top_price}). नीचे दिए गए '+ Add' बटन से तुरंत कार्ट में जोड़ें! 🍲"
     else:
         return f"I found {count} top-rated delicious options matching your taste from {rest}! (e.g. {top_name} at Rs {top_price}). Tap '+ Add' on any dish to order instantly. 🍲"
+
+import os
+
+def call_gemini_chef(query: str, lang: str, dishes: List[Dict[str, Any]], api_key: Optional[str] = None) -> Optional[str]:
+    """Call Google Gemini to generate intelligent, context-aware food recommendations."""
+    key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        return None
+    try:
+        import requests
+        lang_label = "Marathi" if lang == "mr" else ("Hindi" if lang == "hi" else "English")
+        dish_summaries = ", ".join([f"{d.get('title')} (Rs {int(d.get('price', 0))}) from {d.get('restaurant')}" for d in dishes[:4]])
+        
+        prompt = (
+            f"You are Dropzyy AI Chef, an energetic, friendly food delivery AI for Dropzyy in Chopda, Maharashtra.\n"
+            f"Customer query: '{query}'\n"
+            f"Available live dishes: {dish_summaries}\n"
+            f"Language to respond in: {lang_label}\n"
+            f"Instruction: Write a warm, appetizing 1 or 2 sentence recommendation encouraging them to tap '+ Add'. Mention the top dishes and prices. Keep it short, helpful and mouthwatering."
+        )
+        
+        endpoints = [
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={key}"
+        ]
+        
+        for ep in endpoints:
+            try:
+                res = requests.post(ep, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=3.5)
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates and "content" in candidates[0] and "parts" in candidates[0]["content"]:
+                        reply = candidates[0]["content"]["parts"][0].get("text", "").strip()
+                        if reply:
+                            return reply
+            except Exception:
+                continue
+    except Exception as e:
+        print("[GEMINI NOTICE]", e)
+    return None
