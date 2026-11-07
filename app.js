@@ -1955,6 +1955,7 @@ window.renderRestaurants = function() {
     // Role-based Supplier Isolation:
     // When a particular supplier is logged in, show ONLY their own store/restaurant!
     const isSupplierUser = state.currentUser && state.currentUser.role === 'supplier';
+    const isAdminUser = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin');
     let displaySuppliers = [];
     if (isSupplierUser) {
         displaySuppliers = suppliers.filter(sup => isSameSupplierEntity(sup, state.currentUser));
@@ -1967,23 +1968,34 @@ window.renderRestaurants = function() {
                 supplier_company_name: state.currentUser.supplier_company_name || state.currentUser.full_name || 'My Store',
                 full_name: state.currentUser.full_name || state.currentUser.username || 'Supplier Partner',
                 role: 'supplier',
-                open_time: state.currentUser.open_time || '08:00 AM',
-                close_time: state.currentUser.close_time || '10:00 PM',
+                open_time: state.currentUser.open_time || '10:00 AM',
+                close_time: state.currentUser.close_time || '11:00 PM',
                 store_open: state.currentUser.store_open !== false,
                 city: state.currentUser.city || (state.currentUser.address && state.currentUser.address.city) || 'Savda'
             }];
         }
-    } else {
-        // Customer / Visitor view: ONLY show partner stores that have active products added by that supplier!
+    } else if (isAdminUser) {
+        // Admin sees all partner stores with live operating and emergency status
         displaySuppliers = suppliers.filter(sup => {
             const count = state.products.filter(p => doesProductBelongToSupplier(p, sup)).length;
             return count > 0;
         });
+    } else {
+        // Customer / Visitor view: ONLY show partner stores that are ONLINE and open on the website!
+        // When a store is Emergency Offline, it is completely removed from customer view
+        displaySuppliers = suppliers.filter(sup => {
+            const status = evaluateUserStoreHours(sup);
+            if (!status.isOpen || status.isManuallyClosed || sup.store_open === false) {
+                return false; // Store is offline: hide from website
+            }
+            const onlineCount = state.products.filter(p => doesProductBelongToSupplier(p, sup) && isProductOnline(p)).length;
+            return onlineCount > 0;
+        });
 
         // Sort so stores with more items appear first
         displaySuppliers.sort((a, b) => {
-            const countA = state.products.filter(p => doesProductBelongToSupplier(p, a)).length;
-            const countB = state.products.filter(p => doesProductBelongToSupplier(p, b)).length;
+            const countA = state.products.filter(p => doesProductBelongToSupplier(p, a) && isProductOnline(p)).length;
+            const countB = state.products.filter(p => doesProductBelongToSupplier(p, b) && isProductOnline(p)).length;
             return countB - countA;
         });
     }
@@ -2188,6 +2200,18 @@ window.openRestaurantMenuModal = function(idOrUsernameOrIdx) {
 
     if (!target) {
         showToast('Restaurant menu is currently unavailable.', 'info');
+        return;
+    }
+
+    const targetStatus = evaluateUserStoreHours(target);
+    const isOwnerOrAdmin = state.currentUser && (
+        state.currentUser.role === 'admin' || 
+        state.currentUser.role === 'sub_admin' || 
+        (typeof isSameSupplierEntity === 'function' && isSameSupplierEntity(state.currentUser, target))
+    );
+
+    if (!isOwnerOrAdmin && (!targetStatus.isOpen || targetStatus.isManuallyClosed || target.store_open === false)) {
+        showToast(`"${target.supplier_company_name || target.username}" is currently offline and not available on the website.`, 'info');
         return;
     }
 
@@ -2658,6 +2682,21 @@ window.filterByRestaurant = function(idOrUsername) {
     }
 
     if (!target) return;
+
+    const targetStatus = evaluateUserStoreHours(target);
+    const isOwnerOrAdmin = state.currentUser && (
+        state.currentUser.role === 'admin' || 
+        state.currentUser.role === 'sub_admin' || 
+        (typeof isSameSupplierEntity === 'function' && isSameSupplierEntity(state.currentUser, target))
+    );
+
+    if (!isOwnerOrAdmin && (!targetStatus.isOpen || targetStatus.isManuallyClosed || target.store_open === false)) {
+        showToast(`This store is currently offline and not available on the website.`, 'info');
+        state.activeSupplierFilter = null;
+        renderRestaurants();
+        renderProducts();
+        return;
+    }
 
     if (state.activeSupplierFilter && (
         (state.activeSupplierFilter.id && String(state.activeSupplierFilter.id) === String(target.id)) ||
@@ -6524,6 +6563,13 @@ window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsern
             if (state.activeModalRestaurant && typeof renderRestaurantMenuModalContent === 'function') {
                 state.activeModalRestaurant.store_open = newStatus;
                 renderRestaurantMenuModalContent(state.activeModalRestaurant);
+            }
+
+            if (!newStatus) {
+                const modal = document.getElementById('restaurantMenuModal');
+                const overlay = document.getElementById('restaurantMenuOverlay');
+                if (modal) modal.classList.remove('active');
+                if (overlay) overlay.classList.remove('active');
             }
 
             const statusText = newStatus ? 'ONLINE 🟢' : 'EMERGENCY OFFLINE 🔴';

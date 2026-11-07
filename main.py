@@ -2965,6 +2965,12 @@ def toggle_supplier_status(payload: dict, db: Session = Depends(get_db), current
     ).first()
     if u:
         u.store_open = store_open
+        s_name = u.supplier_company_name or u.username
+        db.query(models.Product).filter(
+            (models.Product.supplier_user_id == u.id) |
+            (models.Product.supplier_id == u.id) |
+            (models.Product.supplier_name.ilike(s_name))
+        ).update({"is_online": store_open}, synchronize_session=False)
         db.commit()
         db.refresh(u)
         
