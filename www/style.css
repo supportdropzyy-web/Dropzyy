@@ -5831,3 +5831,19 @@ input:checked + .slider-veg:before {
         padding: 12px 14px 18px;
     }
 }
+
+.ai-powered-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.15));
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: #34D399;
+    font-size: 0.64rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 6px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}

@@ -6259,10 +6259,13 @@ def ai_food_agent_chat(
             })
             
     # 3. Formulate conversational reply
-    gemini_reply = None
+    gemini_data = None
     if matched_dishes and not is_checkout:
-        gemini_reply = ai_engine.call_gemini_chef(query, lang, matched_dishes)
-    reply = gemini_reply or ai_engine.generate_multilingual_reply(lang, matched_dishes[:5], query, budget, is_checkout)
+        gemini_data = ai_engine.call_gemini_chef(query, lang, matched_dishes)
+        
+    reply = (gemini_data["reply"] if (gemini_data and isinstance(gemini_data, dict)) else None) or ai_engine.generate_multilingual_reply(lang, matched_dishes[:5], query, budget, is_checkout)
+    powered_by = gemini_data.get("powered_by", "Dropzyy Smart Match") if (gemini_data and isinstance(gemini_data, dict)) else "Dropzyy Smart Match"
+    model_name = gemini_data.get("model", "local-nlp") if (gemini_data and isinstance(gemini_data, dict)) else "local-nlp"
     
     action = "SHOW_DISHES"
     if is_checkout and matched_dishes:
@@ -6276,5 +6279,45 @@ def ai_food_agent_chat(
         "action": action,
         "budget_limit": budget,
         "dietary": dietary,
+        "powered_by": powered_by,
+        "ai_model": model_name,
         "dishes": matched_dishes[:6]
+    }
+
+
+@app.get("/api/ai/health")
+@app.get("/api/api/ai/health")
+def ai_health_status(response: Response):
+    """Live diagnostic check to verify Gemini API connectivity and Dropzyy AI status."""
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    key_configured = bool(gemini_key)
+    masked_key = (gemini_key[:8] + "..." + gemini_key[-4:]) if key_configured else None
+    
+    live_conn = None
+    if key_configured:
+        try:
+            import requests
+            u = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={gemini_key}"
+            r = requests.post(u, json={"contents": [{"parts": [{"text": "Reply with: Gemini Online"}]}]}, timeout=4.5)
+            if r.status_code == 200:
+                live_conn = {
+                    "connected": True,
+                    "model": "gemini-3.5-flash-lite",
+                    "latency_ms": int(r.elapsed.total_seconds() * 1000),
+                    "test_response": r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                }
+            else:
+                live_conn = {"connected": False, "http_status": r.status_code}
+        except Exception as ex:
+            live_conn = {"connected": False, "error": str(ex)}
+            
+    return {
+        "status": "healthy",
+        "gemini_active": key_configured and bool(live_conn and live_conn.get("connected")),
+        "gemini_key_configured": key_configured,
+        "gemini_key_masked": masked_key,
+        "model": "gemini-3.5-flash-lite",
+        "live_probe": live_conn,
+        "languages": ["English", "Marathi (मराठी)", "Hindi (हिंदी)"]
     }

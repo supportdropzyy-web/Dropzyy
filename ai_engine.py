@@ -257,8 +257,8 @@ def generate_multilingual_reply(
 
 import os
 
-def call_gemini_chef(query: str, lang: str, dishes: List[Dict[str, Any]], api_key: Optional[str] = None) -> Optional[str]:
-    """Call Google Gemini to generate intelligent, context-aware food recommendations."""
+def call_gemini_chef(query: str, lang: str, dishes: List[Dict[str, Any]], api_key: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Call Google Gemini (gemini-3.5-flash-lite) to generate intelligent, context-aware food recommendations."""
     key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not key:
         return None
@@ -272,24 +272,29 @@ def call_gemini_chef(query: str, lang: str, dishes: List[Dict[str, Any]], api_ke
             f"Customer query: '{query}'\n"
             f"Available live dishes: {dish_summaries}\n"
             f"Language to respond in: {lang_label}\n"
-            f"Instruction: Write a warm, appetizing 1 or 2 sentence recommendation encouraging them to tap '+ Add'. Mention the top dishes and prices. Keep it short, helpful and mouthwatering."
+            f"Instruction: Write a warm, appetizing 1 or 2 sentence recommendation encouraging them to tap '+ Add'. Mention 1 or 2 top dishes and prices. Keep it short, helpful and mouthwatering."
         )
         
+        # Primary working model: gemini-3.5-flash-lite (fastest, high rate limit)
         endpoints = [
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={key}",
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={key}"
+            ("gemini-3.5-flash-lite", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={key}"),
+            ("gemini-flash-latest", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={key}")
         ]
         
-        for ep in endpoints:
+        for model_name, ep in endpoints:
             try:
-                res = requests.post(ep, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=3.5)
+                res = requests.post(ep, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=4.5)
                 if res.status_code == 200:
                     data = res.json()
                     candidates = data.get("candidates", [])
                     if candidates and "content" in candidates[0] and "parts" in candidates[0]["content"]:
                         reply = candidates[0]["content"]["parts"][0].get("text", "").strip()
                         if reply:
-                            return reply
+                            return {
+                                "reply": reply,
+                                "model": model_name,
+                                "powered_by": "Google Gemini AI"
+                            }
             except Exception:
                 continue
     except Exception as e:

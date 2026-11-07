@@ -15939,6 +15939,7 @@ document.addEventListener('DOMContentLoaded', () => {
         botBubble.innerHTML = `
             <div class="ai-bubble-content">
                 <div>${formattedReply}</div>
+                ${data.powered_by && data.powered_by.includes('Gemini') ? '<div style="margin-top: 4px;"><span class="ai-powered-badge">✨ Powered by Gemini 3.5 AI</span></div>' : ''}
                 ${carouselHtml}
             </div>
         `;
