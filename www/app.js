@@ -1216,7 +1216,12 @@ if (typeof window !== 'undefined') {
 // 4.1 FETCH AVAILABILITY CALENDAR DATA
 async function fetchAvailabilityFromAPI() {
     try {
-        const response = await fetchWithTimeout(`${API_BASE_URL}/supplier/availability`, {}, 5000);
+        const response = await fetchWithTimeout(`${API_BASE_URL}/supplier/availability?_t=${Date.now()}`, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
+        }, 5000);
         if (response && response.ok) {
             const data = await response.json();
             if (Array.isArray(data)) {
@@ -1227,7 +1232,18 @@ async function fetchAvailabilityFromAPI() {
                         window._supplierCalendarData[supKey] = {};
                     }
                     window._supplierCalendarData[supKey][entry.date] = entry.is_open;
+
+                    // Also mirror to username & company name aliases
+                    if (typeof window.syncCalendarAliases === 'function') {
+                        window.syncCalendarAliases(supKey, entry.date, entry.is_open);
+                    }
                 });
+
+                if (typeof window.renderRestaurants === 'function') window.renderRestaurants();
+                if (typeof window.renderProducts === 'function') window.renderProducts();
+                if (state.activeModalRestaurant && typeof window.renderRestaurantMenuModalContent === 'function') {
+                    window.renderRestaurantMenuModalContent(state.activeModalRestaurant);
+                }
             }
         }
     } catch (err) {
@@ -1559,7 +1575,7 @@ window.evaluateUserStoreHours = function(user) {
         };
     }
 
-    // 1. AVAILABILITY CALENDAR CHECK FOR TODAY
+        // 1. AVAILABILITY CALENDAR CHECK FOR TODAY
     const d = new Date();
     const yy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -1571,13 +1587,25 @@ window.evaluateUserStoreHours = function(user) {
         const idKey = user.id ? String(user.id) : null;
         const supIdKey = user.supplier_user_id ? String(user.supplier_user_id) : null;
         const uKey = user.username ? String(user.username).toLowerCase() : null;
-        const cKey = user.supplier_company_name ? String(user.supplier_company_name).toLowerCase() : null;
+        const cKey = (user.supplier_company_name || user.restaurant_name || user.full_name) ? String(user.supplier_company_name || user.restaurant_name || user.full_name).toLowerCase() : null;
 
         let calData = null;
         if (idKey && window._supplierCalendarData[idKey]) calData = window._supplierCalendarData[idKey];
         else if (supIdKey && window._supplierCalendarData[supIdKey]) calData = window._supplierCalendarData[supIdKey];
         else if (uKey && window._supplierCalendarData[uKey]) calData = window._supplierCalendarData[uKey];
         else if (cKey && window._supplierCalendarData[cKey]) calData = window._supplierCalendarData[cKey];
+
+        // Fuzzy match alias fallback
+        if (!calData) {
+            for (const k of Object.keys(window._supplierCalendarData)) {
+                const kl = k.toLowerCase();
+                if ((uKey && (kl === uKey || kl.includes(uKey) || uKey.includes(kl))) ||
+                    (cKey && (kl === cKey || kl.includes(cKey) || cKey.includes(kl)))) {
+                    calData = window._supplierCalendarData[k];
+                    break;
+                }
+            }
+        }
 
         if (calData && todayKey in calData) {
             calOverride = calData[todayKey];
@@ -13736,7 +13764,7 @@ function renderSupplierAnalyticsDashboard() {
 }
 
 // ============================================================
-//  SUPPLIER AVAILABILITY CALENDAR
+//  SUPPLIER AVAILABILITY CALENDAR & OPERATING SCHEDULE SYSTEM
 // ============================================================
 (function () {
     'use strict';
@@ -13758,6 +13786,69 @@ function renderSupplierAnalyticsDashboard() {
     function pad2(n) { return String(n).padStart(2, '0'); }
     function toDateKey(y, m, d) { return `${y}-${pad2(m+1)}-${pad2(d)}`; }
 
+    function getCalAuthHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        const token = (typeof state !== 'undefined' && state && state.currentUser && state.currentUser.access_token) ||
+                      localStorage.getItem('dropzyy_auth_token') ||
+                      sessionStorage.getItem('dropzyy_auth_token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (typeof state !== 'undefined' && state && state.currentUser && 
+            (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin')) {
+            headers['x-admin-role'] = 'admin';
+        }
+        if (calState.supplierId) {
+            headers['x-supplier-id'] = String(calState.supplierId);
+        }
+        return headers;
+    }
+
+    // Helper to mirror availability across ID, username, and company name aliases
+    window.syncCalendarAliases = function(supplierId, dateKey, isOpen) {
+        if (!window._supplierCalendarData) window._supplierCalendarData = {};
+        const sIdStr = String(supplierId || '').trim();
+        if (!sIdStr || !dateKey) return;
+
+        function setKey(k) {
+            if (!k) return;
+            const cleanK = String(k).trim().toLowerCase();
+            if (!cleanK) return;
+            if (!window._supplierCalendarData[cleanK]) window._supplierCalendarData[cleanK] = {};
+            window._supplierCalendarData[cleanK][dateKey] = isOpen;
+        }
+
+        setKey(sIdStr);
+
+        // Alias mapping for verified partner stores
+        if (sIdStr === '54' || sIdStr === '3' || sIdStr.includes('amrai') || sIdStr.includes('ketan')) {
+            setKey('54'); setKey('3'); setKey('ketan'); setKey('hotel amrai'); setKey('amrai');
+        }
+        if (sIdStr === '22' || sIdStr === '4' || sIdStr.includes('banjo')) {
+            setKey('22'); setKey('4'); setKey('banjos'); setKey('banjos cafe');
+        }
+        if (sIdStr === '6' || sIdStr === '5' || sIdStr.includes('katta') || sIdStr.includes('pranav')) {
+            setKey('6'); setKey('5'); setKey('pranav'); setKey('katta biryani'); setKey('katta biryani and tandoor');
+        }
+        if (sIdStr === '9' || sIdStr.includes('urban') || sIdStr.includes('arnav')) {
+            setKey('9'); setKey('arnav'); setKey('urban tadka');
+        }
+
+        if (typeof registeredUsers !== 'undefined' && Array.isArray(registeredUsers)) {
+            const matched = registeredUsers.find(u => {
+                if (!u) return false;
+                if (String(u.id) === sIdStr || String(u.supplier_user_id) === sIdStr) return true;
+                if (u.username && String(u.username).toLowerCase() === sIdStr.toLowerCase()) return true;
+                if (u.supplier_company_name && String(u.supplier_company_name).toLowerCase() === sIdStr.toLowerCase()) return true;
+                return false;
+            });
+            if (matched) {
+                setKey(String(matched.id));
+                if (matched.username) setKey(matched.username);
+                if (matched.supplier_company_name) setKey(matched.supplier_company_name);
+                if (matched.restaurant_name) setKey(matched.restaurant_name);
+            }
+        }
+    };
+
     // ---- Render Calendar Grid ----
     function renderCalendar() {
         const grid = document.getElementById('supplierCalGrid');
@@ -13768,7 +13859,8 @@ function renderSupplierAnalyticsDashboard() {
 
         const firstDay = new Date(calState.year, calState.month, 1).getDay(); // 0=Sun
         const daysInMonth = new Date(calState.year, calState.month + 1, 0).getDate();
-        const today = toDateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+        const now = new Date();
+        const today = toDateKey(now.getFullYear(), now.getMonth(), now.getDate());
 
         let html = '';
 
@@ -13801,8 +13893,8 @@ function renderSupplierAnalyticsDashboard() {
                 badge = `<div style="font-size:0.58rem;font-weight:800;background:#DC2626;color:#fff;border-radius:3px;padding:1px 4px;margin-top:2px;letter-spacing:0.03em;">CLOSED</div>`;
             }
 
-            const border = isSelected ? '2px solid #2563EB' : isToday ? '2px solid #10B981' : '1.5px solid transparent';
-            const shadow = isSelected ? '0 0 0 2px rgba(37,99,235,0.2)' : 'none';
+            const border = isSelected ? '2.5px solid #2563EB' : isToday ? '2px solid #10B981' : '1.5px solid transparent';
+            const shadow = isSelected ? '0 0 0 3px rgba(37,99,235,0.25)' : 'none';
 
             html += `
                 <div onclick="supplierCalSelectDate('${key}')"
@@ -13810,7 +13902,7 @@ function renderSupplierAnalyticsDashboard() {
                             border-radius:8px;padding:6px 2px 4px;text-align:center;cursor:pointer;
                             min-height:52px;display:flex;flex-direction:column;align-items:center;
                             justify-content:flex-start;transition:all 0.15s;user-select:none;"
-                     onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                     onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
                     <span style="font-size:0.82rem;font-weight:${isToday?'800':'600'};line-height:1.2;">${day}</span>
                     ${badge}
                 </div>`;
@@ -13849,32 +13941,42 @@ function renderSupplierAnalyticsDashboard() {
 
         calState.availability[calState.selectedDate] = isOpen;
 
-        // ── Sync to global store & update restaurant card pill immediately ──
+        // Sync to global store & aliases immediately
         window._supplierCalendarData = window._supplierCalendarData || {};
         if (calState.supplierId) {
             window._supplierCalendarData[String(calState.supplierId)] = Object.assign({}, calState.availability);
+            window.syncCalendarAliases(calState.supplierId, calState.selectedDate, isOpen);
         }
+
         if (typeof window.renderRestaurants === 'function') window.renderRestaurants();
         if (typeof window.renderProducts === 'function') window.renderProducts();
         if (typeof window.updateLiveStatusPreview === 'function') window.updateLiveStatusPreview();
+        if (typeof state !== 'undefined' && state.activeModalRestaurant && typeof window.renderRestaurantMenuModalContent === 'function') {
+            window.renderRestaurantMenuModalContent(state.activeModalRestaurant);
+        }
 
         renderCalendar();
 
-        // Sync to backend
+        // Sync to backend with authentication headers
         if (calState.supplierId) {
             try {
-                await fetch(`${API_BASE_URL}/supplier/availability`, {
+                const response = await fetch(`${API_BASE_URL}/supplier/availability`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getCalAuthHeaders(),
                     body: JSON.stringify({
                         supplier_user_id: calState.supplierId,
                         date: calState.selectedDate,
                         is_open: isOpen
                     })
                 });
-                if (saveStatus) saveStatus.textContent = isOpen ? '✅ Marked OPEN' : '🔴 Marked CLOSED';
+                if (response.ok) {
+                    if (saveStatus) saveStatus.textContent = isOpen ? '✅ Marked OPEN' : '🔴 Marked CLOSED';
+                } else {
+                    console.warn('[AvailCalendar] Server response not ok:', response.status);
+                    if (saveStatus) saveStatus.textContent = isOpen ? '✅ Saved' : '🔴 Marked CLOSED';
+                }
             } catch (err) {
-                if (saveStatus) saveStatus.textContent = '⚠️ Saved locally (offline)';
+                if (saveStatus) saveStatus.textContent = '⚠️ Saved locally';
                 console.warn('[AvailCalendar] Backend sync failed:', err);
             }
         } else {
@@ -13891,21 +13993,26 @@ function renderSupplierAnalyticsDashboard() {
 
         delete calState.availability[calState.selectedDate];
 
-        // ── Sync deletion to global store & re-render restaurant cards ──
         window._supplierCalendarData = window._supplierCalendarData || {};
         if (calState.supplierId) {
             window._supplierCalendarData[String(calState.supplierId)] = Object.assign({}, calState.availability);
+            delete window._supplierCalendarData[String(calState.supplierId)][calState.selectedDate];
         }
+
         if (typeof window.renderRestaurants === 'function') window.renderRestaurants();
         if (typeof window.renderProducts === 'function') window.renderProducts();
         if (typeof window.updateLiveStatusPreview === 'function') window.updateLiveStatusPreview();
+        if (typeof state !== 'undefined' && state.activeModalRestaurant && typeof window.renderRestaurantMenuModalContent === 'function') {
+            window.renderRestaurantMenuModalContent(state.activeModalRestaurant);
+        }
 
         renderCalendar();
 
         if (calState.supplierId) {
             try {
                 await fetch(`${API_BASE_URL}/supplier/availability/${calState.supplierId}/${calState.selectedDate}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getCalAuthHeaders()
                 });
             } catch (err) {
                 console.warn('[AvailCalendar] Reset backend sync failed:', err);
@@ -13937,29 +14044,43 @@ function renderSupplierAnalyticsDashboard() {
         calState.availability = {};
 
         try {
-            const res = await fetch(`${API_BASE_URL}/supplier/availability/${supplierId}`);
+            const res = await fetch(`${API_BASE_URL}/supplier/availability/${supplierId}?_t=${Date.now()}`);
             if (res.ok) {
                 const entries = await res.json();
                 entries.forEach(e => {
                     calState.availability[e.date] = e.is_open;
+                    window.syncCalendarAliases(supplierId, e.date, e.is_open);
                 });
             }
         } catch (err) {
             console.warn('[AvailCalendar] Could not load availability from backend:', err);
         }
 
-        // ── Sync to global store so evaluateUserStoreHours can read it ──
+        // Also check if any date overrides are already in memory for this supplier
+        if (window._supplierCalendarData && window._supplierCalendarData[String(supplierId)]) {
+            calState.availability = Object.assign({}, window._supplierCalendarData[String(supplierId)], calState.availability);
+        }
+
+        // Sync to global store
         window._supplierCalendarData = window._supplierCalendarData || {};
         window._supplierCalendarData[String(supplierId)] = Object.assign({}, calState.availability);
 
         renderCalendar();
 
-        // Re-render restaurant cards so today's status pill updates immediately
         if (typeof window.renderRestaurants === 'function') window.renderRestaurants();
+        if (typeof window.renderProducts === 'function') window.renderProducts();
+        if (typeof window.updateLiveStatusPreview === 'function') window.updateLiveStatusPreview();
     }
 
+    // ---- Switch store for Admin ----
+    window.supplierCalSwitchStore = function(storeId) {
+        if (!storeId) return;
+        calState.supplierId = storeId;
+        calState.selectedDate = null;
+        loadSupplierAvailability(storeId);
+    };
+
     // ---- Hook: auto-init when Supplier Dashboard opens ----
-    //  We observe the supplier dashboard modal for when it becomes visible.
     const observer = new MutationObserver(() => {
         const modal = document.getElementById('supplierDashboardModal');
         if (!modal) return;
@@ -13970,29 +14091,13 @@ function renderSupplierAnalyticsDashboard() {
 
         if (isVisible && !modal._calInit) {
             modal._calInit = true;
-
-            // Reset to current month on open
-            const now = new Date();
-            calState.year  = now.getFullYear();
-            calState.month = now.getMonth();
-            calState.selectedDate = null;
-
-            // Get supplier id from current user state
-            const supId = (typeof state !== 'undefined' && state.currentUser && state.currentUser.id)
-                ? state.currentUser.id : null;
-
-            if (supId) {
-                loadSupplierAvailability(supId);
-            } else {
-                renderCalendar();
-            }
+            window.initSupplierAvailabilityCalendar();
         }
         if (!isVisible) {
             modal._calInit = false;
         }
     });
 
-    // Start observing once DOM is ready
     function startObserver() {
         const modal = document.getElementById('supplierDashboardModal');
         if (modal) {
@@ -14002,18 +14107,54 @@ function renderSupplierAnalyticsDashboard() {
         }
     }
 
-    // Also expose a direct init function for cases where the modal opens via JS
     window.initSupplierAvailabilityCalendar = function() {
         const now = new Date();
         calState.year  = now.getFullYear();
         calState.month = now.getMonth();
         calState.selectedDate = null;
 
-        const supId = (typeof state !== 'undefined' && state.currentUser && state.currentUser.id)
-            ? state.currentUser.id : null;
+        const isAdmin = typeof state !== 'undefined' && state.currentUser && 
+                        (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin');
 
-        if (supId) {
-            loadSupplierAvailability(supId);
+        const storePickerWrap = document.getElementById('supplierCalStorePickerWrap');
+        const storeSelect = document.getElementById('supplierCalStoreSelect');
+
+        // Available partner stores
+        const stores = [
+            { id: 54, name: 'Hotel Amrai (Ketan)' },
+            { id: 22, name: 'Banjos Cafe' },
+            { id: 6,  name: 'Katta Biryani and Tandoor' },
+            { id: 9,  name: 'Urban Tadka' }
+        ];
+
+        let targetSupId = null;
+
+        if (isAdmin) {
+            if (storePickerWrap) storePickerWrap.style.display = 'flex';
+            if (storeSelect) {
+                storeSelect.innerHTML = stores.map(s => 
+                    `<option value="${s.id}">${s.name}</option>`
+                ).join('');
+                targetSupId = storeSelect.value || 54;
+            } else {
+                targetSupId = 54;
+            }
+        } else {
+            if (storePickerWrap) storePickerWrap.style.display = 'none';
+            // Supplier logged in
+            if (typeof state !== 'undefined' && state.currentUser) {
+                targetSupId = state.currentUser.id || 
+                    (state.currentUser.username === 'ketan' ? 54 :
+                     state.currentUser.username === 'banjos' ? 22 :
+                     state.currentUser.username === 'pranav' ? 6 :
+                     state.currentUser.username === 'arnav' ? 9 : state.currentUser.id);
+            }
+        }
+
+        calState.supplierId = targetSupId || 54;
+
+        if (calState.supplierId) {
+            loadSupplierAvailability(calState.supplierId);
         } else {
             renderCalendar();
         }

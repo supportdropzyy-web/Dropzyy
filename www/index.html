@@ -1040,6 +1040,19 @@
                 </div>
             </div>
 
+            <!-- Store Selector (Visible for Admin / Sub-Admin) -->
+            <div id="supplierCalStorePickerWrap" style="margin-bottom: 14px; display: none; background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 10px 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <label for="supplierCalStoreSelect" style="font-size: 0.86rem; font-weight: 700; color: #1E293B; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-store text-primary"></i> Managing Store Availability:
+                </label>
+                <select id="supplierCalStoreSelect" onchange="supplierCalSwitchStore(this.value)" style="padding: 6px 14px; border-radius: 8px; border: 1.5px solid #94A3B8; font-weight: 700; font-size: 0.86rem; background: #F8FAFC; color: #0F172A; cursor: pointer;">
+                    <option value="54">Hotel Amrai (Ketan)</option>
+                    <option value="22">Banjos Cafe</option>
+                    <option value="6">Katta Biryani and Tandoor</option>
+                    <option value="9">Urban Tadka</option>
+                </select>
+            </div>
+
             <!-- Month Navigation -->
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
                 <button onclick="supplierCalPrevMonth()" style="background:#E2E8F0;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:700;font-size:1rem;color:#334155;">&#8249;</button>
@@ -3580,7 +3593,7 @@
     <!-- Menu Card Data (Embedded Base64 for 100% Reliable Offline & File Protocol Display) -->
     <script src="menu_card_data.js"></script>
     <!-- JavaScript -->
-    <script src="app.js?v=5.4"></script>
+    <script src="app.js?v=5.5"></script>
         <!-- Dedicated Change Password Modal -->
 
     <div class="modal-overlay" id="changePasswordOverlay" onclick="closeChangePasswordModal()"></div>
