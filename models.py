@@ -144,6 +144,8 @@ class Location(Base):
     area = Column(String, nullable=True)
     pincode = Column(String, nullable=False)
     delivery_time = Column(String, default="15 Mins")
+    delivery_charge = Column(Float, nullable=True, default=None)  # Custom delivery fee for this location in INR
+    distance_km = Column(Float, nullable=True, default=None)      # Distance from store/hub in KM
 
 class Category(Base):
     __tablename__ = "categories"
@@ -184,9 +186,12 @@ class DeliverySetting(Base):
     free_delivery_threshold = Column(Float, default=300.0)   # Free delivery for orders above this value (e.g. ₹300)
     standard_delivery_fee = Column(Float, default=30.0)      # Delivery fee when below threshold or fixed (e.g. ₹30)
     is_free_delivery_enabled = Column(Boolean, default=True) # Whether threshold-based free delivery is enabled
-    charge_type = Column(String, default="threshold")        # 'threshold' (free above threshold), 'fixed' (mandatory for all), 'free' (always free)
+    charge_type = Column(String, default="threshold")        # 'threshold', 'fixed', 'free', 'location', 'per_km'
     min_order_value = Column(Float, default=50.0)            # Minimum order amount to proceed to checkout
     description = Column(String, nullable=True)
+    per_km_rate = Column(Float, default=10.0)                # Additional fee per KM (e.g. 10/km)
+    base_km = Column(Float, default=2.0)                     # Base distance included in base fee (e.g. up to 2 KM)
+    base_delivery_fee = Column(Float, default=20.0)          # Base fee for first base_km (e.g. 20)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 class BlockedContact(Base):

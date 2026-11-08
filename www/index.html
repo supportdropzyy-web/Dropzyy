@@ -1447,6 +1447,46 @@
                         <input type="radio" name="modalDeliveryChargeType" value="free" onchange="syncDeliveryChargeTypeRadio(this.value)" style="accent-color: #10B981;">
                         <span style="font-size: 0.84rem; font-weight: 700; color: #0F172A;">100% Free Delivery for All Orders (Zero Charge)</span>
                     </label>
+                    <label style="display: flex; align-items: center; gap: 8px; background: #FFF; border: 1.5px solid #CBD5E1; padding: 10px 12px; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="modalDeliveryChargeType" value="location" onchange="syncDeliveryChargeTypeRadio(this.value)" style="accent-color: #10B981;">
+                        <span style="font-size: 0.84rem; font-weight: 700; color: #0F172A;">Location-Based Delivery Charge (Price Set Per Location/City)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; background: #FFF; border: 1.5px solid #CBD5E1; padding: 10px 12px; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="modalDeliveryChargeType" value="per_km" onchange="syncDeliveryChargeTypeRadio(this.value)" style="accent-color: #10B981;">
+                        <span style="font-size: 0.84rem; font-weight: 700; color: #0F172A;">Distance-Based Per Kilometer Fee (Base Fee + Rate per KM)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Per-KM Settings Section -->
+            <div id="wrapModalPerKmSettings" style="background: #F1F5F9; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px; margin-bottom: 14px; display: none;">
+                <h5 style="margin: 0 0 10px 0; font-size: 0.88rem; color: #1E293B; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-route text-primary"></i> Distance / Per-Kilometer Pricing Rules
+                </h5>
+                <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label for="modalBaseDistanceKm" style="font-size: 0.78rem;"><strong>Base Distance (KM)</strong></label>
+                        <input type="number" id="modalBaseDistanceKm" min="0" step="0.5" value="2.0" placeholder="e.g. 2" oninput="syncDeliveryInputs('base_km', this.value)">
+                        <small style="font-size: 0.7rem; color: #64748B;">Included in base fee</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalBaseDeliveryFee" style="font-size: 0.78rem;"><strong>Base Delivery Fee (₹)</strong></label>
+                        <input type="number" id="modalBaseDeliveryFee" min="0" step="1" value="20" placeholder="e.g. 20" oninput="syncDeliveryInputs('base_fee', this.value)">
+                        <small style="font-size: 0.7rem; color: #64748B;">For first base KM</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalPerKmRate" style="font-size: 0.78rem;"><strong>Rate per Extra KM (₹)</strong></label>
+                        <input type="number" id="modalPerKmRate" min="0" step="1" value="10" placeholder="e.g. 10" oninput="syncDeliveryInputs('per_km', this.value)">
+                        <small style="font-size: 0.7rem; color: #64748B;">₹ per additional KM</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Location-Based Mode Guidance Banner -->
+            <div id="wrapModalLocationGuidance" style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: none;">
+                <div style="font-size: 0.82rem; color: #065F46; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-map-location-dot" style="font-size: 1.1rem; color: #059669;"></i>
+                    <span>Location-Based Delivery Pricing Active! Delivery fee is charged dynamically as configured for each specific location in Serviceable Locations.</span>
                 </div>
             </div>
 
@@ -1654,26 +1694,86 @@
         </div>
 
         <form class="admin-form" id="adminLocationForm" onsubmit="handleCreateLocationSubmit(event)" style="margin-bottom: 20px; background: var(--bg-secondary); padding: 14px; border-radius: var(--radius-md);">
-            <h4 style="margin-bottom: 10px;"><i class="fa-solid fa-plus text-primary"></i> Add Serviceable Location</h4>
-            <div class="form-grid">
+            <h4 style="margin-bottom: 10px;"><i class="fa-solid fa-plus text-primary"></i> Add Serviceable Location & Custom Pricing</h4>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
                 <div class="form-group">
-                    <label for="locationAreaInput">Location / Area Name</label>
-                    <input type="text" id="locationAreaInput" required placeholder="e.g. Dadar West, Mumbai">
+                    <label for="locationAreaInput">Location / City Name *</label>
+                    <input type="text" id="locationAreaInput" required placeholder="e.g. Faizpur, Savda">
                 </div>
                 <div class="form-group">
-                    <label for="locationPincodeInput">Serviceable Pincode</label>
-                    <input type="text" id="locationPincodeInput" required placeholder="e.g. 400028">
+                    <label for="locationPincodeInput">Serviceable Pincode *</label>
+                    <input type="text" id="locationPincodeInput" required placeholder="e.g. 425503">
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary btn-block" style="margin-top: 12px;">
-                <i class="fa-solid fa-floppy-disk"></i> Add Serviceable Pincode
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                <div class="form-group">
+                    <label for="locationDeliveryChargeInput">Delivery Charge (₹)</label>
+                    <input type="number" id="locationDeliveryChargeInput" min="0" step="1" placeholder="e.g. 20 (Custom fee)">
+                    <small style="font-size: 0.72rem; color: #64748B;">Custom fee for this location</small>
+                </div>
+                <div class="form-group">
+                    <label for="locationDistanceKmInput">Distance in KM</label>
+                    <input type="number" id="locationDistanceKmInput" min="0" step="0.1" placeholder="e.g. 4.5">
+                    <small style="font-size: 0.72rem; color: #64748B;">For per-KM fee calculation</small>
+                </div>
+                <div class="form-group">
+                    <label for="locationDeliveryTimeInput">Est. Delivery Time</label>
+                    <input type="text" id="locationDeliveryTimeInput" placeholder="15-25 Mins" value="15-25 Mins">
+                    <small style="font-size: 0.72rem; color: #64748B;">Shown to customers</small>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top: 6px;">
+                <i class="fa-solid fa-floppy-disk"></i> Save Serviceable Location
             </button>
         </form>
 
-        <h3>Active Delivery Pincodes</h3>
-        <div class="supplier-products-container" id="adminLocationsListContainer" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
+        <h3>Active Delivery Pincodes & Pricing</h3>
+        <div class="supplier-products-container" id="adminLocationsListContainer" style="max-height: 280px; overflow-y: auto; margin-top: 10px;">
             <!-- Rendered by JS -->
         </div>
+    </div>
+
+    <!-- Dedicated Edit Location & Delivery Pricing Modal -->
+    <div class="modal-overlay" id="adminEditLocationOverlay" onclick="closeEditLocationModal()"></div>
+    <div class="admin-modal" id="adminEditLocationModal" style="max-width: 540px; width: 92%;">
+        <button type="button" class="close-modal-btn" onclick="closeEditLocationModal()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-pen-to-square text-primary"></i> Edit Location & Delivery Pricing</h3>
+            <p>Update delivery fee and distance in KM for this area.</p>
+        </div>
+        <form id="adminEditLocationForm" onsubmit="handleUpdateLocationSubmit(event)" style="background: var(--bg-secondary); padding: 16px; border-radius: 12px;">
+            <input type="hidden" id="editLocationId">
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="form-group">
+                    <label for="editLocationAreaInput"><strong>Location / City *</strong></label>
+                    <input type="text" id="editLocationAreaInput" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="editLocationPincodeInput"><strong>Pincode *</strong></label>
+                    <input type="text" id="editLocationPincodeInput" required class="form-control">
+                </div>
+            </div>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="form-group">
+                    <label for="editLocationChargeInput"><strong>Delivery Fee (₹)</strong></label>
+                    <input type="number" id="editLocationChargeInput" min="0" step="1" placeholder="e.g. 20" class="form-control">
+                    <small style="font-size: 0.72rem; color: #64748B;">Fixed fee for this location</small>
+                </div>
+                <div class="form-group">
+                    <label for="editLocationDistanceInput"><strong>Distance (KM)</strong></label>
+                    <input type="number" id="editLocationDistanceInput" min="0" step="0.1" placeholder="e.g. 4.5" class="form-control">
+                    <small style="font-size: 0.72rem; color: #64748B;">For per-KM pricing mode</small>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="editLocationTimeInput"><strong>Est. Delivery Time</strong></label>
+                <input type="text" id="editLocationTimeInput" placeholder="e.g. 15-25 Mins" class="form-control">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;"><i class="fa-solid fa-floppy-disk"></i> Save Pricing</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditLocationModal()">Cancel</button>
+            </div>
+        </form>
     </div>
 
     <!-- Admin Blocklist Shield Modal (Block / Unblock Mobile & Email) -->
@@ -2835,6 +2935,22 @@
                                     <div style="font-size: 0.75rem; color: #065F46;">Zero delivery fee for all customers (Promotional mode).</div>
                                 </div>
                             </label>
+
+                            <label style="display: flex; align-items: flex-start; gap: 8px; background: #F0FDF4; border: 1.5px solid #A7F3D0; padding: 10px 12px; border-radius: 10px; cursor: pointer;">
+                                <input type="radio" name="adminDeliveryChargeType" value="location" onchange="toggleDeliveryConfigInputs()" style="accent-color: #059669; margin-top: 3px;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.84rem; color: #065F46;">Location-Based Delivery Charge</div>
+                                    <div style="font-size: 0.75rem; color: #047857;">Fee set per location/city in Serviceable Locations section.</div>
+                                </div>
+                            </label>
+
+                            <label style="display: flex; align-items: flex-start; gap: 8px; background: #EFF6FF; border: 1.5px solid #BFDBFE; padding: 10px 12px; border-radius: 10px; cursor: pointer;">
+                                <input type="radio" name="adminDeliveryChargeType" value="per_km" onchange="toggleDeliveryConfigInputs()" style="accent-color: #2563EB; margin-top: 3px;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.84rem; color: #1E40AF;">Distance / Per-Kilometer Rate</div>
+                                    <div style="font-size: 0.75rem; color: #1D4ED8;">Calculated based on KM distance (Base Fee + Rate/KM).</div>
+                                </div>
+                            </label>
                         </div>
                     </div>
 
@@ -3464,7 +3580,7 @@
     <!-- Menu Card Data (Embedded Base64 for 100% Reliable Offline & File Protocol Display) -->
     <script src="menu_card_data.js"></script>
     <!-- JavaScript -->
-    <script src="app.js?v=5.3"></script>
+    <script src="app.js?v=5.4"></script>
         <!-- Dedicated Change Password Modal -->
 
     <div class="modal-overlay" id="changePasswordOverlay" onclick="closeChangePasswordModal()"></div>

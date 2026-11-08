@@ -675,11 +675,11 @@ const DEFAULT_COUPONS = [
 ];
 
 const DEFAULT_LOCATIONS = [
-    { id: 'l0', area: 'Savda', pincode: '425502' },
-    { id: 'l1', area: 'Fort / South Mumbai', pincode: '400001' },
-    { id: 'l2', area: 'Dadar / Central Mumbai', pincode: '400028' },
-    { id: 'l3', area: 'Bandra West', pincode: '400050' },
-    { id: 'l4', area: 'Andheri West', pincode: '400053' }
+    { id: 'l0', area: 'Savda', city: 'Savda', pincode: '425502', delivery_charge: 15.0, distance_km: 2.0, delivery_time: '15-20 Mins' },
+    { id: 'l1', area: 'Faizpur', city: 'Faizpur', pincode: '425503', delivery_charge: 25.0, distance_km: 5.0, delivery_time: '20-25 Mins' },
+    { id: 'l2', area: 'Nimbhora', city: 'Nimbhora', pincode: '425504', delivery_charge: 35.0, distance_km: 8.5, delivery_time: '25-35 Mins' },
+    { id: 'l3', area: 'Khiroda', city: 'Khiroda', pincode: '425505', delivery_charge: 40.0, distance_km: 11.0, delivery_time: '30-40 Mins' },
+    { id: 'l4', area: 'Bhusawal', city: 'Bhusawal', pincode: '425201', delivery_charge: 60.0, distance_km: 18.0, delivery_time: '45-60 Mins' }
 ];
 
 let storeCoupons = DEFAULT_COUPONS;
@@ -1348,8 +1348,12 @@ async function fetchLocationsFromAPI() {
             if (Array.isArray(data)) {
                 state.serviceableLocations = data.map(l => ({
                     id: String(l.id),
-                    area: l.city,
-                    pincode: String(l.pincode)
+                    area: l.city || l.area || 'Savda',
+                    city: l.city || l.area || 'Savda',
+                    pincode: String(l.pincode),
+                    delivery_time: l.delivery_time || '15-25 Mins',
+                    delivery_charge: (l.delivery_charge !== undefined && l.delivery_charge !== null && l.delivery_charge !== '') ? parseFloat(l.delivery_charge) : null,
+                    distance_km: (l.distance_km !== undefined && l.distance_km !== null && l.distance_km !== '') ? parseFloat(l.distance_km) : null
                 }));
                 if (typeof renderServiceableCitiesDatalist === 'function') renderServiceableCitiesDatalist();
                 if (typeof renderAdminLocationsList === 'function') renderAdminLocationsList();
@@ -3237,24 +3241,129 @@ window.removeAppliedCoupon = function() {
     showToast('Applied coupon removed.', 'info');
 };
 
-window.calculateOrderDeliveryFee = function(subtotal, totalItems) {
+// Helper to determine customer destination for location-based and distance-based delivery fees
+window.getActiveOrderDestination = function() {
+    const locations = (typeof state !== 'undefined' && Array.isArray(state.serviceableLocations) && state.serviceableLocations.length > 0)
+        ? state.serviceableLocations
+        : DEFAULT_LOCATIONS;
+
+    // 1. Check active input fields on checkout form if present
+    if (typeof document !== 'undefined') {
+        const pinInput = document.getElementById('pincode') || document.getElementById('profilePincode');
+        const cityInput = document.getElementById('city') || document.getElementById('profileCity');
+        const pinVal = pinInput ? String(pinInput.value || '').trim() : '';
+        const cityVal = cityInput ? String(cityInput.value || '').trim().toLowerCase() : '';
+
+        if (pinVal) {
+            const mPin = locations.find(l => String(l.pincode).trim() === pinVal);
+            if (mPin) return mPin;
+        }
+        if (cityVal) {
+            const mCity = locations.find(l => {
+                const a = String(l.area || l.city || '').toLowerCase();
+                return a && (a === cityVal || a.includes(cityVal) || cityVal.includes(a));
+            });
+            if (mCity) return mCity;
+        }
+    }
+
+    // 2. Check header session storage selected location
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            const raw = sessionStorage.getItem("dropzyy_selected_location");
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && (parsed.pincode || parsed.area || parsed.city)) {
+                    const matched = locations.find(l => String(l.pincode) === String(parsed.pincode));
+                    return matched || parsed;
+                }
+            }
+        }
+    } catch (e) {}
+
+    // 3. Check current logged-in user saved profile address
+    if (typeof state !== 'undefined' && state.currentUser && state.currentUser.address) {
+        const uPin = state.currentUser.address.pincode;
+        if (uPin) {
+            const matched = locations.find(l => String(l.pincode) === String(uPin));
+            if (matched) return matched;
+        }
+    }
+
+    // Default to first location in list (Savda hub)
+    return locations[0] || null;
+};
+
+window.calculateOrderDeliveryFee = function(subtotal, totalItems, destination) {
     if (totalItems === 0 || subtotal <= 0) return 0;
-    const settings = state.deliverySettings || { free_delivery_threshold: 300, standard_delivery_fee: 30, charge_type: 'threshold', is_free_delivery_enabled: true };
+    const settings = (typeof state !== 'undefined' && state.deliverySettings) ? state.deliverySettings : { 
+        free_delivery_threshold: 300, 
+        standard_delivery_fee: 30, 
+        charge_type: 'threshold', 
+        is_free_delivery_enabled: true,
+        per_km_rate: 10,
+        base_km: 2,
+        base_delivery_fee: 20
+    };
     const chargeType = String(settings.charge_type || 'threshold').toLowerCase();
 
+    // 1. FREE MODE: Zero charge on all orders
     if (chargeType === 'free') {
         return 0;
     }
-    if (chargeType === 'fixed') {
-        return parseFloat(settings.standard_delivery_fee || 30);
-    }
-    // threshold mode (waived above minimum amount)
+
+    // 2. THRESHOLD-BASED WAIVER: If cart value meets free shipping threshold, delivery is free
     const threshold = parseFloat(settings.free_delivery_threshold || 300);
-    const fee = parseFloat(settings.standard_delivery_fee || 30);
-    if (settings.is_free_delivery_enabled !== false && subtotal >= threshold) {
+    if (settings.is_free_delivery_enabled !== false && threshold > 0 && subtotal >= threshold) {
         return 0;
     }
-    return fee;
+
+    // Resolve destination location
+    let loc = null;
+    if (destination && typeof destination === 'object') {
+        loc = destination;
+    } else {
+        loc = window.getActiveOrderDestination();
+    }
+
+    // 3. LOCATION-BASED CHARGE MODE
+    if (chargeType === 'location') {
+        if (loc && loc.delivery_charge !== undefined && loc.delivery_charge !== null && loc.delivery_charge !== '' && !isNaN(Number(loc.delivery_charge))) {
+            return parseFloat(loc.delivery_charge);
+        }
+        return parseFloat(settings.standard_delivery_fee || 30);
+    }
+
+    // 4. DISTANCE / PER-KILOMETER CHARGE MODE
+    if (chargeType === 'per_km') {
+        const baseFee = parseFloat(settings.base_delivery_fee !== undefined ? settings.base_delivery_fee : 20);
+        const baseKm = parseFloat(settings.base_km !== undefined ? settings.base_km : 2);
+        const perKmRate = parseFloat(settings.per_km_rate !== undefined ? settings.per_km_rate : 10);
+
+        let distanceKm = null;
+        if (loc && loc.distance_km !== undefined && loc.distance_km !== null && loc.distance_km !== '' && !isNaN(Number(loc.distance_km))) {
+            distanceKm = parseFloat(loc.distance_km);
+        }
+
+        if (distanceKm === null || distanceKm <= 0) {
+            return baseFee;
+        }
+
+        if (distanceKm <= baseKm) {
+            return baseFee;
+        }
+
+        const extraKm = distanceKm - baseKm;
+        return Math.round(baseFee + (extraKm * perKmRate));
+    }
+
+    // 5. If target location has explicit custom delivery fee set, respect it
+    if (loc && loc.delivery_charge !== undefined && loc.delivery_charge !== null && loc.delivery_charge !== '' && !isNaN(Number(loc.delivery_charge))) {
+        return parseFloat(loc.delivery_charge);
+    }
+
+    // 6. FIXED / STANDARD CHARGE MODE
+    return parseFloat(settings.standard_delivery_fee || 30);
 };
 
 function updateCartUI() {
@@ -4449,26 +4558,144 @@ function renderAdminLocationsList() {
     if (!container) return;
 
     if (!state.serviceableLocations || state.serviceableLocations.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 16px;">No serviceable pincodes configured.</p>';
+        container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 16px;">No serviceable locations configured.</p>';
         return;
     }
 
-    container.innerHTML = state.serviceableLocations.map(l => `
-        <div class="supplier-item-row" style="padding: 10px 14px; background: #FFF; border-radius: 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
-            <div>
-                <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary);">
-                    <i class="fa-solid fa-location-dot text-primary"></i> ${l.area}
+    container.innerHTML = state.serviceableLocations.map(l => {
+        const areaName = l.area || l.city || 'Location';
+        const hasCustomCharge = (l.delivery_charge !== null && l.delivery_charge !== undefined && l.delivery_charge !== '' && !isNaN(Number(l.delivery_charge)));
+        const chargeBadge = hasCustomCharge
+            ? `<span style="background: #ECFDF5; color: #047857; font-weight: 700; font-size: 0.76rem; padding: 3px 8px; border-radius: 6px; border: 1px solid #A7F3D0;"><i class="fa-solid fa-indian-rupee-sign"></i> ₹${l.delivery_charge} Fee</span>`
+            : `<span style="background: #F1F5F9; color: #64748B; font-weight: 600; font-size: 0.74rem; padding: 3px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">Standard Fee</span>`;
+
+        const hasKm = (l.distance_km !== null && l.distance_km !== undefined && l.distance_km !== '' && !isNaN(Number(l.distance_km)));
+        const distanceBadge = hasKm
+            ? `<span style="background: #EFF6FF; color: #1E40AF; font-weight: 700; font-size: 0.76rem; padding: 3px 8px; border-radius: 6px; border: 1px solid #BFDBFE;"><i class="fa-solid fa-route"></i> ${l.distance_km} KM</span>`
+            : `<span style="background: #F8FAFC; color: #94A3B8; font-size: 0.72rem; padding: 3px 6px; border-radius: 6px;">No KM</span>`;
+
+        return `
+            <div class="supplier-item-row" style="padding: 10px 14px; background: #FFF; border-radius: 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                <div style="flex: 1;">
+                    <div style="font-weight: 800; font-size: 0.98rem; color: #0F172A; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span><i class="fa-solid fa-location-dot text-primary"></i> ${areaName}</span>
+                        <span style="font-size: 0.8rem; font-weight: 600; color: #475569;">(${l.pincode})</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 5px; flex-wrap: wrap;">
+                        ${chargeBadge}
+                        ${distanceBadge}
+                        <span style="font-size: 0.74rem; color: #64748B;"><i class="fa-solid fa-clock"></i> ${l.delivery_time || '15-25 Mins'}</span>
+                    </div>
                 </div>
-                <div style="font-size: 0.8rem; color: var(--text-secondary);">
-                    Serviceable Pincode: <strong>${l.pincode}</strong>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="openEditLocationModal('${l.id || l.pincode}')" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-weight: 700; font-size: 0.76rem; padding: 4px 10px; border-radius: 6px;" title="Edit Delivery Charge & Distance">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm text-danger" onclick="deleteLocationByAdmin('${l.id}')" title="Delete Location" style="border-radius: 6px; padding: 4px 8px;">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
                 </div>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm text-danger" onclick="deleteLocationByAdmin('${l.id}')" title="Delete Location">
-                <i class="fa-solid fa-trash"></i>
-            </button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
+
+window.openEditLocationModal = function(locIdOrPin) {
+    if (!state.serviceableLocations) return;
+    const loc = state.serviceableLocations.find(l => String(l.id) === String(locIdOrPin) || String(l.pincode) === String(locIdOrPin));
+    if (!loc) return;
+
+    const idInput = document.getElementById('editLocationId');
+    const areaInput = document.getElementById('editLocationAreaInput');
+    const pinInput = document.getElementById('editLocationPincodeInput');
+    const chargeInput = document.getElementById('editLocationChargeInput');
+    const distInput = document.getElementById('editLocationDistanceInput');
+    const timeInput = document.getElementById('editLocationTimeInput');
+
+    if (idInput) idInput.value = loc.id;
+    if (areaInput) areaInput.value = loc.area || loc.city || '';
+    if (pinInput) pinInput.value = loc.pincode || '';
+    if (chargeInput) chargeInput.value = (loc.delivery_charge !== null && loc.delivery_charge !== undefined) ? loc.delivery_charge : '';
+    if (distInput) distInput.value = (loc.distance_km !== null && loc.distance_km !== undefined) ? loc.distance_km : '';
+    if (timeInput) timeInput.value = loc.delivery_time || '15-25 Mins';
+
+    const modal = document.getElementById('adminEditLocationModal');
+    const overlay = document.getElementById('adminEditLocationOverlay');
+    if (modal) modal.classList.add('active');
+    if (overlay) overlay.classList.add('active');
+};
+
+window.closeEditLocationModal = function() {
+    const modal = document.getElementById('adminEditLocationModal');
+    const overlay = document.getElementById('adminEditLocationOverlay');
+    if (modal) modal.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+};
+
+window.handleUpdateLocationSubmit = async function(e) {
+    if (e) e.preventDefault();
+    const id = document.getElementById('editLocationId').value;
+    const area = document.getElementById('editLocationAreaInput').value.trim();
+    const pincode = document.getElementById('editLocationPincodeInput').value.trim();
+    const chargeVal = document.getElementById('editLocationChargeInput').value.trim();
+    const distVal = document.getElementById('editLocationDistanceInput').value.trim();
+    const timeVal = document.getElementById('editLocationTimeInput').value.trim();
+
+    if (!area || !pincode) {
+        showToast('Please provide location area name and pincode', 'error');
+        return;
+    }
+
+    const delivery_charge = chargeVal !== '' ? parseFloat(chargeVal) : null;
+    const distance_km = distVal !== '' ? parseFloat(distVal) : null;
+    const delivery_time = timeVal || '15-25 Mins';
+
+    const payload = {
+        city: area,
+        pincode: pincode,
+        delivery_time: delivery_time,
+        delivery_charge: delivery_charge,
+        distance_km: distance_km
+    };
+
+    try {
+        const token = localStorage.getItem('dropzyy_auth_token') || (state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : null);
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetchWithTimeout(`${API_BASE_URL}/locations/${id}`, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify(payload)
+        }, 15000);
+
+        if (res && res.ok) {
+            const idx = state.serviceableLocations.findIndex(l => String(l.id) === String(id) || String(l.pincode) === String(pincode));
+            if (idx > -1) {
+                state.serviceableLocations[idx] = {
+                    ...state.serviceableLocations[idx],
+                    area: area,
+                    city: area,
+                    pincode: pincode,
+                    delivery_charge: delivery_charge,
+                    distance_km: distance_km,
+                    delivery_time: delivery_time
+                };
+            }
+            renderAdminLocationsList();
+            renderServiceableCitiesDatalist();
+            closeEditLocationModal();
+            if (typeof updateCartUI === 'function') updateCartUI();
+            const chargeTxt = delivery_charge !== null ? `₹${delivery_charge}` : 'Standard';
+            const distTxt = distance_km !== null ? `${distance_km} KM` : 'No KM';
+            showToast(` Updated <strong>${area}</strong>: Delivery fee ${chargeTxt}, Distance ${distTxt}!`, 'success');
+        } else {
+            showToast('Failed to update location pricing on server.', 'error');
+        }
+    } catch (err) {
+        showToast(`Error: ${err.message || err}`, 'error');
+    }
+};
 
 function renderServiceableCitiesDatalist() {
     const datalist = document.getElementById('serviceableCitiesDatalist');
@@ -4527,6 +4754,9 @@ window.selectCitySuggestion = function(city, pincode, mode) {
         if (document.getElementById('city')) document.getElementById('city').value = city;
         if (document.getElementById('pincode')) document.getElementById('pincode').value = pincode;
         if (document.getElementById('checkoutCitySuggestions')) document.getElementById('checkoutCitySuggestions').classList.add('hidden');
+        if (typeof updateCartUI === 'function') {
+            updateCartUI();
+        }
     } else {
         if (document.getElementById('profileCity')) document.getElementById('profileCity').value = city;
         if (document.getElementById('profilePincode')) document.getElementById('profilePincode').value = pincode;
@@ -4556,6 +4786,10 @@ window.selectQuickCheckoutLocation = function(area, pincode) {
     if (profileCityEl) profileCityEl.value = area;
     if (profilePincodeEl) profilePincodeEl.value = pincode;
 
+    if (typeof updateCartUI === 'function') {
+        updateCartUI();
+    }
+
     showToast(`📍 Selected <strong>${area}</strong> (${pincode})`, 'success');
 };
 
@@ -4569,20 +4803,32 @@ function setupCityPincodeAutoFill(cityInputId, pincodeInputId) {
         if (!query) return;
 
         const match = state.serviceableLocations.find(l => 
-            l.area.toLowerCase() === query || 
-            `${l.area} (Pincode: ${l.pincode})`.toLowerCase() === query ||
-            query.startsWith(l.area.toLowerCase())
+            ((l.area || l.city || '').toLowerCase() === query) || 
+            (`${l.area || l.city} (Pincode: ${l.pincode})`.toLowerCase() === query) ||
+            ((l.area || l.city || '').toLowerCase().startsWith(query))
         );
 
         if (match) {
-            cityEl.value = match.area;
+            cityEl.value = match.area || match.city;
             pincodeEl.value = match.pincode;
-            showToast(`📍 Location auto-selected: <strong>${match.area}</strong> (Pincode: ${match.pincode})`, 'success');
+            if (typeof updateCartUI === 'function') {
+                updateCartUI();
+            }
+            showToast(`📍 Location auto-selected: <strong>${match.area || match.city}</strong> (Pincode: ${match.pincode})`, 'success');
         }
     };
 
     cityEl.addEventListener('input', autoFill);
     cityEl.addEventListener('change', autoFill);
+    cityEl.addEventListener('blur', () => {
+        if (typeof updateCartUI === 'function') updateCartUI();
+    });
+    pincodeEl.addEventListener('input', () => {
+        if (typeof updateCartUI === 'function') updateCartUI();
+    });
+    pincodeEl.addEventListener('change', () => {
+        if (typeof updateCartUI === 'function') updateCartUI();
+    });
 }
 
 window.populateCheckoutAddress = function(forceMode = 'saved') {
@@ -4666,9 +4912,15 @@ window.handleCreateLocationSubmit = async function(e) {
     if (e) e.preventDefault();
     const areaInput = document.getElementById('locationAreaInput');
     const pincodeInput = document.getElementById('locationPincodeInput');
+    const chargeInput = document.getElementById('locationDeliveryChargeInput');
+    const distInput = document.getElementById('locationDistanceKmInput');
+    const timeInput = document.getElementById('locationDeliveryTimeInput');
 
     const area = areaInput ? areaInput.value.trim() : '';
     const pincode = pincodeInput ? pincodeInput.value.trim() : '';
+    const chargeVal = chargeInput ? chargeInput.value.trim() : '';
+    const distVal = distInput ? distInput.value.trim() : '';
+    const timeVal = timeInput ? timeInput.value.trim() : '';
 
     if (!area || !pincode) {
         showToast('Please enter both location area name and pincode', 'info');
@@ -4680,17 +4932,35 @@ window.handleCreateLocationSubmit = async function(e) {
         return;
     }
 
+    const delivery_charge = chargeVal !== '' ? parseFloat(chargeVal) : null;
+    const distance_km = distVal !== '' ? parseFloat(distVal) : null;
+    const delivery_time = timeVal || '15-25 Mins';
+
     const newLoc = {
         id: 'l_' + Date.now(),
         area,
-        pincode
+        city: area,
+        pincode,
+        delivery_time,
+        delivery_charge,
+        distance_km
     };
 
     try {
+        const token = localStorage.getItem('dropzyy_auth_token') || (state.currentUser ? (state.currentUser.access_token || state.currentUser.token) : null);
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetchWithTimeout(`${API_BASE_URL}/locations`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ city: area, pincode: pincode, delivery_time: '15 Mins' })
+            headers: headers,
+            body: JSON.stringify({ 
+                city: area, 
+                pincode: pincode, 
+                delivery_time: delivery_time,
+                delivery_charge: delivery_charge,
+                distance_km: distance_km
+            })
         }, 15000);
 
         if (response && response.ok) {
@@ -4700,17 +4970,19 @@ window.handleCreateLocationSubmit = async function(e) {
             if (document.getElementById('adminLocationForm')) document.getElementById('adminLocationForm').reset();
             renderAdminLocationsList();
             renderServiceableCitiesDatalist();
-            showToast(`Added serviceable pincode <strong>${pincode}</strong> (${area})!`, 'success');
+            if (typeof updateCartUI === 'function') updateCartUI();
+            const chargeTxt = delivery_charge !== null ? ` (Delivery fee: ₹${delivery_charge})` : '';
+            showToast(` Added serviceable location <strong>${area}</strong> (${pincode})${chargeTxt}!`, 'success');
         } else {
             let errText = 'Failed to save location.';
             try {
                 const errJson = await response.json();
                 if (errJson && errJson.detail) errText = errJson.detail;
             } catch (err) {}
-            showToast(`❌ Error: ${errText}`, 'error');
+            showToast(` Error: ${errText}`, 'error');
         }
     } catch (err) {
-        showToast(`❌ Connection Error: ${err.message || err}`, 'error');
+        showToast(` Connection Error: ${err.message || err}`, 'error');
     }
 };
 
@@ -12441,7 +12713,10 @@ window.fetchDeliverySettingsFromAPI = async function() {
                     is_free_delivery_enabled: Boolean(data.is_free_delivery_enabled),
                     charge_type: data.charge_type || 'threshold',
                     min_order_value: parseFloat(data.min_order_value || 50),
-                    description: data.description || ''
+                    description: data.description || '',
+                    per_km_rate: parseFloat(data.per_km_rate !== undefined ? data.per_km_rate : 10),
+                    base_km: parseFloat(data.base_km !== undefined ? data.base_km : 2),
+                    base_delivery_fee: parseFloat(data.base_delivery_fee !== undefined ? data.base_delivery_fee : 20)
                 };
                 /* cleaned */
 if (typeof updateCartUI === 'function') updateCartUI();
@@ -12555,26 +12830,36 @@ window.switchVisitorChartMode = function(mode) {
 
 // 🚚 Delivery Charge Settings Controls
 window.toggleDeliveryConfigInputs = function() {
-    const radios = document.querySelectorAll('input[name="adminDeliveryChargeType"]');
     let selVal = 'threshold';
-    radios.forEach(r => { if (r.checked) selVal = r.value; });
+    const radios = document.querySelectorAll('input[name="modalDeliveryChargeType"]:checked, input[name="adminDeliveryChargeType"]:checked');
+    if (radios.length) selVal = radios[0].value;
 
-    const wrapThreshold = document.getElementById('wrapFreeDeliveryThreshold');
-    const wrapFee = document.getElementById('wrapStandardDeliveryFee');
+    const wrapThreshold = document.getElementById('wrapModalFreeThreshold') || document.getElementById('wrapFreeDeliveryThreshold');
+    const wrapFee = document.getElementById('wrapModalStandardFee') || document.getElementById('wrapStandardDeliveryFee');
+    const wrapPerKm = document.getElementById('wrapModalPerKmSettings');
+    const wrapLocGuidance = document.getElementById('wrapModalLocationGuidance');
 
     if (wrapThreshold) {
-        wrapThreshold.style.opacity = selVal === 'threshold' ? '1' : '0.45';
-        wrapThreshold.style.pointerEvents = selVal === 'threshold' ? 'auto' : 'none';
+        wrapThreshold.style.opacity = (selVal === 'threshold' || selVal === 'per_km' || selVal === 'location') ? '1' : '0.45';
+        wrapThreshold.style.pointerEvents = (selVal === 'free' || selVal === 'fixed') ? 'none' : 'auto';
     }
     if (wrapFee) {
-        wrapFee.style.opacity = selVal === 'free' ? '0.45' : '1';
-        wrapFee.style.pointerEvents = selVal === 'free' ? 'none' : 'auto';
+        wrapFee.style.opacity = (selVal === 'free' || selVal === 'per_km') ? '0.45' : '1';
+        wrapFee.style.pointerEvents = (selVal === 'free' || selVal === 'per_km') ? 'none' : 'auto';
+    }
+    if (wrapPerKm) {
+        wrapPerKm.style.display = selVal === 'per_km' ? 'block' : 'none';
+    }
+    if (wrapLocGuidance) {
+        wrapLocGuidance.style.display = selVal === 'location' ? 'block' : 'none';
     }
 };
 
 window.syncDeliveryChargeTypeRadio = function(val) {
     const adminRadios = document.querySelectorAll('input[name="adminDeliveryChargeType"]');
     adminRadios.forEach(r => { r.checked = (r.value === val); });
+    const modalRadios = document.querySelectorAll('input[name="modalDeliveryChargeType"]');
+    modalRadios.forEach(r => { r.checked = (r.value === val); });
     window.toggleDeliveryConfigInputs();
 };
 
@@ -12593,17 +12878,23 @@ window.syncDeliveryInputs = function(type, val) {
 
 window.openDeliverySettingsModal = function() {
     closeModals();
-    const overlay = document.getElementById('deliverySettingsOverlay');
     const modal = document.getElementById('deliverySettingsModal');
-    if (overlay && modal) {
-        overlay.classList.add('active');
-        modal.classList.add('active');
-    }
+    const overlay = document.getElementById('deliverySettingsOverlay');
+    if (modal) modal.classList.add('active');
+    if (overlay) overlay.classList.add('active');
     populateDeliveryConfigForms();
 };
 
 function populateDeliveryConfigForms() {
-    const s = state.deliverySettings || { free_delivery_threshold: 300, standard_delivery_fee: 30, charge_type: 'threshold', min_order_value: 50 };
+    const s = state.deliverySettings || { 
+        free_delivery_threshold: 300, 
+        standard_delivery_fee: 30, 
+        charge_type: 'threshold', 
+        min_order_value: 50,
+        per_km_rate: 10,
+        base_km: 2,
+        base_delivery_fee: 20
+    };
     const cType = s.charge_type || 'threshold';
 
     // Populate Analytics Dashboard Form
@@ -12628,6 +12919,14 @@ function populateDeliveryConfigForms() {
     const modalRadios = document.querySelectorAll('input[name="modalDeliveryChargeType"]');
     modalRadios.forEach(r => { r.checked = (r.value === cType); });
 
+    // Populate Per-KM fields
+    const baseDist = document.getElementById('modalBaseDistanceKm');
+    const baseFee = document.getElementById('modalBaseDeliveryFee');
+    const perKmRate = document.getElementById('modalPerKmRate');
+    if (baseDist) baseDist.value = s.base_km !== undefined ? s.base_km : 2;
+    if (baseFee) baseFee.value = s.base_delivery_fee !== undefined ? s.base_delivery_fee : 20;
+    if (perKmRate) perKmRate.value = s.per_km_rate !== undefined ? s.per_km_rate : 10;
+
     window.toggleDeliveryConfigInputs();
 
     // Update Policy Summary Banners
@@ -12636,6 +12935,10 @@ function populateDeliveryConfigForms() {
         summaryText = 'Active Policy: 100% Free Home Delivery active on ALL orders (Zero delivery charge).';
     } else if (cType === 'fixed') {
         summaryText = `Active Policy: Fixed mandatory delivery charge of ₹${s.standard_delivery_fee} applied to every order.`;
+    } else if (cType === 'location') {
+        summaryText = 'Active Policy: Location-Based Pricing. Delivery charge is dynamically applied based on each area in Serviceable Locations.';
+    } else if (cType === 'per_km') {
+        summaryText = `Active Policy: Per-KM Distance Fee: ₹${s.base_delivery_fee || 20} for first ${s.base_km || 2} KM + ₹${s.per_km_rate || 10}/KM extra distance.`;
     } else {
         summaryText = `Active Policy: FREE Home Delivery on orders ₹${s.free_delivery_threshold} and above. Orders below ₹${s.free_delivery_threshold} are charged ₹${s.standard_delivery_fee}. (Min checkout: ₹${s.min_order_value || 50})`;
     }
@@ -12650,28 +12953,37 @@ window.saveDeliverySettings = async function(event) {
     if (event) event.preventDefault();
 
     let cType = 'threshold';
-    const adminRadios = document.querySelectorAll('input[name="adminDeliveryChargeType"]:checked');
-    if (adminRadios.length) cType = adminRadios[0].value;
+    const modalRadios = document.querySelectorAll('input[name="modalDeliveryChargeType"]:checked');
+    if (modalRadios.length) cType = modalRadios[0].value;
     else {
-        const modalRadios = document.querySelectorAll('input[name="modalDeliveryChargeType"]:checked');
-        if (modalRadios.length) cType = modalRadios[0].value;
+        const adminRadios = document.querySelectorAll('input[name="adminDeliveryChargeType"]:checked');
+        if (adminRadios.length) cType = adminRadios[0].value;
     }
 
-    const threshInput = document.getElementById('adminFreeDeliveryThreshold') || document.getElementById('modalFreeDeliveryThreshold');
-    const feeInput = document.getElementById('adminStandardDeliveryFee') || document.getElementById('modalStandardDeliveryFee');
-    const minInput = document.getElementById('adminMinOrderValue') || document.getElementById('modalMinOrderValue');
+    const threshInput = document.getElementById('modalFreeDeliveryThreshold') || document.getElementById('adminFreeDeliveryThreshold');
+    const feeInput = document.getElementById('modalStandardDeliveryFee') || document.getElementById('adminStandardDeliveryFee');
+    const minInput = document.getElementById('modalMinOrderValue') || document.getElementById('adminMinOrderValue');
+    const baseDistInput = document.getElementById('modalBaseDistanceKm');
+    const baseFeeInput = document.getElementById('modalBaseDeliveryFee');
+    const perKmRateInput = document.getElementById('modalPerKmRate');
 
     const thresholdVal = parseFloat(threshInput ? threshInput.value : 300) || 300;
     const feeVal = parseFloat(feeInput ? feeInput.value : 30) || 30;
     const minVal = parseFloat(minInput ? minInput.value : 50) || 50;
+    const baseKmVal = parseFloat(baseDistInput ? baseDistInput.value : 2) || 2;
+    const baseFeeVal = parseFloat(baseFeeInput ? baseFeeInput.value : 20) || 20;
+    const perKmRateVal = parseFloat(perKmRateInput ? perKmRateInput.value : 10) || 10;
 
     state.deliverySettings = {
         free_delivery_threshold: thresholdVal,
         standard_delivery_fee: feeVal,
-        is_free_delivery_enabled: cType === 'threshold' || cType === 'free',
+        is_free_delivery_enabled: cType === 'threshold' || cType === 'free' || cType === 'per_km' || cType === 'location',
         charge_type: cType,
         min_order_value: minVal,
-        description: `Configured: ${cType} mode (Threshold: ₹${thresholdVal}, Fee: ₹${feeVal})`
+        base_km: baseKmVal,
+        base_delivery_fee: baseFeeVal,
+        per_km_rate: perKmRateVal,
+        description: `Configured: ${cType} mode (Threshold: ${thresholdVal}, Fee: ${feeVal}, PerKM: ${perKmRateVal}/km)`
     };
 
     /* cleaned */

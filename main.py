@@ -4825,17 +4825,34 @@ def delete_coupon(coupon_id: str, db: Session = Depends(get_db), _admin: dict = 
 def get_locations(db: Session = Depends(get_db)):
     if mongo_db.is_mongo_active():
         m_locs = mongo_db.mongo_get_all_locations()
-        if m_locs is not None:
+        if m_locs is not None and len(m_locs) > 0:
             res = []
             for idx, l in enumerate(m_locs):
+                loc_id = l.get("id") or str(l.get("_id") or (idx + 1))
+                d_charge = float(l.get("delivery_charge")) if l.get("delivery_charge") is not None and str(l.get("delivery_charge")).strip() != "" else None
+                d_km = float(l.get("distance_km")) if l.get("distance_km") is not None and str(l.get("distance_km")).strip() != "" else None
                 res.append(schemas.LocationResponse(
-                    id=idx + 1,
-                    city=str(l.get("city", "Mumbai")),
+                    id=int(loc_id) if str(loc_id).isdigit() else loc_id,
+                    city=str(l.get("city") or l.get("area") or "Savda"),
                     pincode=str(l.get("pincode", "")),
-                    delivery_time=str(l.get("delivery_time", "15 Mins"))
+                    delivery_time=str(l.get("delivery_time", "15 Mins")),
+                    delivery_charge=d_charge,
+                    distance_km=d_km
                 ))
             return res
-    return db.query(models.Location).all()
+
+    locs = db.query(models.Location).all()
+    res = []
+    for l in locs:
+        res.append(schemas.LocationResponse(
+            id=l.id,
+            city=l.city or l.area or "Savda",
+            pincode=l.pincode,
+            delivery_time=l.delivery_time or "15 Mins",
+            delivery_charge=l.delivery_charge,
+            distance_km=l.distance_km
+        ))
+    return res
 
 @app.post("/api/locations", response_model=schemas.LocationResponse)
 def create_location(loc_data: schemas.LocationCreate, db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):
@@ -4852,8 +4869,11 @@ def create_location(loc_data: schemas.LocationCreate, db: Session = Depends(get_
 
     new_loc = models.Location(
         city=loc_data.city,
+        area=loc_data.city,
         pincode=pin_clean,
-        delivery_time=loc_data.delivery_time or "15 Mins"
+        delivery_time=loc_data.delivery_time or "15 Mins",
+        delivery_charge=loc_data.delivery_charge,
+        distance_km=loc_data.distance_km
     )
     db.add(new_loc)
     db.commit()
@@ -4864,15 +4884,75 @@ def create_location(loc_data: schemas.LocationCreate, db: Session = Depends(get_
             mongo_db.mongo_save_location({
                 "id": str(new_loc.id),
                 "city": new_loc.city,
+                "area": new_loc.city,
                 "pincode": new_loc.pincode,
-                "delivery_time": new_loc.delivery_time
+                "delivery_time": new_loc.delivery_time,
+                "delivery_charge": new_loc.delivery_charge,
+                "distance_km": new_loc.distance_km
             })
-            print(f"[MONGODB SYNC SUCCESS] Location '{new_loc.pincode}' saved to MongoDB Atlas!")
+            print(f"[MONGODB SYNC SUCCESS] Location '{new_loc.pincode}' ({new_loc.city}) saved to MongoDB Atlas!")
         except Exception as err:
             print(f"[MONGODB SYNC ERROR] Could not save location: {err}")
             raise HTTPException(status_code=500, detail=f"Failed to save location: {str(err)}")
 
-    return new_loc
+    return schemas.LocationResponse(
+        id=new_loc.id,
+        city=new_loc.city or "Savda",
+        pincode=new_loc.pincode,
+        delivery_time=new_loc.delivery_time or "15 Mins",
+        delivery_charge=new_loc.delivery_charge,
+        distance_km=new_loc.distance_km
+    )
+
+@app.put("/api/locations/{location_id}", response_model=schemas.LocationResponse)
+def update_location(location_id: str, data: schemas.LocationUpdate, db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):
+    clean_id = str(location_id).strip()
+    target_loc = None
+    
+    if clean_id.isdigit():
+        target_loc = db.query(models.Location).filter(models.Location.id == int(clean_id)).first()
+    if not target_loc and data.pincode:
+        target_loc = db.query(models.Location).filter(models.Location.pincode == str(data.pincode).strip()).first()
+
+    if target_loc:
+        if data.city is not None:
+            target_loc.city = data.city
+            target_loc.area = data.city
+        if data.pincode is not None: target_loc.pincode = str(data.pincode).strip()
+        if data.delivery_time is not None: target_loc.delivery_time = data.delivery_time
+        if data.delivery_charge is not None: target_loc.delivery_charge = data.delivery_charge
+        if data.distance_km is not None: target_loc.distance_km = data.distance_km
+        db.commit()
+        db.refresh(target_loc)
+
+    # Sync update to MongoDB Atlas
+    if mongo_db.is_mongo_active():
+        try:
+            db_m = mongo_db.get_mongo_db()
+            update_fields = {}
+            if data.city is not None:
+                update_fields["city"] = data.city
+                update_fields["area"] = data.city
+            if data.pincode is not None: update_fields["pincode"] = str(data.pincode).strip()
+            if data.delivery_time is not None: update_fields["delivery_time"] = data.delivery_time
+            if data.delivery_charge is not None: update_fields["delivery_charge"] = data.delivery_charge
+            if data.distance_km is not None: update_fields["distance_km"] = data.distance_km
+
+            db_m.locations.update_one(
+                {"$or": [{"id": clean_id}, {"pincode": clean_id}, {"city": clean_id}]},
+                {"$set": update_fields}
+            )
+        except Exception as e:
+            print(f"[MONGO LOCATION UPDATE ERR]: {e}")
+
+    return schemas.LocationResponse(
+        id=target_loc.id if target_loc else clean_id,
+        city=data.city or (target_loc.city if target_loc else "Savda"),
+        pincode=data.pincode or (target_loc.pincode if target_loc else ""),
+        delivery_time=data.delivery_time or (target_loc.delivery_time if target_loc else "15 Mins"),
+        delivery_charge=data.delivery_charge if data.delivery_charge is not None else (target_loc.delivery_charge if target_loc else None),
+        distance_km=data.distance_km if data.distance_km is not None else (target_loc.distance_km if target_loc else None)
+    )
 
 @app.delete("/api/locations/{location_id}")
 def delete_location(location_id: str, db: Session = Depends(get_db), _admin: dict = Depends(require_admin)):
@@ -5602,6 +5682,9 @@ def get_delivery_settings(db: Session = Depends(get_db)):
                 charge_type=str(m_settings.get("charge_type", "threshold")),
                 min_order_value=float(m_settings.get("min_order_value", 50.0)),
                 description=m_settings.get("description"),
+                per_km_rate=float(m_settings.get("per_km_rate", 10.0)),
+                base_km=float(m_settings.get("base_km", 2.0)),
+                base_delivery_fee=float(m_settings.get("base_delivery_fee", 20.0)),
                 updated_at=m_settings.get("updated_at")
             )
     setting = get_or_create_delivery_settings(db)
@@ -5613,6 +5696,9 @@ def get_delivery_settings(db: Session = Depends(get_db)):
         charge_type=setting.charge_type or "threshold",
         min_order_value=setting.min_order_value or 50.0,
         description=setting.description,
+        per_km_rate=getattr(setting, "per_km_rate", 10.0) or 10.0,
+        base_km=getattr(setting, "base_km", 2.0) or 2.0,
+        base_delivery_fee=getattr(setting, "base_delivery_fee", 20.0) or 20.0,
         updated_at=setting.updated_at.isoformat() if setting.updated_at else None
     )
 
@@ -5631,6 +5717,13 @@ def update_delivery_settings(
     setting.min_order_value = float(data.min_order_value)
     if data.description:
         setting.description = data.description
+    if data.per_km_rate is not None:
+        setting.per_km_rate = float(data.per_km_rate)
+    if data.base_km is not None:
+        setting.base_km = float(data.base_km)
+    if data.base_delivery_fee is not None:
+        setting.base_delivery_fee = float(data.base_delivery_fee)
+
     setting.updated_at = datetime.datetime.utcnow()
     db.commit()
     db.refresh(setting)
@@ -5641,7 +5734,10 @@ def update_delivery_settings(
         "is_free_delivery_enabled": setting.is_free_delivery_enabled,
         "charge_type": setting.charge_type,
         "min_order_value": setting.min_order_value,
-        "description": setting.description
+        "description": setting.description,
+        "per_km_rate": getattr(setting, "per_km_rate", 10.0),
+        "base_km": getattr(setting, "base_km", 2.0),
+        "base_delivery_fee": getattr(setting, "base_delivery_fee", 20.0)
     }
 
     if mongo_db.is_mongo_active():
@@ -5655,6 +5751,9 @@ def update_delivery_settings(
         charge_type=setting.charge_type,
         min_order_value=setting.min_order_value,
         description=setting.description,
+        per_km_rate=getattr(setting, "per_km_rate", 10.0),
+        base_km=getattr(setting, "base_km", 2.0),
+        base_delivery_fee=getattr(setting, "base_delivery_fee", 20.0),
         updated_at=setting.updated_at.isoformat() if setting.updated_at else None
     )
 

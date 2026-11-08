@@ -294,12 +294,23 @@ class LocationCreate(BaseModel):
     city: str
     pincode: str
     delivery_time: Optional[str] = "15 Mins"
+    delivery_charge: Optional[float] = None
+    distance_km: Optional[float] = None
+
+class LocationUpdate(BaseModel):
+    city: Optional[str] = None
+    pincode: Optional[str] = None
+    delivery_time: Optional[str] = None
+    delivery_charge: Optional[float] = None
+    distance_km: Optional[float] = None
 
 class LocationResponse(BaseModel):
-    id: int
+    id: Union[int, str]
     city: str
     pincode: str
     delivery_time: str
+    delivery_charge: Optional[float] = None
+    distance_km: Optional[float] = None
 
     class Config:
         from_attributes = True
@@ -373,9 +384,12 @@ class DeliverySettingsUpdate(BaseModel):
     free_delivery_threshold: float = 300.0
     standard_delivery_fee: float = 30.0
     is_free_delivery_enabled: bool = True
-    charge_type: str = "threshold" # 'threshold', 'fixed', 'free'
+    charge_type: str = "threshold" # 'threshold', 'fixed', 'free', 'location', 'per_km'
     min_order_value: float = 50.0
     description: Optional[str] = None
+    per_km_rate: Optional[float] = 10.0
+    base_km: Optional[float] = 2.0
+    base_delivery_fee: Optional[float] = 20.0
 
 class DeliverySettingsResponse(BaseModel):
     id: Optional[int] = 1
@@ -385,6 +399,9 @@ class DeliverySettingsResponse(BaseModel):
     charge_type: str = "threshold"
     min_order_value: float = 50.0
     description: Optional[str] = None
+    per_km_rate: Optional[float] = 10.0
+    base_km: Optional[float] = 2.0
+    base_delivery_fee: Optional[float] = 20.0
     updated_at: Optional[str] = None
 
     class Config:
