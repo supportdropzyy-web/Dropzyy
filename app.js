@@ -615,7 +615,7 @@ const DEFAULT_REGISTERED_USERS = [
     { id: 1, username: 'yashpatil', email: 'yashpatil@dropzyy.com', full_name: 'Yash Patil (System Admin)', role: 'admin', city: 'Savda' },
     { id: 2, username: 'admin', email: 'admin@dropzyy.com', full_name: 'System Administrator', role: 'admin', city: 'Savda' },
     { id: 22, username: 'banjos', email: 'banjos@dropzyy.com', full_name: 'Banjos Cafe', role: 'supplier', supplier_company_name: 'Banjos Cafe', city: 'Savda-Faizpur', store_open: true, open_time: '08:00 AM', close_time: '10:00 PM', menu_card_image: 'uploads/banjos_menu_card_page_1.jpg' },
-    { id: 54, username: 'ketan', email: 'ketan@hotelamrai.com', full_name: 'Ketan Patil (Hotel Amrai)', role: 'supplier', supplier_company_name: 'Hotel Amrai', restaurant_name: 'Hotel Amrai', city: 'Dropzyy City', location: 'Amrai Garden', tagline: 'Authentic Pure Veg Multi-Cuisine Family Restaurant', store_open: true, open_time: '10:00 AM', close_time: '11:30 PM', banner_image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80' }
+    { id: 54, username: 'ketan', email: 'ketan@hotelamrai.com', full_name: 'Ketan Patil (Hotel Amrai)', role: 'supplier', supplier_company_name: 'Hotel Amrai', restaurant_name: 'Hotel Amrai', city: 'Dropzyy City', location: 'Amrai Garden', tagline: 'Authentic Pure Veg Multi-Cuisine Family Restaurant', store_open: false, open_time: '10:00 AM', close_time: '11:30 PM', banner_image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80' }
 ];
 
 let registeredUsers = [...DEFAULT_REGISTERED_USERS];
@@ -5130,9 +5130,20 @@ window.logoutUser = function() {
         localStorage.setItem('dropzyy_device_id', savedDeviceId);
     }
 
+    // Immediately close all open supplier/admin modals and overlays
+    if (typeof closeModals === 'function') closeModals();
+    if (typeof closeModal === 'function') closeModal();
+    document.querySelectorAll('.modal.active, .modal-overlay.active, .custom-modal.active, .custom-modal-overlay.active').forEach(el => el.classList.remove('active'));
+
     updateUserAuthUI();
     renderProducts();
     if (typeof renderCategories === 'function') renderCategories();
+    if (typeof renderRestaurants === 'function') renderRestaurants();
+    if (typeof fetchRestaurantsFromAPI === 'function') {
+        fetchRestaurantsFromAPI().then(() => {
+            if (typeof renderRestaurants === 'function') renderRestaurants();
+        }).catch(() => {});
+    }
     if (typeof showToast === 'function') showToast('Logged out successfully', 'info');
 };
 
@@ -6571,7 +6582,9 @@ window.saveSupplierTimings = async function() {
     // Update targetStore object
     targetStore.open_time = openTimeFormatted;
     targetStore.close_time = closeTimeFormatted;
-    targetStore.store_open = true;
+    // Preserve emergency offline status if already marked offline
+    const isStoreOffline = targetStore.store_open === false || targetStore.store_open === 0 || targetStore.store_open === 'false';
+    targetStore.store_open = !isStoreOffline;
     if (cityVal) {
         targetStore.city = cityVal;
         if (!targetStore.address) targetStore.address = {};
@@ -6592,7 +6605,7 @@ window.saveSupplierTimings = async function() {
     if (uIdx > -1) {
         registeredUsers[uIdx].open_time = openTimeFormatted;
         registeredUsers[uIdx].close_time = closeTimeFormatted;
-        registeredUsers[uIdx].store_open = true;
+        registeredUsers[uIdx].store_open = targetStore.store_open;
         if (cityVal) registeredUsers[uIdx].city = cityVal;
         persistRegisteredUsers();
     }
@@ -6617,7 +6630,7 @@ window.saveSupplierTimings = async function() {
                 supplier_company_name: targetStore.supplier_company_name,
                 open_time: openTimeFormatted,
                 close_time: closeTimeFormatted,
-                store_open: true,
+                store_open: targetStore.store_open,
                 city: cityVal || targetStore.city || 'Savda'
             })
         }, 5000);
@@ -6720,13 +6733,33 @@ window.toggleSupplierStoreOnline = async function(forceState = null) {
     if (typeof renderRestaurants === 'function') renderRestaurants();
     if (typeof renderProducts === 'function') renderProducts();
 
+    // Update matching products in state.products
+    if (Array.isArray(state.products) && state.products.length > 0) {
+        state.products.forEach(p => {
+            if (typeof doesProductBelongToSupplier === 'function' && doesProductBelongToSupplier(p, state.currentUser)) {
+                p.store_open = newStatus;
+                p.is_online = newStatus;
+            }
+        });
+        if (typeof persistCustomProducts === 'function') persistCustomProducts();
+    }
+
     try {
+        const token = (state.currentUser && (state.currentUser.access_token || state.currentUser.token))
+            || sessionStorage.getItem('dropzyy_auth_token')
+            || localStorage.getItem('dropzyy_auth_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin')) {
+            headers['X-Admin-Role'] = 'admin';
+        }
+
         await fetchWithTimeout(`${API_BASE_URL}/supplier/toggle-status`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify({
                 store_open: newStatus,
-                username: state.currentUser.username
+                username: state.currentUser.username || state.currentUser.supplier_company_name
             })
         }, 5000);
     } catch (e) {
@@ -7043,7 +7076,9 @@ window.toggleStoreEmergencyOfflineStatus = async function(newStatus, targetUsern
                 const matches = (u.username && u.username.toLowerCase() === cleanTarget) ||
                                 (u.supplier_company_name && u.supplier_company_name.toLowerCase() === cleanTarget) ||
                                 (String(u.id) === cleanTarget) ||
-                                (isSelf && (u.username && u.username.toLowerCase() === curUname));
+                                (isSelf && (u.username && u.username.toLowerCase() === curUname)) ||
+                                (typeof window.isSameSupplierEntity === 'function' && window.isSameSupplierEntity(u, { username: cleanTarget, supplier_company_name: cleanTarget, id: cleanTarget })) ||
+                                (cleanTarget.includes('amrai') && (String(u.username).toLowerCase().includes('ketan') || String(u.supplier_company_name).toLowerCase().includes('amrai')));
                 if (matches) {
                     u.store_open = newStatus;
                 }

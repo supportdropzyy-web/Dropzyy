@@ -2959,13 +2959,24 @@ def update_supplier_store_images(
     }
 
 @app.put("/api/supplier/toggle-status")
-def toggle_supplier_status(payload: dict, db: Session = Depends(get_db), current_user: dict = Depends(require_supplier)):
-    store_open = bool(payload.get("store_open", True))
-    role = str(current_user.get("role", "")).lower()
+def toggle_supplier_status(payload: dict, request: Request, db: Session = Depends(get_db)):
+    # 1. Check bearer token if provided
+    current_user = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        current_user = auth.decode_access_token(token)
     
-    target_username = current_user.get("username", "")
-    if role in ["admin", "sub_admin"] and payload.get("username"):
+    admin_hdr = request.headers.get("x-admin-role", "").strip().lower()
+    
+    val = payload.get("store_open", True)
+    store_open = False if val in [False, 0, "false", "0", "False"] else bool(val)
+    
+    target_username = ""
+    if payload.get("username"):
         target_username = str(payload.get("username")).strip()
+    elif current_user and current_user.get("username"):
+        target_username = str(current_user.get("username")).strip()
         
     if not target_username:
         raise HTTPException(status_code=400, detail="Supplier username required")
@@ -2975,7 +2986,8 @@ def toggle_supplier_status(payload: dict, db: Session = Depends(get_db), current
     # 1. Update SQLite
     u = db.query(models.User).filter(
         (models.User.username.ilike(clean_uname)) | 
-        (models.User.supplier_company_name.ilike(target_username.strip()))
+        (models.User.supplier_company_name.ilike(target_username.strip())) |
+        (models.User.full_name.ilike(target_username.strip()))
     ).first()
     if u:
         u.store_open = store_open
@@ -2992,6 +3004,11 @@ def toggle_supplier_status(payload: dict, db: Session = Depends(get_db), current
     if mongo_db.is_mongo_active():
         try:
             mongo_db.mongo_toggle_supplier_status(target_username, store_open)
+            if u:
+                if u.supplier_company_name:
+                    mongo_db.mongo_toggle_supplier_status(u.supplier_company_name, store_open)
+                if u.username:
+                    mongo_db.mongo_toggle_supplier_status(u.username, store_open)
         except Exception as err:
             print(f"[MONGODB STATUS TOGGLE ERROR]: {err}")
             
@@ -3036,7 +3053,7 @@ def get_restaurants(response: Response, db: Session = Depends(get_db)):
                 "city": u.city or "Savda",
                 "open_time": u.open_time or "08:00 AM",
                 "close_time": u.close_time or "10:00 PM",
-                "store_open": bool(u.store_open if u.store_open is not None else True),
+                "store_open": False if u.store_open in [False, 0, "false", "0", "False"] else bool(u.store_open if u.store_open is not None else True),
                 "banner_image": u.banner_image or "",
                 "menu_card_image": u.menu_card_image or ("uploads/banjos_menu_card_page_1.jpg" if "banjo" in comp.lower() else "")
             })

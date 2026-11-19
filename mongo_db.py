@@ -432,7 +432,7 @@ def mongo_get_all_restaurants() -> List[Dict[str, Any]]:
                 "city": u.get("city") or (u.get("address") or {}).get("city") or "Savda",
                 "open_time": u.get("open_time") or "08:00 AM",
                 "close_time": u.get("close_time") or "10:00 PM",
-                "store_open": bool(u.get("store_open", True)),
+                "store_open": False if u.get("store_open") in [False, 0, "false", "0", "False"] else bool(u.get("store_open", True)),
                 "banner_image": b_img,
                 "menu_card_image": m_img
             })
@@ -786,14 +786,16 @@ def mongo_toggle_supplier_status(identifier: str, store_open: bool) -> bool:
     user = db.users.find_one({"$or": [
         {"username": {"$regex": f"^{clean_esc}$", "$options": "i"}},
         {"email": {"$regex": f"^{clean_esc}$", "$options": "i"}},
-        {"supplier_company_name": {"$regex": f"^{clean_esc}$", "$options": "i"}}
+        {"supplier_company_name": {"$regex": f"^{clean_esc}$", "$options": "i"}},
+        {"restaurant_name": {"$regex": f"^{clean_esc}$", "$options": "i"}}
     ]})
     
     db.users.update_many(
         {"$or": [
             {"username": {"$regex": f"^{clean_esc}$", "$options": "i"}},
             {"email": {"$regex": f"^{clean_esc}$", "$options": "i"}},
-            {"supplier_company_name": {"$regex": f"^{clean_esc}$", "$options": "i"}}
+            {"supplier_company_name": {"$regex": f"^{clean_esc}$", "$options": "i"}},
+            {"restaurant_name": {"$regex": f"^{clean_esc}$", "$options": "i"}}
         ]},
         {"$set": {"store_open": store_open}}
     )
