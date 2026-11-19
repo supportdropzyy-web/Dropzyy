@@ -675,11 +675,11 @@ const DEFAULT_COUPONS = [
 ];
 
 const DEFAULT_LOCATIONS = [
-    { id: 'l0', area: 'Savda', city: 'Savda', pincode: '425502', delivery_charge: 15.0, distance_km: 2.0, delivery_time: '15-20 Mins' },
-    { id: 'l1', area: 'Faizpur', city: 'Faizpur', pincode: '425503', delivery_charge: 25.0, distance_km: 5.0, delivery_time: '20-25 Mins' },
-    { id: 'l2', area: 'Nimbhora', city: 'Nimbhora', pincode: '425504', delivery_charge: 35.0, distance_km: 8.5, delivery_time: '25-35 Mins' },
-    { id: 'l3', area: 'Khiroda', city: 'Khiroda', pincode: '425505', delivery_charge: 40.0, distance_km: 11.0, delivery_time: '30-40 Mins' },
-    { id: 'l4', area: 'Bhusawal', city: 'Bhusawal', pincode: '425201', delivery_charge: 60.0, distance_km: 18.0, delivery_time: '45-60 Mins' }
+    { id: 'l0', area: 'Savda', city: 'Savda', pincode: '425502', delivery_charge: 15.0, distance_km: 2.0, delivery_time: 'Standard Delivery' },
+    { id: 'l1', area: 'Faizpur', city: 'Faizpur', pincode: '425503', delivery_charge: 25.0, distance_km: 5.0, delivery_time: 'Standard Delivery' },
+    { id: 'l2', area: 'Nimbhora', city: 'Nimbhora', pincode: '425504', delivery_charge: 35.0, distance_km: 8.5, delivery_time: 'Standard Delivery' },
+    { id: 'l3', area: 'Khiroda', city: 'Khiroda', pincode: '425505', delivery_charge: 40.0, distance_km: 11.0, delivery_time: 'Standard Delivery' },
+    { id: 'l4', area: 'Bhusawal', city: 'Bhusawal', pincode: '425201', delivery_charge: 60.0, distance_km: 18.0, delivery_time: 'Standard Delivery' }
 ];
 
 let storeCoupons = DEFAULT_COUPONS;
@@ -1367,7 +1367,7 @@ async function fetchLocationsFromAPI() {
                     area: l.city || l.area || 'Savda',
                     city: l.city || l.area || 'Savda',
                     pincode: String(l.pincode),
-                    delivery_time: l.delivery_time || '15-25 Mins',
+                    delivery_time: l.delivery_time || 'Standard Delivery',
                     delivery_charge: (l.delivery_charge !== undefined && l.delivery_charge !== null && l.delivery_charge !== '') ? parseFloat(l.delivery_charge) : null,
                     distance_km: (l.distance_km !== undefined && l.distance_km !== null && l.distance_km !== '') ? parseFloat(l.distance_km) : null
                 }));
@@ -4612,7 +4612,7 @@ function renderAdminLocationsList() {
                     <div style="display: flex; align-items: center; gap: 6px; margin-top: 5px; flex-wrap: wrap;">
                         ${chargeBadge}
                         ${distanceBadge}
-                        <span style="font-size: 0.74rem; color: #64748B;"><i class="fa-solid fa-clock"></i> ${l.delivery_time || '15-25 Mins'}</span>
+                        <span style="font-size: 0.74rem; color: #64748B;"><i class="fa-solid fa-clock"></i> ${l.delivery_time || 'Standard Delivery'}</span>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px;">
@@ -4645,7 +4645,7 @@ window.openEditLocationModal = function(locIdOrPin) {
     if (pinInput) pinInput.value = loc.pincode || '';
     if (chargeInput) chargeInput.value = (loc.delivery_charge !== null && loc.delivery_charge !== undefined) ? loc.delivery_charge : '';
     if (distInput) distInput.value = (loc.distance_km !== null && loc.distance_km !== undefined) ? loc.distance_km : '';
-    if (timeInput) timeInput.value = loc.delivery_time || '15-25 Mins';
+    if (timeInput) timeInput.value = loc.delivery_time || 'Standard Delivery';
 
     const modal = document.getElementById('adminEditLocationModal');
     const overlay = document.getElementById('adminEditLocationOverlay');
@@ -4676,7 +4676,7 @@ window.handleUpdateLocationSubmit = async function(e) {
 
     const delivery_charge = chargeVal !== '' ? parseFloat(chargeVal) : null;
     const distance_km = distVal !== '' ? parseFloat(distVal) : null;
-    const delivery_time = timeVal || '15-25 Mins';
+    const delivery_time = timeVal || 'Standard Delivery';
 
     const payload = {
         city: area,
@@ -4962,7 +4962,7 @@ window.handleCreateLocationSubmit = async function(e) {
 
     const delivery_charge = chargeVal !== '' ? parseFloat(chargeVal) : null;
     const distance_km = distVal !== '' ? parseFloat(distVal) : null;
-    const delivery_time = timeVal || '15-25 Mins';
+    const delivery_time = timeVal || 'Standard Delivery';
 
     const newLoc = {
         id: 'l_' + Date.now(),
@@ -10949,15 +10949,15 @@ window.formatOrderDateTime = function(dateStr) {
 };
 
 window.calculateExpectedDeliveryTime = function(dateStr) {
-    if (!dateStr) return '15–25 Mins (Arriving soon)';
+    if (!dateStr) return 'Standard Delivery (Arriving soon)';
     try {
         const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return '15–25 Mins (Arriving soon)';
-        const arrival = new Date(d.getTime() + 25 * 60 * 1000); // 25 mins
+        if (isNaN(d.getTime())) return 'Standard Delivery (Arriving soon)';
+        const arrival = new Date(d.getTime() + 40 * 60 * 1000);
         const timeStr = arrival.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-        return `15–25 Mins (By ${timeStr})`;
+        return `Estimated Delivery: ${timeStr}`;
     } catch (e) {
-        return '15–25 Mins (Arriving soon)';
+        return 'Standard Delivery (Arriving soon)';
     }
 };
 
@@ -11164,7 +11164,7 @@ function renderMyOrders() {
                             <i class="fa-regular fa-clock text-primary"></i> ${typeof window.formatOrderDateTime === 'function' ? window.formatOrderDateTime(order.date) : new Date(order.date).toLocaleString()}
                         </div>
                         <div style="font-size: 0.75rem; color: #059669; font-weight: 700; margin-top: 1px;">
-                            <i class="fa-solid fa-truck-fast"></i> Expected: ${typeof window.calculateExpectedDeliveryTime === 'function' ? window.calculateExpectedDeliveryTime(order.date) : '15-25 mins'}
+                            <i class="fa-solid fa-truck-fast"></i> Expected: ${typeof window.calculateExpectedDeliveryTime === 'function' ? window.calculateExpectedDeliveryTime(order.date) : 'Standard Delivery'}
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -11985,7 +11985,7 @@ function renderBookingTracking(searchQuery = '') {
                         <i class="fa-regular fa-clock text-primary"></i> ${typeof window.formatOrderDateTime === 'function' ? window.formatOrderDateTime(order.date) : new Date(order.date).toLocaleString()}
                     </div>
                     <div style="font-size: 0.76rem; color: #059669; font-weight: 700; margin-top: 1px;">
-                        <i class="fa-solid fa-truck-fast"></i> Expected: ${typeof window.calculateExpectedDeliveryTime === 'function' ? window.calculateExpectedDeliveryTime(order.date) : '15-25 mins'}
+                        <i class="fa-solid fa-truck-fast"></i> Expected: ${typeof window.calculateExpectedDeliveryTime === 'function' ? window.calculateExpectedDeliveryTime(order.date) : 'Standard Delivery'}
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -14422,8 +14422,7 @@ window.renderHeaderLocationSelector = function() {
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="location-delivery-tag">⚡ 15-20 Mins</span>
-                    ${isSel ? '<i class="fa-solid fa-circle-check text-primary" style="font-size:0.85rem;"></i>' : ''}
+                    ${isSel ? '<i class="fa-solid fa-circle-check text-primary" style="font-size:0.95rem;"></i>' : ''}
                 </div>
             </div>
         `;
@@ -14576,7 +14575,7 @@ const DEFAULT_BANNER_SLIDES = [
         id: 'slide_sweets',
         badge: '✨ SWEETS & CELEBRATION TREATS',
         title: 'Mouthwatering Sweets & Desserts',
-        subtext: 'Gulab jamuns, rasgulla, pure ghee sweets & celebratory treats delivered in 15 mins!',
+        subtext: 'Gulab jamuns, rasgulla, pure ghee sweets & celebratory treats delivered fresh to your doorstep!',
         btnText: '',
         showButton: false,
         status: 'online',
@@ -14589,7 +14588,7 @@ const DEFAULT_BANNER_SLIDES = [
         id: 'slide_pizza',
         badge: '🍕 HOT PIZZA & SPECIAL OFFERS',
         title: 'Crispy Pizzas & Combos',
-        subtext: 'Stone-baked crusts, double mozzarella & appetizing sides delivered hot in 15 mins!',
+        subtext: 'Stone-baked crusts, double mozzarella & appetizing sides delivered hot to your doorstep!',
         btnText: 'Order Pizza & Combos Now',
         imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=450&q=80',
         filter: 'pizza',

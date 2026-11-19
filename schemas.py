@@ -293,7 +293,7 @@ class CouponResponse(BaseModel):
 class LocationCreate(BaseModel):
     city: str
     pincode: str
-    delivery_time: Optional[str] = "15 Mins"
+    delivery_time: Optional[str] = "Standard Delivery"
     delivery_charge: Optional[float] = None
     distance_km: Optional[float] = None
 

@@ -713,10 +713,10 @@ def seed_initial_data(db: Session):
 
     # Seed Serviceable Locations
     if db.query(models.Location).count() == 0:
-        l1 = models.Location(city="Mumbai", pincode="400001", delivery_time="15 Mins")
-        l2 = models.Location(city="Nashik", pincode="422001", delivery_time="20 Mins")
-        l3 = models.Location(city="Pune", pincode="411001", delivery_time="15 Mins")
-        l4 = models.Location(city="Thane", pincode="400601", delivery_time="15 Mins")
+        l1 = models.Location(city="Mumbai", pincode="400001", delivery_time="Standard Delivery")
+        l2 = models.Location(city="Nashik", pincode="422001", delivery_time="Standard Delivery")
+        l3 = models.Location(city="Pune", pincode="411001", delivery_time="Standard Delivery")
+        l4 = models.Location(city="Thane", pincode="400601", delivery_time="Standard Delivery")
         db.add_all([l1, l2, l3, l4])
         db.commit()
 
@@ -4866,7 +4866,7 @@ def get_locations(db: Session = Depends(get_db)):
                     id=int(loc_id) if str(loc_id).isdigit() else loc_id,
                     city=str(l.get("city") or l.get("area") or "Savda"),
                     pincode=str(l.get("pincode", "")),
-                    delivery_time=str(l.get("delivery_time", "15 Mins")),
+                    delivery_time=str(l.get("delivery_time", "Standard Delivery")),
                     delivery_charge=d_charge,
                     distance_km=d_km
                 ))
@@ -4879,7 +4879,7 @@ def get_locations(db: Session = Depends(get_db)):
             id=l.id,
             city=l.city or l.area or "Savda",
             pincode=l.pincode,
-            delivery_time=l.delivery_time or "15 Mins",
+            delivery_time=l.delivery_time or "Standard Delivery",
             delivery_charge=l.delivery_charge,
             distance_km=l.distance_km
         ))
@@ -4902,7 +4902,7 @@ def create_location(loc_data: schemas.LocationCreate, db: Session = Depends(get_
         city=loc_data.city,
         area=loc_data.city,
         pincode=pin_clean,
-        delivery_time=loc_data.delivery_time or "15 Mins",
+        delivery_time=loc_data.delivery_time or "Standard Delivery",
         delivery_charge=loc_data.delivery_charge,
         distance_km=loc_data.distance_km
     )
@@ -4930,7 +4930,7 @@ def create_location(loc_data: schemas.LocationCreate, db: Session = Depends(get_
         id=new_loc.id,
         city=new_loc.city or "Savda",
         pincode=new_loc.pincode,
-        delivery_time=new_loc.delivery_time or "15 Mins",
+        delivery_time=new_loc.delivery_time or "Standard Delivery",
         delivery_charge=new_loc.delivery_charge,
         distance_km=new_loc.distance_km
     )
@@ -4980,7 +4980,7 @@ def update_location(location_id: str, data: schemas.LocationUpdate, db: Session 
         id=target_loc.id if target_loc else clean_id,
         city=data.city or (target_loc.city if target_loc else "Savda"),
         pincode=data.pincode or (target_loc.pincode if target_loc else ""),
-        delivery_time=data.delivery_time or (target_loc.delivery_time if target_loc else "15 Mins"),
+        delivery_time=data.delivery_time or (target_loc.delivery_time if target_loc else "Standard Delivery"),
         delivery_charge=data.delivery_charge if data.delivery_charge is not None else (target_loc.delivery_charge if target_loc else None),
         distance_km=data.distance_km if data.distance_km is not None else (target_loc.distance_km if target_loc else None)
     )

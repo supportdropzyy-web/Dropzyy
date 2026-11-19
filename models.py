@@ -143,7 +143,7 @@ class Location(Base):
     city = Column(String, nullable=True)
     area = Column(String, nullable=True)
     pincode = Column(String, nullable=False)
-    delivery_time = Column(String, default="15 Mins")
+    delivery_time = Column(String, default="Standard Delivery")
     delivery_charge = Column(Float, nullable=True, default=None)  # Custom delivery fee for this location in INR
     distance_km = Column(Float, nullable=True, default=None)      # Distance from store/hub in KM
 
