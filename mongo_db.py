@@ -142,22 +142,43 @@ def mongo_delete_user(username: str) -> bool:
     res = db.users.delete_one({"username": username.strip().lower()})
     return res.deleted_count > 0
 
-def mongo_update_user_timings(identifier: str, open_time: str, close_time: str, store_open: bool) -> bool:
+def mongo_update_user_timings(identifier: str, open_time: str, close_time: str, store_open: bool, city: str = None) -> bool:
     db = get_mongo_db()
     if db is None: return False
-    clean = str(identifier).strip().lower()
+    import re
+    clean = str(identifier).strip()
+    clean_lower = clean.lower()
+    regex = re.compile(f"^{re.escape(clean)}$", re.IGNORECASE)
+
+    update_data = {
+        "open_time": open_time,
+        "close_time": close_time,
+        "store_open": bool(store_open)
+    }
+    if city:
+        update_data["city"] = city.strip()
+
     res = db.users.update_many(
         {"$or": [
+            {"username": regex},
+            {"username": clean_lower},
             {"username": clean},
-            {"email": clean},
-            {"supplier_company_name": str(identifier).strip()}
+            {"email": regex},
+            {"supplier_company_name": regex},
+            {"restaurant_name": regex}
         ]},
-        {"$set": {
-            "open_time": open_time,
-            "close_time": close_time,
-            "store_open": store_open
-        }}
+        {"$set": update_data}
     )
+    try:
+        db.suppliers.update_many(
+            {"$or": [
+                {"name": regex},
+                {"name_lower": clean_lower}
+            ]},
+            {"$set": update_data}
+        )
+    except Exception:
+        pass
     return res.modified_count > 0
 
 def mongo_update_user(identifier: str, update_dict: dict) -> bool:

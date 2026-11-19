@@ -2827,20 +2827,32 @@ def update_user_address(data: schemas.UserUpdateAddress, db: Session = Depends(g
     return user
 
 @app.put("/api/supplier/timings")
-def update_supplier_timings(data: schemas.SupplierTimingsUpdate, db: Session = Depends(get_db), _supplier: dict = Depends(require_supplier)):
+def update_supplier_timings(data: schemas.SupplierTimingsUpdate, request: Request, db: Session = Depends(get_db)):
     query = db.query(models.User)
     user = None
     if data.user_id:
-        user = query.filter(models.User.id == data.user_id).first()
+        try:
+            u_id = int(data.user_id)
+            user = query.filter(models.User.id == u_id).first()
+        except Exception:
+            pass
     if not user and data.username:
-        user = query.filter(models.User.username == data.username).first()
-    
+        u_clean = data.username.strip()
+        user = query.filter(
+            (models.User.username.ilike(u_clean)) |
+            (models.User.supplier_company_name.ilike(u_clean))
+        ).first()
+
     # Also sync to MongoDB Atlas if active
     if mongo_db.is_mongo_active():
         try:
-            m_target = data.username or (user.username if user else None)
-            if m_target:
-                mongo_db.mongo_update_user_timings(m_target, data.open_time, data.close_time, data.store_open)
+            m_targets = set()
+            if data.username: m_targets.add(data.username.strip())
+            if user:
+                if user.username: m_targets.add(user.username.strip())
+                if user.supplier_company_name: m_targets.add(user.supplier_company_name.strip())
+            for m_target in m_targets:
+                mongo_db.mongo_update_user_timings(m_target, data.open_time, data.close_time, data.store_open, data.city)
                 print(f"[MONGODB TIMINGS] Synced timings for {m_target} to MongoDB Atlas")
         except Exception as m_err:
             print(f"[MONGODB TIMINGS ERROR]: {m_err}")
@@ -2857,11 +2869,12 @@ def update_supplier_timings(data: schemas.SupplierTimingsUpdate, db: Session = D
                         "username": m_user.get("username"),
                         "open_time": data.open_time,
                         "close_time": data.close_time,
-                        "store_open": data.store_open
+                        "store_open": data.store_open,
+                        "city": data.city or m_user.get("city", "Savda")
                     }
                 }
         raise HTTPException(status_code=404, detail="User/Supplier not found!")
-    
+
     user.open_time = data.open_time
     user.close_time = data.close_time
     user.store_open = data.store_open
@@ -2880,6 +2893,7 @@ def update_supplier_timings(data: schemas.SupplierTimingsUpdate, db: Session = D
         "user": {
             "id": user.id,
             "username": user.username,
+            "supplier_company_name": user.supplier_company_name,
             "open_time": user.open_time,
             "close_time": user.close_time,
             "store_open": user.store_open,

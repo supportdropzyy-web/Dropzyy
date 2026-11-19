@@ -889,6 +889,19 @@
                 </span>
             </div>
 
+            <!-- Store Selector for Admin in Operating Hours Card -->
+            <div id="adminStoreTimingsPickerWrap" style="margin-bottom: 14px; display: none; background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 10px 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <label for="adminStoreTimingsSelect" style="font-size: 0.86rem; font-weight: 700; color: #1E293B; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-store text-primary"></i> Select Store to Edit Timings:
+                </label>
+                <select id="adminStoreTimingsSelect" onchange="switchAdminStoreTimings(this.value)" style="padding: 6px 14px; border-radius: 8px; border: 1.5px solid #94A3B8; font-weight: 700; font-size: 0.86rem; background: #F8FAFC; color: #0F172A; cursor: pointer;">
+                    <option value="54">Hotel Amrai (Ketan)</option>
+                    <option value="22">Banjos Cafe</option>
+                    <option value="6">Katta Biryani and Tandoor</option>
+                    <option value="9">Urban Tadka</option>
+                </select>
+            </div>
+
             <!-- Two Column Inputs for Opening and Closing Times with AM/PM -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 14px;">
                 <!-- Opening Time -->
@@ -3593,7 +3606,7 @@
     <!-- Menu Card Data (Embedded Base64 for 100% Reliable Offline & File Protocol Display) -->
     <script src="menu_card_data.js"></script>
     <!-- JavaScript -->
-    <script src="app.js?v=5.5"></script>
+    <script src="app.js?v=5.6"></script>
         <!-- Dedicated Change Password Modal -->
 
     <div class="modal-overlay" id="changePasswordOverlay" onclick="closeChangePasswordModal()"></div>

@@ -6228,10 +6228,28 @@ function renderSupplierDashboard() {
     }
     }
 
-    // Populate Operating Hours and Status Settings in Supplier Dashboard
-    const openTimeVal = state.currentUser.open_time || '08:00 AM';
-    const closeTimeVal = state.currentUser.close_time || '10:00 PM';
-    const isStoreOpen = state.currentUser.store_open !== false;
+        // Populate Operating Hours and Status Settings in Supplier Dashboard
+    const adminTimingsPickerWrap = document.getElementById('adminStoreTimingsPickerWrap');
+    const adminTimingsSelect = document.getElementById('adminStoreTimingsSelect');
+
+    let currentTarget = state.currentUser;
+
+    if (isSystemAdmin) {
+        if (adminTimingsPickerWrap) adminTimingsPickerWrap.style.display = 'flex';
+        const defaultAdminStoreId = (adminTimingsSelect && adminTimingsSelect.value) ? adminTimingsSelect.value : '54';
+        const found = (Array.isArray(registeredUsers) ? registeredUsers : []).find(u => 
+            u && (String(u.id) === String(defaultAdminStoreId) || String(u.username).toLowerCase() === String(defaultAdminStoreId).toLowerCase())
+        );
+        if (found) {
+            currentTarget = found;
+        }
+    } else {
+        if (adminTimingsPickerWrap) adminTimingsPickerWrap.style.display = 'none';
+    }
+
+    const openTimeVal = currentTarget.open_time || '08:00 AM';
+    const closeTimeVal = currentTarget.close_time || '10:00 PM';
+    const isStoreOpen = currentTarget.store_open !== false;
 
     const openComp = parseTimeComponents(openTimeVal);
     const closeComp = parseTimeComponents(closeTimeVal);
@@ -6254,15 +6272,15 @@ function renderSupplierDashboard() {
 
     if (closeCheck) closeCheck.checked = !isStoreOpen;
 
-    const curCity = state.currentUser.city || (state.currentUser.address && state.currentUser.address.city) || 'Savda';
+    const curCity = currentTarget.city || (currentTarget.address && currentTarget.address.city) || 'Savda';
     const cityInput = document.getElementById('supplierCityInput');
     const cityDisp = document.getElementById('supplierCityFormatted');
     if (cityInput) cityInput.value = curCity;
     if (cityDisp) cityDisp.textContent = curCity;
 
     // Populate Store Front Banner and Menu Card
-    const curBanner = state.currentUser.banner_image || state.currentUser.cover_image || '';
-    const curMenuCard = state.currentUser.menu_card_image || '';
+    const curBanner = currentTarget.banner_image || currentTarget.cover_image || '';
+    const curMenuCard = currentTarget.menu_card_image || '';
     const bannerInput = document.getElementById('supplierBannerUrlInput');
     const bannerPreview = document.getElementById('supplierBannerPreview');
     const bannerPlaceholder = document.getElementById('supplierBannerPlaceholder');
@@ -6418,9 +6436,96 @@ window.updateLiveStatusPreview = function() {
     }
 };
 
+window.switchAdminStoreTimings = function(storeId, syncCal = true) {
+    if (!storeId) return;
+    const storeSelect = document.getElementById('adminStoreTimingsSelect');
+    if (storeSelect && storeSelect.value !== String(storeId)) {
+        storeSelect.value = String(storeId);
+    }
+
+    const matched = (Array.isArray(registeredUsers) ? registeredUsers : []).find(u => 
+        u && (String(u.id) === String(storeId) || String(u.username).toLowerCase() === String(storeId).toLowerCase())
+    );
+    if (!matched) return;
+
+    const openTimeVal = matched.open_time || '08:00 AM';
+    const closeTimeVal = matched.close_time || '10:00 PM';
+    const isStoreOpen = matched.store_open !== false;
+
+    const openComp = parseTimeComponents(openTimeVal);
+    const closeComp = parseTimeComponents(closeTimeVal);
+
+    const openInput = document.getElementById('supplierOpenTime');
+    const openAmPm = document.getElementById('supplierOpenAmPm');
+    const openDisp = document.getElementById('supplierOpenFormatted');
+    const closeInput = document.getElementById('supplierCloseTime');
+    const closeAmPm = document.getElementById('supplierCloseAmPm');
+    const closeDisp = document.getElementById('supplierCloseFormatted');
+    const closeCheck = document.getElementById('supplierStoreCloseCheck');
+
+    if (openInput) openInput.value = openComp.time24;
+    if (openAmPm) openAmPm.value = openComp.ampm;
+    if (openDisp) openDisp.textContent = `${openComp.hour}:${openComp.minute} ${openComp.ampm}`;
+
+    if (closeInput) closeInput.value = closeComp.time24;
+    if (closeAmPm) closeAmPm.value = closeComp.ampm;
+    if (closeDisp) closeDisp.textContent = `${closeComp.hour}:${closeComp.minute} ${closeComp.ampm}`;
+
+    if (closeCheck) closeCheck.checked = !isStoreOpen;
+
+    const curCity = matched.city || 'Savda';
+    const cityInput = document.getElementById('supplierCityInput');
+    const cityDisp = document.getElementById('supplierCityFormatted');
+    if (cityInput) cityInput.value = curCity;
+    if (cityDisp) cityDisp.textContent = curCity;
+
+    // Sync banner and menu card preview
+    const curBanner = matched.banner_image || '';
+    const curMenuCard = matched.menu_card_image || '';
+    const bannerInput = document.getElementById('supplierBannerUrlInput');
+    const bannerPreview = document.getElementById('supplierBannerPreview');
+    const bannerPlaceholder = document.getElementById('supplierBannerPlaceholder');
+    const menuCardInput = document.getElementById('supplierMenuCardUrlInput');
+    const menuCardPreview = document.getElementById('supplierMenuCardPreview');
+    const menuCardPlaceholder = document.getElementById('supplierMenuCardPlaceholder');
+
+    if (bannerInput) bannerInput.value = curBanner;
+    if (bannerPreview && bannerPlaceholder) {
+        if (curBanner) {
+            bannerPreview.src = curBanner;
+            bannerPreview.style.display = 'block';
+            bannerPlaceholder.style.display = 'none';
+        } else {
+            bannerPreview.style.display = 'none';
+            bannerPlaceholder.style.display = 'flex';
+        }
+    }
+    if (menuCardInput) menuCardInput.value = curMenuCard;
+    if (menuCardPreview && menuCardPlaceholder) {
+        if (curMenuCard) {
+            menuCardPreview.src = curMenuCard;
+            menuCardPreview.style.display = 'block';
+            menuCardPlaceholder.style.display = 'none';
+        } else {
+            menuCardPreview.style.display = 'none';
+            menuCardPlaceholder.style.display = 'flex';
+        }
+    }
+
+    if (syncCal && typeof window.supplierCalSwitchStore === 'function') {
+        const calSelect = document.getElementById('supplierCalStoreSelect');
+        if (calSelect && calSelect.value !== String(storeId)) {
+            calSelect.value = String(storeId);
+            window.supplierCalSwitchStore(storeId);
+        }
+    }
+
+    if (window.updateLiveStatusPreview) window.updateLiveStatusPreview();
+};
+
 window.saveSupplierTimings = async function() {
     if (!state.currentUser) {
-        showToast('Please login as a supplier to update timings', 'error');
+        showToast('Please login to update timings', 'error');
         return;
     }
 
@@ -6443,24 +6548,46 @@ window.saveSupplierTimings = async function() {
     const cityInput = document.getElementById('supplierCityInput');
     const cityVal = cityInput ? cityInput.value.trim() : '';
 
-    // Update state.currentUser
-    state.currentUser.open_time = openTimeFormatted;
-    state.currentUser.close_time = closeTimeFormatted;
-    state.currentUser.store_open = true;
+    const isAdmin = state.currentUser.role === 'admin' || state.currentUser.role === 'sub_admin';
+    let targetStore = state.currentUser;
+
+    if (isAdmin) {
+        const storeSelect = document.getElementById('adminStoreTimingsSelect') || document.getElementById('supplierCalStoreSelect');
+        const selectedId = storeSelect ? storeSelect.value : '54';
+        const matched = (Array.isArray(registeredUsers) ? registeredUsers : []).find(u =>
+            u && (String(u.id) === String(selectedId) || String(u.username).toLowerCase() === String(selectedId).toLowerCase())
+        );
+        if (matched) {
+            targetStore = matched;
+        } else {
+            targetStore = {
+                id: selectedId,
+                username: selectedId === '54' ? 'ketan' : selectedId === '22' ? 'banjos' : selectedId === '6' ? 'pranav' : selectedId === '9' ? 'arnav' : 'supplier',
+                supplier_company_name: selectedId === '54' ? 'Hotel Amrai' : selectedId === '22' ? 'Banjos Cafe' : selectedId === '6' ? 'Katta Biryani and Tandoor' : selectedId === '9' ? 'Urban Tadka' : 'Partner Store'
+            };
+        }
+    }
+
+    // Update targetStore object
+    targetStore.open_time = openTimeFormatted;
+    targetStore.close_time = closeTimeFormatted;
+    targetStore.store_open = true;
     if (cityVal) {
-        state.currentUser.city = cityVal;
-        if (!state.currentUser.address) state.currentUser.address = {};
-        state.currentUser.address.city = cityVal;
+        targetStore.city = cityVal;
+        if (!targetStore.address) targetStore.address = {};
+        targetStore.address.city = cityVal;
         const cityDisp = document.getElementById('supplierCityFormatted');
         if (cityDisp) cityDisp.textContent = cityVal;
     }
-    saveUserSession(state.currentUser);
+    if (!isAdmin) {
+        saveUserSession(state.currentUser);
+    }
 
     // Update in registeredUsers and localStorage
     const uIdx = registeredUsers.findIndex(u => 
-        (state.currentUser.id && u.id === state.currentUser.id) ||
-        (u.username && state.currentUser.username && u.username.toLowerCase() === state.currentUser.username.toLowerCase()) ||
-        (u.supplier_company_name && state.currentUser.supplier_company_name && u.supplier_company_name.toLowerCase() === state.currentUser.supplier_company_name.toLowerCase())
+        (targetStore.id && String(u.id) === String(targetStore.id)) ||
+        (u.username && targetStore.username && String(u.username).toLowerCase() === String(targetStore.username).toLowerCase()) ||
+        (u.supplier_company_name && targetStore.supplier_company_name && String(u.supplier_company_name).toLowerCase() === String(targetStore.supplier_company_name).toLowerCase())
     );
     if (uIdx > -1) {
         registeredUsers[uIdx].open_time = openTimeFormatted;
@@ -6470,28 +6597,46 @@ window.saveSupplierTimings = async function() {
         persistRegisteredUsers();
     }
 
+    // Prepare auth headers
+    const token = (state && state.currentUser && state.currentUser.access_token) ||
+                  localStorage.getItem('dropzyy_auth_token') ||
+                  sessionStorage.getItem('dropzyy_auth_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (isAdmin) headers['x-admin-role'] = 'admin';
+    if (targetStore.id) headers['x-supplier-id'] = String(targetStore.id);
+
     // Save to backend API
     try {
-        await fetchWithTimeout(`${API_BASE_URL}/supplier/timings`, {
+        const res = await fetchWithTimeout(`${API_BASE_URL}/supplier/timings`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify({
-                user_id: state.currentUser.id,
-                username: state.currentUser.username,
+                user_id: targetStore.id,
+                username: targetStore.username,
+                supplier_company_name: targetStore.supplier_company_name,
                 open_time: openTimeFormatted,
                 close_time: closeTimeFormatted,
                 store_open: true,
-                city: cityVal || state.currentUser.city || 'Savda'
+                city: cityVal || targetStore.city || 'Savda'
             })
-        }, 3000);
+        }, 5000);
+        if (res && res.ok) {
+            console.log('[Timings] Successfully synced to backend API');
+        }
     } catch (err) {
         console.warn('Backend sync for supplier timings:', err);
     }
 
-    updateLiveStatusPreview();
-    renderProducts();
-    if (typeof fetchRestaurantsFromAPI === 'function') fetchRestaurantsFromAPI();
+    if (typeof updateLiveStatusPreview === 'function') updateLiveStatusPreview();
+    if (typeof renderProducts === 'function') renderProducts();
+    if (typeof fetchRestaurantsFromAPI === 'function') await fetchRestaurantsFromAPI();
     if (typeof renderRestaurants === 'function') renderRestaurants();
+
+    // If restaurant modal is open for this restaurant, re-render immediately
+    if (state.activeModalRestaurant && typeof renderRestaurantMenuModalContent === 'function') {
+        renderRestaurantMenuModalContent(state.activeModalRestaurant);
+    }
 
     // Update Analytics modal if present
     const statStoreStatus = document.getElementById('supplierStatStoreStatus');
@@ -6500,7 +6645,8 @@ window.saveSupplierTimings = async function() {
         statStoreStatus.style.color = '#047857';
     }
 
-    showToast(`Operating hours saved (${openTimeFormatted} - ${closeTimeFormatted})! Status is automatically managed.`, 'success');
+    const storeDisplayName = targetStore.supplier_company_name || targetStore.full_name || targetStore.username || 'Restaurant';
+    showToast(`Operating hours for <strong>${storeDisplayName}</strong> saved (${openTimeFormatted} - ${closeTimeFormatted})!`, 'success');
 };
 
 // 10.1 RESTAURANT LIVE STATUS & DELETION CONTROLS (SUPPLIER & ADMIN)
@@ -14078,6 +14224,9 @@ function renderSupplierAnalyticsDashboard() {
         calState.supplierId = storeId;
         calState.selectedDate = null;
         loadSupplierAvailability(storeId);
+        if (typeof window.switchAdminStoreTimings === 'function') {
+            window.switchAdminStoreTimings(storeId, false);
+        }
     };
 
     // ---- Hook: auto-init when Supplier Dashboard opens ----
